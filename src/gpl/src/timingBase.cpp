@@ -77,6 +77,8 @@ bool TimingBase::isTimingNetWeightOverflow(float overflow)
 
   bool needTdRun = false;
   for (int i = 0; i < timingNetWeightOverflow_.size(); i++) {
+    log_->report(">>> timingNetWeightOverflow_[{}]: {}",i, timingNetWeightOverflow_[i]);
+    log_->report(">>> timingOverflowChk_[{}]: {}",i, timingOverflowChk_[i]);
     if (timingNetWeightOverflow_[i] > intOverflow) {
       if (!timingOverflowChk_[i]) {
         timingOverflowChk_[i] = true;

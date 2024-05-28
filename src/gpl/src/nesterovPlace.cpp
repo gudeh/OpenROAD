@@ -419,6 +419,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
 
     // timing driven feature
     // do reweight on timing-critical nets.
+    log_->report(">>> check timing driven average_overflow_: {}", average_overflow_);
     if (npVars_.timingDrivenMode
         && tb_->isTimingNetWeightOverflow(average_overflow_)) {
       // update db's instance location from current density coordinates
@@ -468,6 +469,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
 
         for (auto& nb : nbVec_) {
+          //TODO this revert really don't have to reset the sum overflows? resetMinSumOverflow()
           nb->revertDivergence();
         }
 
@@ -493,6 +495,30 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       for (auto& nb : nbVec_) {
         nb->snapshot();
       }
+      
+              
+        // timing driven feature
+        // do reweight on timing-critical nets.
+        if (npVars_.timingDrivenMode
+//            && tb_->isTimingNetWeightOverflow(average_overflow_)
+                ) {
+          // update db's instance location from current density coordinates
+          updateDb();
+
+          // Call resizer's estimateRC API to fill in PEX using placed locations,
+          // Call sta's API to extract worst timing paths,
+          // and update GNet's weights from worst timing paths.
+          //
+          // See timingBase.cpp in detail
+          bool shouldTdProceed = tb_->updateGNetWeights(average_overflow_);
+          log_->report("[NesterovSolve] shouldTdProceed: {}", shouldTdProceed);
+          
+          // problem occured
+          // escape timing driven later
+          if (!shouldTdProceed) {
+            npVars_.timingDrivenMode = false;
+          }
+        }
 
       log_->report("[NesterovSolve] Snapshot saved at iter = {}", iter);
     }
@@ -520,7 +546,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         for (auto& nb : nbVec_) {
           nb->revertDivergence();
           nb->resetMinSumOverflow();
-        }
+        }        
         log_->report("[NesterovSolve] Revert back to snapshot coordi");
       }
     }
