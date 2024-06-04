@@ -70,7 +70,9 @@ class TimingBase
   // updateNetWeight.
   // True: successfully reweighted gnets
   // False: no slacks found
-  bool updateGNetWeights(float overflow);
+  bool updateGNetWeights(bool callRsz);
+  
+  void loadGNetWeights(std::vector<GNet*>& nets);
 
  private:
   rsz::Resizer* rs_ = nullptr;

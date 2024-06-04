@@ -77,8 +77,8 @@ bool TimingBase::isTimingNetWeightOverflow(float overflow)
 
   bool needTdRun = false;
   for (int i = 0; i < timingNetWeightOverflow_.size(); i++) {
-    log_->report(">>> timingNetWeightOverflow_[{}]: {}",i, timingNetWeightOverflow_[i]);
-    log_->report(">>> timingOverflowChk_[{}]: {}",i, timingOverflowChk_[i]);
+//    log_->report(">>> timingNetWeightOverflow_[{}]: {}",i, timingNetWeightOverflow_[i]);
+//    log_->report(">>> timingOverflowChk_[{}]: {}",i, timingOverflowChk_[i]);
     if (timingNetWeightOverflow_[i] > intOverflow) {
       if (!timingOverflowChk_[i]) {
         timingOverflowChk_[i] = true;
@@ -144,9 +144,11 @@ void TimingBase::setTimingNetWeightMax(float max)
   net_weight_max_ = max;
 }
 
-bool TimingBase::updateGNetWeights(float overflow)
+bool TimingBase::updateGNetWeights(bool callRsz)
 {
-  rs_->findResizeSlacks();
+  if(callRsz) {
+    rs_->findResizeSlacks();
+  }
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();
