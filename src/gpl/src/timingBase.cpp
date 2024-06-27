@@ -144,7 +144,7 @@ void TimingBase::setTimingNetWeightMax(float max)
 
 bool TimingBase::updateGNetWeights(float overflow)
 {
-  rs_->findResizeSlacks();
+  rs_->findResizeSlacks(overflow);
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();
