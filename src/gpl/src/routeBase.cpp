@@ -329,7 +329,7 @@ void RouteBase::getRudyResult()
 void RouteBase::getGrtResult()
 {
   // update gCells' location to DB for GR
-  nbc_->updateDbGCells();
+  // nbc_->updateDbGCells();
 
   // these two options must be on
   grouter_->setAllowCongestion(true);
@@ -340,7 +340,7 @@ void RouteBase::getGrtResult()
 
   grouter_->globalRoute();
 
-  updateGrtRoute();
+  // updateGrtRoute();
 }
 
 int64_t RouteBase::inflatedAreaDelta() const
@@ -564,12 +564,15 @@ std::pair<bool, bool> RouteBase::routability()
   tg_->setLogger(log_);
 
   float curRc;
-  if (rbVars_.useRudy) {
+  // if (rbVars_.useRudy)
+    {
     getRudyResult();
     curRc = getRudyRC();
-  } else {
+  }
+    // else
+      {
     getGrtResult();
-    curRc = getGrtRC();
+    // curRc = getGrtRC();
   }
 
   if (curRc < rbVars_.targetRC) {
