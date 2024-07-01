@@ -37,6 +37,8 @@
 #include "odb/dbShape.h"
 #include "utl/Logger.h"
 
+#include <iostream>
+
 namespace grt {
 
 Rudy::Rudy(odb::dbBlock* block, grt::GlobalRouter* grouter)
@@ -44,6 +46,7 @@ Rudy::Rudy(odb::dbBlock* block, grt::GlobalRouter* grouter)
 {
   grid_block_ = block_->getDieArea();
   if (grid_block_.area() == 0) {
+    std::cout<<"\n\ngrid_block_.area() is 0\n\n"<<std::endl;
     return;
   }
 
@@ -59,6 +62,8 @@ Rudy::Rudy(odb::dbBlock* block, grt::GlobalRouter* grouter)
   double pitch_terms = 0;
   const int min_routing_layer = grouter->getMinRoutingLayer();
   const int max_routing_layer = grouter->getMaxRoutingLayer();
+  std::cout<<"min_routing_layer: "<<min_routing_layer<<std::endl;
+  std::cout<<"max_routing_layer: "<<max_routing_layer<<std::endl;
   const auto tech = block_->getTech();
   for (int layer_idx = min_routing_layer; layer_idx <= max_routing_layer;
        ++layer_idx) {
@@ -71,6 +76,7 @@ Rudy::Rudy(odb::dbBlock* block, grt::GlobalRouter* grouter)
   }
   wire_width_ = 1 / pitch_terms;  // = harm. mean / num_routing_layers
 
+  std::cout<<"wire_width_: "<<wire_width_<<std::endl;
   int x_grids, y_grids;
   grouter_->getGridSize(x_grids, y_grids);
   tile_size_ = grouter_->getGridTileSize();
@@ -117,6 +123,9 @@ void Rudy::getResourceReductions()
 {
   CapacityReductionData cap_usage_data;
   grouter_->getCapacityReductionData(cap_usage_data);
+  std::cout<<"grid_.size(): "<<grid_.size()<<std::endl;
+  std::cout<<"grid_[0].size(): "<<grid_[0].size()<<std::endl;
+  std::cout<<"grid area: "<<(grid_.size()*grid_[0].size())<<std::endl;
   for (int x = 0; x < grid_.size(); x++) {
     for (int y = 0; y < grid_[x].size(); y++) {
       Tile& tile = getEditableTile(x, y);
@@ -124,12 +133,16 @@ void Rudy::getResourceReductions()
       float tile_reduction = cap_usage_data[x][y].reduction;
       float cap_usage_data = tile_reduction / tile_cap;
       tile.addRudy(cap_usage_data * 100);
+      total_cap_usage+=(cap_usage_data * 100);
+      //std::cout<<"cap_usage_data: "<<(cap_usage_data*100)<<std::endl;
     }
   }
 }
 
 void Rudy::calculateRudy()
 {
+//  grouter_->globalRoute();
+  std::cout<<"\n\ncalculate rudy!\n\n";
   // Clear previous computation
   for (auto& grid_column : grid_) {
     for (auto& tile : grid_column) {
@@ -139,25 +152,35 @@ void Rudy::calculateRudy()
 
   getResourceReductions();
 
+  std::cout<<"number of nets: "<<block_->getNets().size()<<std::endl;
   // refer: https://ieeexplore.ieee.org/document/4211973
   for (auto net : block_->getNets()) {
     if (!net->getSigType().isSupply()) {
+      std::cout<<"net name: "<< net->getName() <<std::endl;
       const auto net_rect = net->getTermBBox();
       processIntersectionSignalNet(net_rect);
     }
   }
+   
+  std::cout<<"total cap usage: "<<total_cap_usage<<std::endl;
+  std::cout<<"total rudy:      "<<total_rudy<<std::endl;
+  std::cout<<"nets_0_area :    "<<nets_0_area<<std::endl;
 }
 
 void Rudy::processIntersectionSignalNet(const odb::Rect net_rect)
 {
   const auto net_area = net_rect.area();
   if (net_area == 0) {
+    std::cout<<"net 0 area!\n";
     // TODO: handle nets with 0 area from getTermBBox()
+    nets_0_area++;
     return;
   }
+  std::cout<<"net_rect.area(): "<<net_rect.area()<<", dx()"<<net_rect.dx()<<", dy()"<<net_rect.dy()<<std::endl;
   const auto hpwl = static_cast<float>(net_rect.dx() + net_rect.dy());
   const auto wire_area = hpwl * wire_width_;
   const auto net_congestion = wire_area / net_area;
+  
 
   // Calculate the intersection range
   const int min_x_index
@@ -169,6 +192,13 @@ void Rudy::processIntersectionSignalNet(const odb::Rect net_rect)
   const int max_y_index = std::min(
       tile_cnt_y_ - 1, (net_rect.yMax() - grid_block_.yMin()) / tile_size_);
 
+//  std::cout<<"min_x_index: "<<min_x_index<<std::endl;
+//  std::cout<<"max_x_index: "<<max_x_index<<std::endl;
+//  std::cout<<"min_y_index: "<<min_y_index<<std::endl;
+//  std::cout<<"max_y_index: "<<max_y_index<<std::endl;
+  std::cout<<"grid indxs: x0,x1;y0,y1: "<<min_x_index<<","<<max_x_index<<", "<<min_y_index<<","<<max_y_index<<std::endl;
+
+  std::cout<<"*hpwl: "<<hpwl<<", =wire_area: "<<wire_area<<", /net_area: "<<net_area<<", =net_congestion: "<<net_congestion<<std::endl;
   // Iterate over the tiles in the calculated range
   for (int x = min_x_index; x <= max_x_index; ++x) {
     for (int y = min_y_index; y <= max_y_index; ++y) {
@@ -181,6 +211,8 @@ void Rudy::processIntersectionSignalNet(const odb::Rect net_rect)
                                         / static_cast<float>(tile_area);
         const auto rudy = net_congestion * tile_net_box_ratio * 100;
         tile.addRudy(rudy);
+        total_rudy+=rudy;
+        //std::cout<<"rudy: "<<rudy<<std::endl;
       }
     }
   }

@@ -101,6 +101,9 @@ class Rudy
   int tile_cnt_y_ = 40;
   int wire_width_ = 100;
   int tile_size_ = 0;
+  int nets_0_area = 0;
+  int total_rudy=0;
+  int total_cap_usage=0;
   std::vector<std::vector<Tile>> grid_;
 };
 
