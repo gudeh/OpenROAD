@@ -176,7 +176,8 @@ void Rudy::processIntersectionSignalNet(const odb::Rect net_rect)
     nets_0_area++;
     return;
   }
-  std::cout<<"net_rect.area(): "<<net_rect.area()<<", dx()"<<net_rect.dx()<<", dy()"<<net_rect.dy()<<std::endl;
+  std::cout<<"net_rect.area(): "<<net_rect.area()<<", dx()"<<net_rect.dx()<<", dy()"<<net_rect.dy();
+  std::cout<<"("<<net_rect.xMin()<<","<<net_rect.yMin()<<") ("<<net_rect.xMax()<<","<<net_rect.yMax()<<")"<<std::endl;
   const auto hpwl = static_cast<float>(net_rect.dx() + net_rect.dy());
   const auto wire_area = hpwl * wire_width_;
   const auto net_congestion = wire_area / net_area;
