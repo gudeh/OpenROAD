@@ -2396,8 +2396,10 @@ int GlobalRouter::computeNetWirelength(odb::dbNet* db_net)
 void GlobalRouter::computeWirelength()
 {
   long total_wirelength = 0;
+  
   for (auto& net_route : routes_) {
     total_wirelength += computeNetWirelength(net_route.first);
+    //TODO, find hpwl here to compare with rudy net_route.first->getTermBBox().dx() + net_route.first->getTermBBox().dy();
   }
   if (verbose_)
     logger_->info(GRT,

@@ -37,6 +37,8 @@
 #include "odb/dbShape.h"
 #include "utl/Logger.h"
 
+#include <iostream>
+
 namespace grt {
 
 Rudy::Rudy(odb::dbBlock* block, grt::GlobalRouter* grouter)
@@ -158,13 +160,18 @@ void Rudy::calculateRudy()
 
   getResourceReductions();
 
+  int total_hpwl = 0;
   // refer: https://ieeexplore.ieee.org/document/4211973
   for (auto net : block_->getNets()) {
     if (!net->getSigType().isSupply()) {
       const auto net_rect = net->getTermBBox();
       processIntersectionSignalNet(net_rect);
+      int hpwl =  (net_rect.dx() + net_rect.dy()); //static_cast<float>
+      std::cout<<"net: "<<net->getName()<<", hpwl: "<<block_->dbuToMicrons(hpwl)<<" um"<<std::endl;
+      total_hpwl += hpwl;
     }
   }
+  std::cout<<"total_hpwl: "<<block_->dbuToMicrons(total_hpwl)<<std::endl;
 }
 
 void Rudy::processIntersectionSignalNet(const odb::Rect net_rect)
