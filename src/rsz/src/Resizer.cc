@@ -2541,6 +2541,11 @@ int Resizer::repairDesignBufferCount() const
   return repair_design_->insertedBufferCount();
 }
 
+int Resizer::repairDesignResizedCount() const
+{
+  return repair_design_->resizedCount();
+}
+
 void Resizer::repairNet(Net* net,
                         double max_wire_length,
                         double slew_margin,

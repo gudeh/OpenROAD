@@ -322,6 +322,7 @@ class Resizer : public dbStaState
       double cap_margin,       // 0.0-1.0
       bool verbose);
   int repairDesignBufferCount() const;
+  int repairDesignResizedCount() const;
   // for debugging
   void repairNet(Net* net,
                  double max_wire_length,  // meters

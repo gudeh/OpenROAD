@@ -145,6 +145,8 @@ void TimingBase::setTimingNetWeightMax(float max)
 bool TimingBase::updateGNetWeights(float overflow)
 {
   rs_->findResizeSlacks();
+  debugPrint(log_,GPL,"timing",1, "Inserted buffers: {:5}", rs_->repairDesignBufferCount());
+  debugPrint(log_,GPL,"timing",1, "Resized gates:    {:5}", rs_->repairDesignResizedCount());
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();
@@ -198,7 +200,7 @@ bool TimingBase::updateGNetWeights(float overflow)
       debugPrint(log_,
                  GPL,
                  "timing",
-                 1,
+                 2,
                  "net:{} slack:{} weight:{}",
                  gNet->net()->dbNet()->getConstName(),
                  net_slack,
