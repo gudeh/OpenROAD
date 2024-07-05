@@ -1260,7 +1260,21 @@ void Resizer::findResizeSlacks()
                                fanout_violations,
                                length_violations);
   findResizeSlacks1();
+  debugPrint(logger_,utl::GPL,"timing",1,"--> Before journalRestore:");
+  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:     {:5}", repaired_net_count);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
+  
+  
   journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
+  
+  
+  debugPrint(logger_,utl::GPL,"timing",1,"--> After journalRestore:");
+  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:     {:5}", repaired_net_count);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
 }
 
 void Resizer::findResizeSlacks1()
