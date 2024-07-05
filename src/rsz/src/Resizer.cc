@@ -1244,7 +1244,7 @@ void Resizer::resizeSlackPreamble()
 
 // Run repair_design to repair long wires and max slew, capacitance and fanout
 // violations. Find the slacks, and then undo all changes to the netlist.
-void Resizer::findResizeSlacks()
+void Resizer::findResizeSlacks(float overflow)
 {
   journalBegin();
   estimateWireParasitics();
@@ -1260,14 +1260,15 @@ void Resizer::findResizeSlacks()
                                fanout_violations,
                                length_violations);
   findResizeSlacks1();
+  
   debugPrint(logger_,utl::GPL,"timing",1,"--> Before journalRestore:");
   debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:     {:5}", repaired_net_count);
   debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
   
-  
-  journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
+  if(overflow>0.2)  
+    journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
   
   
   debugPrint(logger_,utl::GPL,"timing",1,"--> After journalRestore:");
@@ -1275,7 +1276,6 @@ void Resizer::findResizeSlacks()
   debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
-}
 
 void Resizer::findResizeSlacks1()
 {
