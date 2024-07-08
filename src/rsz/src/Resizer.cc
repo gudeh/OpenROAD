@@ -1253,7 +1253,7 @@ void Resizer::findResizeSlacks(float overflow)
   repair_design_->repairDesign(max_wire_length_,
                                0.0,
                                0.0,
-                               false,
+                               true,
                                repaired_net_count,
                                slew_violations,
                                cap_violations,
@@ -1267,8 +1267,8 @@ void Resizer::findResizeSlacks(float overflow)
   debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
   
-  if(overflow>0.2)  
-    journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
+//  if(overflow>0.2)  
+  journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
   
   
   debugPrint(logger_,utl::GPL,"timing",1,"--> After journalRestore:");
@@ -1276,6 +1276,7 @@ void Resizer::findResizeSlacks(float overflow)
   debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
+}
 
 void Resizer::findResizeSlacks1()
 {
