@@ -1249,6 +1249,7 @@ void NesterovBaseCommon::updateDbGCells()
       inst->setLocation(gCell->dCx() - replInst->dx() / 2
                             + pbc_->siteSizeX() * pbc_->padLeft(),
                         gCell->dCy() - replInst->dy() / 2);
+      debugPrint(log_,GPL,"timing",1,"replInst->name: {}, replInst->area(): {}, dbInst->name: {}, dbInst->area: {}", replInst->dbInst()->getName(), replInst->area(), inst->getName(), inst->getBBox()->getDX()*inst->getBBox()->getDY());
     }
   }
 }
