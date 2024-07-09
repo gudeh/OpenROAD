@@ -1241,15 +1241,18 @@ void NesterovBaseCommon::updateDbGCells()
   for (auto it = gCells().begin(); it < gCells().end(); ++it) {
     auto& gCell = *it;  // old-style loop for old OpenMP
     if (gCell->isInstance()) {
-      odb::dbInst* inst = gCell->instance()->dbInst();
-      inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
+      odb::dbInst* dbInst = gCell->instance()->dbInst();
+      dbInst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
 
+      gCell->setSize(dbInst->getBBox()->getDX(),dbInst->getBBox()->getDY());
       Instance* replInst = gCell->instance();
       // pad awareness on X coordinates
-      inst->setLocation(gCell->dCx() - replInst->dx() / 2
+      dbInst->setLocation(gCell->dCx() - replInst->dx() / 2
                             + pbc_->siteSizeX() * pbc_->padLeft(),
                         gCell->dCy() - replInst->dy() / 2);
-      debugPrint(log_,GPL,"timing",1,"replInst->name: {}, replInst->area(): {}, dbInst->name: {}, dbInst->area: {}", replInst->dbInst()->getName(), replInst->area(), inst->getName(), inst->getBBox()->getDX()*inst->getBBox()->getDY());
+      
+      
+      debugPrint(log_,GPL,"timing",1,"replInst->name: {}, replInst->area(): {}, dbInst->name: {}, dbInst->area: {}", replInst->dbInst()->getName(), replInst->area(), dbInst->getName(), dbInst->getBBox()->getDX()*dbInst->getBBox()->getDY());
     }
   }
 }
