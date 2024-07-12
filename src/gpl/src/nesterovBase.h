@@ -825,6 +825,9 @@ class NesterovBaseCommon
 
   int64_t getHpwl();
 
+  
+  void updateRszAdjustments();
+  
   void updateDbGCells();
 
   // Number of threads of execution

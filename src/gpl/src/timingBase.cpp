@@ -145,8 +145,10 @@ void TimingBase::setTimingNetWeightMax(float max)
 bool TimingBase::updateGNetWeights(float overflow)
 {
   rs_->findResizeSlacks(overflow);
-  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
-  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
+//  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
+//  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
+  log_->report("rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
+  log_->report("rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();

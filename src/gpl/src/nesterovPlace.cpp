@@ -438,6 +438,9 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       if (!shouldTdProceed) {
         npVars_.timingDrivenMode = false;
       }
+      
+      if(average_overflow_<=0.3)
+        updateRsz();
     }
 
     // diverge detection on
@@ -591,6 +594,34 @@ void NesterovPlace::updateNextIter(const int iter)
 void NesterovPlace::updateDb()
 {
   nbc_->updateDbGCells();
+}
+
+void NesterovPlace::updateRsz()
+{
+  auto block = pbc_->db()->getChip()->getBlock();
+  nbc_->updateRszAdjustments();
+  log_->report("nbVec_.size(): {}",nbVec_.size());
+  for (auto& nb : nbVec_) {
+    int64_t oldInstArea = nb->nesterovInstsArea();
+    int64_t oldFillerArea = nb->totalFillerArea();
+    log_->report("prev nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
+    log_->report("prev nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
+    log_->report("prev nb->targetDensity():     {}", nb->targetDensity());
+    
+    nb->updateAreas();
+    nb->setTargetDensity(
+      static_cast<float>(nb->nesterovInstsArea() + nb->totalFillerArea() )
+      / static_cast<float>(nb->whiteSpaceArea()));    
+    nb->updateDensitySize(); //influenced by bin sizes, which is influenced by instance sizes.
+    //  updateWireLengthForceWA() ??
+    
+    log_->report("new nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
+    log_->report("new nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
+    log_->report("new nb->targetDensity():     {}", nb->targetDensity());
+    
+    log_->report("instDeltaArea:   {}({:3.1f}%)", block->dbuAreaToMicrons(nb->nesterovInstsArea() - oldInstArea), ((static_cast<float>(nb->nesterovInstsArea() - oldInstArea)) / oldInstArea)*100);
+    log_->report("fillerDeltaArea: {}({:3.1f}%)", block->dbuAreaToMicrons(nb->totalFillerArea()- oldFillerArea ), ((static_cast<float>(nb->totalFillerArea()- oldFillerArea)) / oldFillerArea)*100 );
+  }
 }
 
 }  // namespace gpl

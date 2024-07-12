@@ -1234,6 +1234,32 @@ FloatPoint NesterovBaseCommon::getWireLengthPreconditioner(
   return FloatPoint(gCell->gPins().size(), gCell->gPins().size());
 }
 
+void NesterovBaseCommon::updateRszAdjustments()
+{
+  assert(omp_get_thread_num() == 0);
+#pragma omp parallel for num_threads(num_threads_)
+  for (auto it = gCells().begin(); it < gCells().end(); ++it) {
+    auto& gCell = *it;  // old-style loop for old OpenMP
+    if (gCell->isInstance()) {
+      odb::dbInst* dbInst = gCell->instance()->dbInst();
+
+      gCell->setSize(dbInst->getBBox()->getDX(),dbInst->getBBox()->getDY());
+      Instance* replInst = gCell->instance();      
+      
+      debugPrint(log_,GPL,"timing",1,
+              "gCell->name: {}, gCell->area: {}, replInst->name: {}, replInst->area: {}, dbInst->name: {}, dbInst->area: {}", 
+              gCell->instance()->dbInst()->getName(),
+              gCell->dx()*gCell->dy(),
+              replInst->dbInst()->getName(), 
+              replInst->area(), 
+              dbInst->getName(), 
+              dbInst->getBBox()->getDX()*dbInst->getBBox()->getDY());
+      //TODO for pb instances, possibly update them also because of whitespace.
+              // new function to update pb instances sizes, than new function to recalculate whitespace
+    }
+  }
+}
+
 void NesterovBaseCommon::updateDbGCells()
 {
   assert(omp_get_thread_num() == 0);
@@ -1244,15 +1270,11 @@ void NesterovBaseCommon::updateDbGCells()
       odb::dbInst* dbInst = gCell->instance()->dbInst();
       dbInst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
 
-      gCell->setSize(dbInst->getBBox()->getDX(),dbInst->getBBox()->getDY());
       Instance* replInst = gCell->instance();
       // pad awareness on X coordinates
       dbInst->setLocation(gCell->dCx() - replInst->dx() / 2
                             + pbc_->siteSizeX() * pbc_->padLeft(),
-                        gCell->dCy() - replInst->dy() / 2);
-      
-      
-      debugPrint(log_,GPL,"timing",1,"replInst->name: {}, replInst->area(): {}, dbInst->name: {}, dbInst->area: {}", replInst->dbInst()->getName(), replInst->area(), dbInst->getName(), dbInst->getBBox()->getDX()*dbInst->getBBox()->getDY());
+                        gCell->dCy() - replInst->dy() / 2);      
     }
   }
 }
