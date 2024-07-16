@@ -613,7 +613,7 @@ void NesterovPlace::updateRsz()
       static_cast<float>(nb->nesterovInstsArea() + nb->totalFillerArea() )
       / static_cast<float>(nb->whiteSpaceArea()));    
     nb->updateDensitySize(); //influenced by bin sizes, which is influenced by instance sizes.
-    //  updateWireLengthForceWA() ??
+    //  updateWireLengthForceWA() --> influenced by pin positions, do they change with different cell size, or even different cell type?
     
     log_->report("new nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
     log_->report("new nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));

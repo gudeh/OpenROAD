@@ -144,6 +144,8 @@ void TimingBase::setTimingNetWeightMax(float max)
 
 bool TimingBase::updateGNetWeights(float overflow)
 {
+  auto block = rs_->getDbBlock();
+  log_->report("after -> block->getInsts().size(): {}", block->getInsts().size());
   rs_->findResizeSlacks(overflow);
 //  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
 //  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
