@@ -621,6 +621,9 @@ void NesterovPlace::updateRsz()
     
     log_->report("instDeltaArea:   {}({:3.1f}%)", block->dbuAreaToMicrons(nb->nesterovInstsArea() - oldInstArea), ((static_cast<float>(nb->nesterovInstsArea() - oldInstArea)) / oldInstArea)*100);
     log_->report("fillerDeltaArea: {}({:3.1f}%)", block->dbuAreaToMicrons(nb->totalFillerArea()- oldFillerArea ), ((static_cast<float>(nb->totalFillerArea()- oldFillerArea)) / oldFillerArea)*100 );
+    
+    
+    log_->report("after -> block->getInsts().size(): {}", block->getInsts().size());
   }
 }
 
