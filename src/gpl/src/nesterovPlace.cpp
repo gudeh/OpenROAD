@@ -532,7 +532,6 @@ int NesterovPlace::doNesterovPlace(int start_iter)
 
     // check each for converge and if all are converged then stop
     int numConverge = 0;
-    log_->report("nbVec size: {}", nbVec_.size());
     for (auto& nb : nbVec_) {
       numConverge += nb->checkConvergence();
     }
@@ -607,7 +606,6 @@ void NesterovPlace::updateFromRsz()
   pbVec_.push_back(std::make_shared<PlacerBase>(db, pbc_, log_));
   for (auto pd : db->getChip()->getBlock()->getPowerDomains()) {
     if (pd->getGroup()) {
-      log_->report("push back pbvec!");
       pbVec_.push_back(
           std::make_shared<PlacerBase>(db, pbc_, log_, pd->getGroup()));
     }
@@ -618,7 +616,6 @@ void NesterovPlace::updateFromRsz()
   this->nbc_->init();
   nbVec_.clear();
   for (const auto& pb : pbVec_) {
-    log_->report("push back nbVec!");
       nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
   }
   

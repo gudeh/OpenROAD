@@ -145,7 +145,7 @@ void TimingBase::setTimingNetWeightMax(float max)
 bool TimingBase::updateGNetWeights(float overflow)
 {
   auto block = rs_->getDbBlock();
-  log_->report("before -> block->getInsts().size(): {}", block->getInsts().size());
+//  log_->report("before -> block->getInsts().size(): {}", block->getInsts().size());
 
 //  std::vector<odb::dbInst*> inserted_buffers_ = rs_->findResizeSlacks(overflow);
 //  inserted_buffers_ = rs_->findResizeSlacks(overflow);
