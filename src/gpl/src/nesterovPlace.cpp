@@ -440,7 +440,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       }
       
       if(average_overflow_<=0.3)
-        updateRsz();
+        updateFromRsz();
     }
 
     // diverge detection on
@@ -532,6 +532,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
 
     // check each for converge and if all are converged then stop
     int numConverge = 0;
+    log_->report("nbVec size: {}", nbVec_.size());
     for (auto& nb : nbVec_) {
       numConverge += nb->checkConvergence();
     }
@@ -596,35 +597,76 @@ void NesterovPlace::updateDb()
   nbc_->updateDbGCells();
 }
 
-void NesterovPlace::updateRsz()
+void NesterovPlace::updateFromRsz()
 {
-  auto block = pbc_->db()->getChip()->getBlock();
-  nbc_->updateRszAdjustments();
-  log_->report("nbVec_.size(): {}",nbVec_.size());
-  for (auto& nb : nbVec_) {
-    int64_t oldInstArea = nb->nesterovInstsArea();
-    int64_t oldFillerArea = nb->totalFillerArea();
-    log_->report("prev nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
-    log_->report("prev nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
-    log_->report("prev nb->targetDensity():     {}", nb->targetDensity());
-    
-    nb->updateAreas();
-    nb->setTargetDensity(
-      static_cast<float>(nb->nesterovInstsArea() + nb->totalFillerArea() )
-      / static_cast<float>(nb->whiteSpaceArea()));    
-    nb->updateDensitySize(); //influenced by bin sizes, which is influenced by instance sizes.
-    //  updateWireLengthForceWA() --> influenced by pin positions, do they change with different cell size, or even different cell type?
-    
-    log_->report("new nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
-    log_->report("new nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
-    log_->report("new nb->targetDensity():     {}", nb->targetDensity());
-    
-    log_->report("instDeltaArea:   {}({:3.1f}%)", block->dbuAreaToMicrons(nb->nesterovInstsArea() - oldInstArea), ((static_cast<float>(nb->nesterovInstsArea() - oldInstArea)) / oldInstArea)*100);
-    log_->report("fillerDeltaArea: {}({:3.1f}%)", block->dbuAreaToMicrons(nb->totalFillerArea()- oldFillerArea ), ((static_cast<float>(nb->totalFillerArea()- oldFillerArea)) / oldFillerArea)*100 );
-    
-    
-    log_->report("after -> block->getInsts().size(): {}", block->getInsts().size());
+  //maybe save here db and pbVars and use the normal reset().
+  this->pbc_->myReset();
+  this->pbc_->init();
+  auto db=pbc_->db();
+  pbVec_.clear();
+  pbVec_.push_back(std::make_shared<PlacerBase>(db, pbc_, log_));
+  for (auto pd : db->getChip()->getBlock()->getPowerDomains()) {
+    if (pd->getGroup()) {
+      log_->report("push back pbvec!");
+      pbVec_.push_back(
+          std::make_shared<PlacerBase>(db, pbc_, log_, pd->getGroup()));
+    }
   }
+  
+  auto nbVars = nbc_->getNbVars();
+  this->nbc_->myReset();  
+  this->nbc_->init();
+  nbVec_.clear();
+  for (const auto& pb : pbVec_) {
+    log_->report("push back nbVec!");
+      nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
+  }
+  
+  for (const auto& nb : nbVec_) {
+    nb->setNpVars(&this->npVars_);
+  }
+  
+  this->init();
+//  ///// RESIZING /////
+//  auto block = pbc_->db()->getChip()->getBlock();
+//  nbc_->updateRszResizedGates();
+//  
+//  ///// NEW BUFFER INSTANCES /////
+//  auto inserted_buffers = tb_->getRszInsertedBuffers(); // no rs_ in NesterovPlace
+//  nbc_->includeNewInstances(inserted_buffers);
+////  for (auto& nb : nbVec_) {
+////    nb->includeNewInstances(inserted_buffers);
+////  }
+////  tb_->clearRszInsertedBuffers();
+//  
+//  
+//  ///// UPDATE GPL DATA /////
+//  // This updates are the same ones used on routability. They modify only the GCells, not the instances in placerBase.
+//  log_->report("nbVec_.size(): {}",nbVec_.size());
+//  for (auto& nb : nbVec_) {
+//    int64_t oldInstArea = nb->nesterovInstsArea();
+//    int64_t oldFillerArea = nb->totalFillerArea();
+//    log_->report("prev nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
+//    log_->report("prev nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
+//    log_->report("prev nb->targetDensity():     {}", nb->targetDensity());
+//    
+//    nb->updateAreas();
+//    nb->setTargetDensity(
+//      static_cast<float>(nb->nesterovInstsArea() + nb->totalFillerArea() )
+//      / static_cast<float>(nb->whiteSpaceArea()));    
+//    nb->updateDensitySize(); //influenced by bin sizes, which is influenced by instance sizes.
+//    //  updateWireLengthForceWA() --> influenced by pin positions, do they change with different cell size, or even different cell type?
+//    
+//    log_->report("new nb->nesterovInstsArea(): {}", block->dbuAreaToMicrons(nb->nesterovInstsArea()));
+//    log_->report("new nb->totalFillerArea():   {}", block->dbuAreaToMicrons(nb->totalFillerArea()));
+//    log_->report("new nb->targetDensity():     {}", nb->targetDensity());
+//    
+//    log_->report("instDeltaArea:   {}({:3.1f}%)", block->dbuAreaToMicrons(nb->nesterovInstsArea() - oldInstArea), ((static_cast<float>(nb->nesterovInstsArea() - oldInstArea)) / oldInstArea)*100);
+//    log_->report("fillerDeltaArea: {}({:3.1f}%)", block->dbuAreaToMicrons(nb->totalFillerArea()- oldFillerArea ), ((static_cast<float>(nb->totalFillerArea()- oldFillerArea)) / oldFillerArea)*100 );
+//    
+//    
+//    log_->report("after -> block->getInsts().size(): {}", block->getInsts().size());   
+//  }
 }
 
 }  // namespace gpl

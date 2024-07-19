@@ -146,9 +146,13 @@ bool TimingBase::updateGNetWeights(float overflow)
 {
   auto block = rs_->getDbBlock();
   log_->report("before -> block->getInsts().size(): {}", block->getInsts().size());
-  rs_->findResizeSlacks(overflow);
-//  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
-//  debugPrint(log_,GPL,"timing",1, "rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
+
+//  std::vector<odb::dbInst*> inserted_buffers_ = rs_->findResizeSlacks(overflow);
+//  inserted_buffers_ = rs_->findResizeSlacks(overflow);
+  rs_->findResizeSlacks(overflow, inserted_buffers_);
+
+  log_->report("inserted buffers size as dbInst: {}", inserted_buffers_.size());
+
   log_->report("rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
   log_->report("rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
 

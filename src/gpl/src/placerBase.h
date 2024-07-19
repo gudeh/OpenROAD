@@ -341,6 +341,29 @@ class PlacerBaseCommon
   odb::dbDatabase* db() const { return db_; }
 
   void unlockAll();
+  
+  //restart everything to include new cells
+  void init();
+  void myReset() {
+    instStor_.clear();
+    pinStor_.clear();
+    netStor_.clear();
+
+    insts_.clear();
+    pins_.clear();
+    nets_.clear();
+
+    placeInsts_.clear();
+
+    instMap_.clear();
+    pinMap_.clear();
+    netMap_.clear();
+
+    siteSizeX_ = 0;
+    siteSizeY_ = 0;
+
+    macroInstsArea_ = 0;
+  }
 
  private:
   odb::dbDatabase* db_ = nullptr;
@@ -369,7 +392,7 @@ class PlacerBaseCommon
 
   int64_t macroInstsArea_ = 0;
 
-  void init();
+  
   void reset();
 };
 
@@ -415,6 +438,8 @@ class PlacerBase
   odb::dbGroup* group() const { return group_; }
 
   void unlockAll();
+  
+  void init();
 
  private:
   odb::dbDatabase* db_ = nullptr;
@@ -446,7 +471,7 @@ class PlacerBase
   std::shared_ptr<PlacerBaseCommon> pbCommon_;
   odb::dbGroup* group_ = nullptr;
 
-  void init();
+  
   void initInstsForUnusableSites();
 
   void reset();

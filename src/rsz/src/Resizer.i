@@ -658,7 +658,8 @@ void
 find_resize_slacks()
 {
   Resizer *resizer = getResizer();
-  resizer->findResizeSlacks(100);
+  std::vector<odb::dbInst*> inserted_buffers;
+  resizer->findResizeSlacks(100, inserted_buffers);
 }
 
 NetSeq *

@@ -36,6 +36,8 @@
 #include <memory>
 #include <vector>
 
+#include "odb/db.h"
+
 namespace rsz {
 class Resizer;
 }
@@ -71,6 +73,9 @@ class TimingBase
   // True: successfully reweighted gnets
   // False: no slacks found
   bool updateGNetWeights(float overflow);
+  
+  const std::vector<odb::dbInst*>& getRszInsertedBuffers() { return inserted_buffers_; }
+//  void clearRszInsertedBuffers() { inserted_buffers_.clear(); }
 
  private:
   rsz::Resizer* rs_ = nullptr;
@@ -81,6 +86,8 @@ class TimingBase
   std::vector<int> timingOverflowChk_;
   float net_weight_max_ = 1.9;
   void initTimingOverflowChk();
+  
+  std::vector<odb::dbInst*> inserted_buffers_;
 };
 
 }  // namespace gpl

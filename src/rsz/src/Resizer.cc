@@ -1257,7 +1257,7 @@ void Resizer::resizeSlackPreamble()
 
 // Run repair_design to repair long wires and max slew, capacitance and fanout
 // violations. Find the slacks, and then undo all changes to the netlist.
-void Resizer::findResizeSlacks(float overflow)
+void Resizer::findResizeSlacks(float overflow, vector<dbInst*>& db_insts)
 {
   journalBegin();
   estimateWireParasitics();
@@ -1275,20 +1275,31 @@ void Resizer::findResizeSlacks(float overflow)
   findResizeSlacks1();
   
   debugPrint(logger_,utl::GPL,"timing",1,"--> Before journalRestore:");
-  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:     {:5}", repaired_net_count);
-  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
-  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
-  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:        {:5}", repaired_net_count);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_:    {:5}", inserted_buffer_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_set_.size: {:5}", inserted_buffer_set_.size());
+  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:             {:5}", resize_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:        {:5}", cloned_gate_count_);
   
   if(overflow>0.3)  
-    journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_);
-  
+    journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_); //these get a negative counting because of restoring
   
   debugPrint(logger_,utl::GPL,"timing",1,"--> After journalRestore:");
-  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:     {:5}", repaired_net_count);
-  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_: {:5}", inserted_buffer_count_);
-  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:          {:5}", resize_count_);
-  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:     {:5}", cloned_gate_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"repaired_net_count:        {:5}", repaired_net_count);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_count_:    {:5}", inserted_buffer_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"inserted_buffer_set_.size: {:5}", inserted_buffer_set_.size());
+  debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:             {:5}", resize_count_);
+  debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:        {:5}", cloned_gate_count_);
+
+  //  all_inserted_buffer_set_; maybe transform this to dbInsts and return so gpl can work it out new ones.
+  // from dbSta to dbInstance to gplInstance to gplGCell in nesterovBase
+  // than replicate gcell creation from NesterovBaseCommon::NesterovBaseCommon to the updatersz
+//  vector<dbInst*> db_insts;
+  db_insts.clear(); // clear on each TD iteration so we always know they are actually new buffers from this iteration.
+  db_insts.reserve(inserted_buffer_set_.size()); //TODO make sure this attribute is being cleared.
+  for (const Instance* sta_inst: inserted_buffer_set_) {
+    db_insts.emplace_back(db_network_->staToDb(sta_inst));
+  }
 }
 
 void Resizer::findResizeSlacks1()

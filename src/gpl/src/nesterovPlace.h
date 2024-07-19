@@ -78,7 +78,7 @@ class NesterovPlace
 
   void updateNextIter(int iter);
 
-  void updateRsz();
+  void updateFromRsz();
   void updateDb();
 
   float getWireLengthCoefX() const { return wireLengthCoefX_; }

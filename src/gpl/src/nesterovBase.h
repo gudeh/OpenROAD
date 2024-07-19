@@ -782,6 +782,24 @@ class NesterovBaseCommon
                      utl::Logger* log,
                      int num_threads);
 
+  void init();
+  void myReset(){
+    gCellStor_.clear();
+    newGCellStor_.clear(); //safer to use GCell instead of GCell*
+    gNetStor_.clear();
+    gPinStor_.clear();
+
+    gCells_.clear();
+    gNets_.clear();
+    gPins_.clear();
+
+    gCellMap_.clear();
+    gPinMap_.clear();
+    gNetMap_.clear();
+
+    num_threads_=0;
+  }
+  
   const std::vector<GCell*>& gCells() const { return gCells_; }
   const std::vector<GNet*>& gNets() const { return gNets_; }
   const std::vector<GPin*>& gPins() const { return gPins_; }
@@ -825,7 +843,9 @@ class NesterovBaseCommon
   int64_t getHpwl();
 
   
-  void updateRszAdjustments();
+  void updateRszResizedGates();
+  void includeNewInstances(std::vector<odb::dbInst*>& inserted_buffers);
+  NesterovBaseVars getNbVars() { return nbVars_; }
   
   void updateDbGCells();
 
@@ -838,6 +858,7 @@ class NesterovBaseCommon
   utl::Logger* log_ = nullptr;
 
   std::vector<GCell> gCellStor_;
+  std::unordered_map<odb::dbInst*,GCell> newGCellStor_; //safer to use GCell instead of GCell*
   std::vector<GNet> gNetStor_;
   std::vector<GPin> gPinStor_;
 
@@ -865,6 +886,7 @@ class NesterovBase
                utl::Logger* log);
   ~NesterovBase();
 
+  void init();
   const std::vector<GCell*>& gCells() const { return gCells_; }
   const std::vector<GCell*>& gCellInsts() const { return gCellInsts_; }
   const std::vector<GCell*>& gCellFillers() const { return gCellFillers_; }

@@ -879,6 +879,32 @@ void NesterovPlaceVars::reset()
 // NesterovBaseCommon
 ///////////////////////////////////////////////
 
+void NesterovBaseCommon::includeNewInstances(std::vector<odb::dbInst*>& inserted_buffers)
+{
+  log_->report("includeNewInstances -> inserted_buffers.size(): {}",inserted_buffers.size());
+  newGCellStor_.reserve(inserted_buffers.size());
+  odb::dbBlock* block = pbc_->db()->getChip()->getBlock();
+  odb::Rect coreRect = block->getCoreArea();
+//  int64_t increase_inst_area;
+  for(odb::dbInst* db_inst : inserted_buffers)
+  {
+    
+    if(db_inst->isFixed())
+      log_->report("buffer inserted IS fixed!");
+//    else
+//      log_->report("buffer inserted NOT fixed!");
+
+    Instance gpl_inst(db_inst, 0, 0, pbc_->siteSizeY(), log_);
+    if (gpl_inst.isFixed()) {
+      gpl_inst.snapOutward(coreRect.ll(), pbc_->siteSizeX(), pbc_->siteSizeY());            
+    }
+    newGCellStor_.emplace(db_inst,GCell(&gpl_inst));
+  }
+  log_->report("newGCellStor_.size(): {}", newGCellStor_.size());
+  
+  //potential pointer invalidation in graphics.cpp and routebase.cpp
+}
+
 NesterovBaseCommon::NesterovBaseCommon(NesterovBaseVars nbVars,
                                        std::shared_ptr<PlacerBaseCommon> pbc,
                                        utl::Logger* log,
@@ -889,7 +915,11 @@ NesterovBaseCommon::NesterovBaseCommon(NesterovBaseVars nbVars,
   nbVars_ = nbVars;
   pbc_ = std::move(pbc);
   log_ = log;
-
+  init();
+}
+    
+void NesterovBaseCommon::init(){
+ 
   // gCellStor init
   gCellStor_.reserve(pbc_->placeInsts().size());
 
@@ -1234,7 +1264,7 @@ FloatPoint NesterovBaseCommon::getWireLengthPreconditioner(
   return FloatPoint(gCell->gPins().size(), gCell->gPins().size());
 }
 
-void NesterovBaseCommon::updateRszAdjustments()
+void NesterovBaseCommon::updateRszResizedGates()
 {
   assert(omp_get_thread_num() == 0);
 #pragma omp parallel for num_threads(num_threads_)
@@ -1254,8 +1284,6 @@ void NesterovBaseCommon::updateRszAdjustments()
               replInst->area(), 
               dbInst->getName(), 
               dbInst->getBBox()->getDX()*dbInst->getBBox()->getDY());
-      //TODO for pb instances, possibly update them also because of whitespace.
-              // new function to update pb instances sizes, than new function to recalculate whitespace
     }
   }
 }
@@ -1304,7 +1332,10 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
   pb_ = std::move(pb);
   nbc_ = std::move(nbc);
   log_ = log;
+  init();
+}
 
+void NesterovBase::init(){
   // Set a fixed seed
   srand(42);
   // area update from pb
