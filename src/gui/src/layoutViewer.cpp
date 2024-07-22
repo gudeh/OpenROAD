@@ -1328,10 +1328,6 @@ void LayoutViewer::boxesByLayer(dbMaster* master, LayerBoxes& boxes)
   for (dbBox* box : master->getObstructions()) {
     dbTechLayer* layer = box->getTechLayer();
     dbTechLayerType type = layer->getType();
-    if (type != dbTechLayerType::ROUTING && type != dbTechLayerType::CUT
-        && type != dbTechLayerType::IMPLANT) {
-      continue;
-    }
     boxes[layer].obs.emplace_back(box_to_qrect(box));
   }
 
@@ -1350,10 +1346,6 @@ void LayoutViewer::boxesByLayer(dbMaster* master, LayerBoxes& boxes)
             odb::Rect box_rect = via_box->getBox();
             dbTechLayer* layer = via_box->getTechLayer();
             dbTechLayerType type = layer->getType();
-            if (type != dbTechLayerType::ROUTING
-                && type != dbTechLayerType::CUT) {
-              continue;
-            }
             via_transform.apply(box_rect);
             boxes[layer].mterms.emplace_back(
                 QRect{box_rect.xMin(),
@@ -1364,10 +1356,6 @@ void LayoutViewer::boxesByLayer(dbMaster* master, LayerBoxes& boxes)
         } else {
           dbTechLayer* layer = box->getTechLayer();
           dbTechLayerType type = layer->getType();
-          if (type != dbTechLayerType::ROUTING
-              && type != dbTechLayerType::CUT) {
-            continue;
-          }
           boxes[layer].mterms.emplace_back(box_to_qrect(box));
         }
       }
@@ -2429,9 +2417,11 @@ void LayoutViewer::executionPaused()
 LayoutScroll::LayoutScroll(
     LayoutViewer* viewer,
     const std::function<bool(void)>& default_mouse_wheel_zoom,
+    const std::function<int(void)>& arrow_keys_scroll_step,
     QWidget* parent)
     : QScrollArea(parent),
       default_mouse_wheel_zoom_(std::move(default_mouse_wheel_zoom)),
+      arrow_keys_scroll_step_(std::move(arrow_keys_scroll_step)),
       viewer_(viewer),
       scrolling_with_cursor_(false)
 {
@@ -2507,6 +2497,30 @@ bool LayoutScroll::eventFilter(QObject* object, QEvent* event)
   }
 
   return QScrollArea::eventFilter(object, event);
+}
+
+void LayoutScroll::keyPressEvent(QKeyEvent* event)
+{
+  switch (event->key()) {
+    case Qt::Key_Up:
+      verticalScrollBar()->setValue(verticalScrollBar()->value()
+                                    - arrow_keys_scroll_step_());
+      break;
+    case Qt::Key_Down:
+      verticalScrollBar()->setValue(verticalScrollBar()->value()
+                                    + arrow_keys_scroll_step_());
+      break;
+    case Qt::Key_Left:
+      horizontalScrollBar()->setValue(horizontalScrollBar()->value()
+                                      - arrow_keys_scroll_step_());
+      break;
+    case Qt::Key_Right:
+      horizontalScrollBar()->setValue(horizontalScrollBar()->value()
+                                      + arrow_keys_scroll_step_());
+      break;
+    default:
+      QScrollArea::keyPressEvent(event);
+  }
 }
 
 bool LayoutScroll::isScrollingWithCursor()
