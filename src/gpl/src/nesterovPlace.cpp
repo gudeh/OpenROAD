@@ -599,6 +599,12 @@ void NesterovPlace::updateDb()
 void NesterovPlace::updateFromRsz()
 {
   std::clock_t start = std::clock();
+  
+  log_->report("pb print info BEFORE refresh!");
+  for (const auto& pb : pbVec_) {
+    pb->printInfo();
+  }
+  
   //maybe save here db and pbVars and use the normal reset().
   this->pbc_->myReset();
   this->pbc_->init();
@@ -625,6 +631,11 @@ void NesterovPlace::updateFromRsz()
   }
   
   this->init();
+  
+  log_->report("pb print info AFTER refresh!");
+  for (const auto& pb : pbVec_) {
+    pb->printInfo();
+  }
   
   std::clock_t end = std::clock();
   double cpu_time_used = static_cast<double>(end - start) / CLOCKS_PER_SEC;
