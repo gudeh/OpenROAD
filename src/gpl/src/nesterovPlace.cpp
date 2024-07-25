@@ -598,6 +598,7 @@ void NesterovPlace::updateDb()
 
 void NesterovPlace::updateFromRsz()
 {
+  std::clock_t start = std::clock();
   //maybe save here db and pbVars and use the normal reset().
   this->pbc_->myReset();
   this->pbc_->init();
@@ -624,6 +625,11 @@ void NesterovPlace::updateFromRsz()
   }
   
   this->init();
+  
+  std::clock_t end = std::clock();
+  double cpu_time_used = static_cast<double>(end - start) / CLOCKS_PER_SEC;
+  std::cout << "CPU time to refresh gpl: " << cpu_time_used << " seconds" << std::endl;
+  
 //  ///// RESIZING /////
 //  auto block = pbc_->db()->getChip()->getBlock();
 //  nbc_->updateRszResizedGates();
