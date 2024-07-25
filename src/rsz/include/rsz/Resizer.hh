@@ -385,6 +385,7 @@ class Resizer : public dbStaState
   double dbuToMeters(int dist) const;
   int metersToDbu(double dist) const;
   void makeEquivCells();
+  float getTotalNegativeSlack();
 
  protected:
   void init();
