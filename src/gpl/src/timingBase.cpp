@@ -155,6 +155,7 @@ bool TimingBase::updateGNetWeights(float overflow)
 
   log_->report("rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
   log_->report("rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
+  log_->report("rs_->repair_design-> TNS: {:5}", rs_->getTotalNegativeSlack());
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();

@@ -1025,6 +1025,11 @@ void Resizer::makeEquivCells()
   sta_->makeEquivCells(&libs, nullptr);
 }
 
+
+float Resizer::getTotalNegativeSlack(){
+  return sta_->totalNegativeSlack(max_);
+}
+
 int Resizer::resizeToTargetSlew(const Pin* drvr_pin)
 {
   Instance* inst = network_->instance(drvr_pin);
