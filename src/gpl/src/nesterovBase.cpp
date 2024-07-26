@@ -1335,7 +1335,7 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
   pb_ = std::move(pb);
   nbc_ = std::move(nbc);
   log_ = log;
-  init(bool do_offset);
+  init(do_offset);
 }
 
 void NesterovBase::init(bool do_offset){
