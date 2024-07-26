@@ -644,7 +644,7 @@ void NesterovPlace::updateFromRsz()
   this->nbc_->init();
   nbVec_.clear();
   for (const auto& pb : pbVec_) {
-      nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
+      nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_, false));
   }
   
   for (const auto& nb : nbVec_) {

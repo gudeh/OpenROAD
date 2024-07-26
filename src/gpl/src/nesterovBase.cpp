@@ -1328,16 +1328,17 @@ int64_t NesterovBaseCommon::getHpwl()
 NesterovBase::NesterovBase(NesterovBaseVars nbVars,
                            std::shared_ptr<PlacerBase> pb,
                            std::shared_ptr<NesterovBaseCommon> nbc,
-                           utl::Logger* log)
+                           utl::Logger* log,
+                           bool do_offset = true)
 {
   nbVars_ = nbVars;
   pb_ = std::move(pb);
   nbc_ = std::move(nbc);
   log_ = log;
-  init();
+  init(bool do_offset);
 }
 
-void NesterovBase::init(){
+void NesterovBase::init(bool do_offset){
   // Set a fixed seed
   srand(42);
   // area update from pb
@@ -1353,13 +1354,16 @@ void NesterovBase::init(){
 
   // add place instances
   for (auto& inst : pb_->placeInsts()) {
-    int x_offset = rand() % (2 * dbu_per_micron) - dbu_per_micron;
-    int y_offset = rand() % (2 * dbu_per_micron) - dbu_per_micron;
-
+    if(do_offset)
+    {
+      int x_offset = rand() % (2 * dbu_per_micron) - dbu_per_micron;
+      int y_offset = rand() % (2 * dbu_per_micron) - dbu_per_micron;    
+      inst->setLocation(inst->lx() + x_offset, inst->ly() + y_offset);
+    }
+    else
+      inst->setLocation(inst->lx(), inst->ly());
+    
     GCell* gCell = nbc_->pbToNb(inst);
-
-    inst->setLocation(inst->lx() + x_offset, inst->ly() + y_offset);
-
     gCell->clearInstances();
     gCell->setInstance(inst);
     gCells_.push_back(gCell);

@@ -884,10 +884,11 @@ class NesterovBase
   NesterovBase(NesterovBaseVars nbVars,
                std::shared_ptr<PlacerBase> pb,
                std::shared_ptr<NesterovBaseCommon> nbc,
-               utl::Logger* log);
+               utl::Logger* log,
+               bool do_offset = true);
   ~NesterovBase();
 
-  void init();
+  void init(bool do_offset);
   const std::vector<GCell*>& gCells() const { return gCells_; }
   const std::vector<GCell*>& gCellInsts() const { return gCellInsts_; }
   const std::vector<GCell*>& gCellFillers() const { return gCellFillers_; }
