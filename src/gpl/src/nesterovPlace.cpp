@@ -637,6 +637,25 @@ void NesterovPlace::updateFromRsz()
     pb->printInfo();
   }
   
+  
+  dbBlock* block = pbc_->db()->getChip()->getBlock();
+  for (auto it = nbVec_[0]->gCells().begin(); it < nbVec_[0]->gCells().end(); ++it) {
+    auto& gCell = *it;
+    if (gCell->isInstance() && gCell->instance()->dbInst()->getName()=="_560_") {
+      odb::dbInst* dbInst = gCell->instance()->dbInst();
+      Instance* replInst = gCell->instance();     
+  
+  log_->report("gCell->name: {}, gCell->area: {}, replInst->name: {}, replInst->area: {}, dbInst->name: {}, dbInst->area: {}", 
+              gCell->instance()->dbInst()->getName(),
+              gCell->dx()*gCell->dy(),
+              replInst->dbInst()->getName(), 
+              replInst->area(), 
+              dbInst->getName(), 
+              dbInst->getBBox()->getDX()*dbInst->getBBox()->getDY());
+  log_->report("location: ({},{})({},{})",block->dbuToMicrons(gCell->lx()),block->dbuToMicrons(gCell->ly()),block->dbuToMicrons(gCell->ux()),block->dbuToMicrons(gCell->uy()));
+    }
+  }
+  
   std::clock_t end = std::clock();
   double cpu_time_used = static_cast<double>(end - start) / CLOCKS_PER_SEC;
   std::cout << "CPU time to refresh gpl: " << cpu_time_used << " seconds" << std::endl;
