@@ -1329,7 +1329,7 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
                            std::shared_ptr<PlacerBase> pb,
                            std::shared_ptr<NesterovBaseCommon> nbc,
                            utl::Logger* log,
-                           bool do_offset = true)
+                           bool do_offset)
 {
   nbVars_ = nbVars;
   pb_ = std::move(pb);
