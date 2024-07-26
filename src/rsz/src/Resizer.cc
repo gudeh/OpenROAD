@@ -1263,7 +1263,7 @@ void Resizer::resizeSlackPreamble()
 
 // Run repair_design to repair long wires and max slew, capacitance and fanout
 // violations. Find the slacks, and then undo all changes to the netlist.
-void Resizer::findResizeSlacks(float overflow, vector<dbInst*>& db_insts)
+void Resizer::findResizeSlacks(bool run_journal_restore, vector<dbInst*>& db_insts)
 {
   journalBegin();
   estimateWireParasitics();
@@ -1287,7 +1287,7 @@ void Resizer::findResizeSlacks(float overflow, vector<dbInst*>& db_insts)
   debugPrint(logger_,utl::GPL,"timing",1,"resize_count_:             {:5}", resize_count_);
   debugPrint(logger_,utl::GPL,"timing",1,"cloned_gate_count_:        {:5}", cloned_gate_count_);
   
-  if(overflow>0.3)  
+  if(run_journal_restore)  
     journalRestore(resize_count_, inserted_buffer_count_, cloned_gate_count_); //these get a negative counting because of restoring
   
   debugPrint(logger_,utl::GPL,"timing",1,"--> After journalRestore:");

@@ -756,7 +756,8 @@ class NesterovPlaceVars
   float minPreconditioner = 1.0;            // MIN_PRE
   float initialPrevCoordiUpdateCoef = 100;  // z_ref_alpha
   float referenceHpwl = 446000000;          // refDeltaHpwl
-  float routabilityCheckOverflow = 0.20;
+  float routabilityCheckOverflow = 0.30;
+  float timingDrivenCheckOverflow = 1;
 
   static const int maxRecursionWlCoef = 10;
   static const int maxRecursionInitSLPCoef = 10;

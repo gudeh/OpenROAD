@@ -114,6 +114,7 @@ void Replace::reset()
   routabilityMaxInflationIter_ = 4;
 
   timingDrivenMode_ = true;
+  timingDrivenOverflowKeepRsz_ = 1;
   routabilityDrivenMode_ = true;
   routabilityUseRudy_ = true;
   uniformTargetDensityMode_ = false;
@@ -342,6 +343,7 @@ bool Replace::initNesterovPlace(int threads)
     npVars.maxPhiCoef = maxPhiCoef_;
     npVars.referenceHpwl = referenceHpwl_;
     npVars.routabilityCheckOverflow = routabilityCheckOverflow_;
+    npVars.timingDrivenCheckOverflow = timingDrivenCheckOverflow_;
     npVars.initDensityPenalty = initDensityPenalityFactor_;
     npVars.initWireLengthCoef = initWireLengthCoef_;
     npVars.targetOverflow = overflow_;

@@ -430,8 +430,10 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       //
       // See timingBase.cpp in detail
       log_->info(
-          GPL, 100, "Timing-driven: executing resizer for reweighting nets.");
-      bool shouldTdProceed = tb_->updateGNetWeights(average_overflow_);
+          GPL, 100, "Timing-driven: executing resizer for reweighting nets.");      
+      bool run_journal_restore = (average_overflow_ > npVars_.timingDrivenCheckOverflow);
+      log_->report("current overflow: {}, TD check overflow: {}, virtual rsz: {}",average_overflow_, npVars_.timingDrivenCheckOverflow,run_journal_restore);
+      bool shouldTdProceed = tb_->updateGNetWeights(run_journal_restore);
 
       // problem occured
       // escape timing driven later

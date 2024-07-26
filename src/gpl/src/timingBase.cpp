@@ -142,14 +142,14 @@ void TimingBase::setTimingNetWeightMax(float max)
   net_weight_max_ = max;
 }
 
-bool TimingBase::updateGNetWeights(float overflow)
+bool TimingBase::updateGNetWeights(bool run_journal_restore)
 {
   auto block = rs_->getDbBlock();
 //  log_->report("before -> block->getInsts().size(): {}", block->getInsts().size());
 
 //  std::vector<odb::dbInst*> inserted_buffers_ = rs_->findResizeSlacks(overflow);
 //  inserted_buffers_ = rs_->findResizeSlacks(overflow);
-  rs_->findResizeSlacks(overflow, inserted_buffers_);
+  rs_->findResizeSlacks(run_journal_restore, inserted_buffers_);
 
   log_->report("inserted buffers size as dbInst: {}", inserted_buffers_.size());
 

@@ -72,7 +72,7 @@ class TimingBase
   // updateNetWeight.
   // True: successfully reweighted gnets
   // False: no slacks found
-  bool updateGNetWeights(float overflow);
+  bool updateGNetWeights(bool run_journal_restore);
   
   const std::vector<odb::dbInst*>& getRszInsertedBuffers() { return inserted_buffers_; }
 //  void clearRszInsertedBuffers() { inserted_buffers_.clear(); }
