@@ -153,6 +153,7 @@ bool TimingBase::updateGNetWeights(bool run_journal_restore)
 
   log_->report("inserted buffers size as dbInst: {}", inserted_buffers_.size());
 
+  log_->report("run_journal_restore (virtual resizer): {}", run_journal_restore);
   log_->report("rs_->repair_design-> Resized gates:    {:5}", rs_->repairDesignResizedCount());
   log_->report("rs_->repair_design-> Inserted buffers: {:5}", rs_->repairDesignBufferCount());
   log_->report("rs_->repair_design-> TNS: {:5}", rs_->getTotalNegativeSlack());
