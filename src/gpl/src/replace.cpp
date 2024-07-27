@@ -509,6 +509,11 @@ void Replace::setRoutabilityCheckOverflow(float overflow)
   routabilityCheckOverflow_ = overflow;
 }
 
+void Replace::setTimingDrivenCheckOverflow(float overflow)
+{
+   timingDrivenCheckOverflow_ = overflow;
+}
+
 void Replace::setRoutabilityMaxDensity(float density)
 {
   routabilityMaxDensity_ = density;
