@@ -39,7 +39,6 @@ sta::define_cmd_args "global_placement" {\
     [-disable_timing_driven]\
     [-disable_routability_driven]\
     [-incremental]\
-    [-force_cpu]\
     [-skip_io]\
     [-bin_grid_count grid_count]\
     [-density target_density]\
@@ -60,6 +59,7 @@ sta::define_cmd_args "global_placement" {\
     [-routability_inflation_ratio_coef routability_inflation_ratio_coef]\
     [-routability_max_inflation_ratio routability_max_inflation_ratio]\
     [-routability_rc_coefficients routability_rc_coefficients]\
+    [-keep_resize_below_overflow keep_resize_below_overflow]\
     [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
     [-timing_driven_net_weight_max timing_driven_net_weight_max]\
     [-timing_driven_nets_percentage timing_driven_nets_percentage]\
@@ -83,6 +83,7 @@ proc global_placement { args } {
       -timing_driven_net_reweight_overflow \
       -timing_driven_net_weight_max \
       -timing_driven_nets_percentage \
+      -keep_resize_below_overflow \
       -pad_left -pad_right} \
     flags {-skip_initial_place \
       -skip_nesterov_place \
@@ -92,8 +93,7 @@ proc global_placement { args } {
       -disable_timing_driven \
       -disable_routability_driven \
       -skip_io \
-      -incremental\
-      -force_cpu}
+      -incremental}
 
   # flow control for initial_place
   if { [info exists flags(-skip_initial_place)] } {
@@ -104,8 +104,9 @@ proc global_placement { args } {
     gpl::set_initial_place_max_iter_cmd $initial_place_max_iter
   }
 
-  set force_cpu [info exists flags(-force_cpu)]
-  gpl::set_force_cpu $force_cpu
+  if { [info exists flags(-force_cpu)] } {
+    utl::warn "GPL" 152 "-force_cpu is deprecated."
+  }
 
   set skip_io [info exists flags(-skip_io)]
   gpl::set_skip_io_mode_cmd $skip_io
@@ -133,6 +134,13 @@ proc global_placement { args } {
 
     foreach overflow $overflow_list {
       gpl::add_timing_net_reweight_overflow_cmd $overflow
+    }
+
+    # timing driven check overflow to keep resizer changes (non-virtual resizer)
+    if { [info exists keys(-keep_resize_below_overflow)] } {
+      set keep_resize_below_overflow $keys(-keep_resize_below_overflow)
+      sta::check_positive_float "-keep_resize_below_overflow" $keep_resize_below_overflow
+      gpl::set_keep_resize_below_overflow_cmd $keep_resize_below_overflow
     }
 
     if { [info exists keys(-timing_driven_net_weight_max)] } {
@@ -164,7 +172,7 @@ proc global_placement { args } {
   gpl::set_routability_use_grt $routability_use_grt
   if { $routability_driven } {
     if { $routability_use_grt } {
-      utl::warn "GPL" 152\
+      utl::warn "GPL" 152 \
         "Using GRT FastRoute instead of default RUDY for congestion in routability driven."
     }
   }
@@ -187,7 +195,7 @@ proc global_placement { args } {
     set uniform_mode 1
   } else {
     sta::check_positive_float "-density" $target_density
-    if {$target_density > 1.0} {
+    if { $target_density > 1.0 } {
       utl::error GPL 135 "Target density must be in \[0, 1\]."
     }
     gpl::set_density_cmd $target_density
@@ -343,12 +351,12 @@ proc cluster_flops { args } {
     flags {}
 
   if { [ord::get_db_block] == "NULL" } {
-    utl::error GPL 104 "No design block found."
+    utl::error GPL 113 "No design block found."
   }
 
-  set tray_weight 20.0
-  set timing_weight 1.0
-  set max_split_size 250
+  set tray_weight 32.0
+  set timing_weight 0.1
+  set max_split_size 500
   set num_paths 0
 
   if { [info exists keys(-tray_weight)] } {
@@ -373,10 +381,10 @@ proc cluster_flops { args } {
 proc global_placement_debug { args } {
   sta::parse_key_args "global_placement_debug" args \
     keys {-pause -update -inst} \
-    flags {-draw_bins -initial};# checker off
+    flags {-draw_bins -initial} ;# checker off
 
   if { [ord::get_db_block] == "NULL" } {
-    utl::error GPL 105 "No design block found."
+    utl::error GPL 117 "No design block found."
   }
 
   set pause 10
@@ -404,14 +412,13 @@ proc global_placement_debug { args } {
 
 namespace eval gpl {
 proc get_global_placement_uniform_density { args } {
-
   if { [ord::get_db_block] == "NULL" } {
-    utl::error GPL 106 "No design block found."
+    utl::error GPL 114 "No design block found."
   }
 
   sta::parse_key_args "get_global_placement_uniform_density" args \
     keys { -pad_left -pad_right } \
-    flags {};# checker off
+    flags {} ;# checker off
 
   # no need for init IP, TD and RD
   gpl::set_initial_place_max_iter_cmd 0
@@ -437,11 +444,9 @@ proc get_global_placement_uniform_density { args } {
 
     set uniform_density [gpl::get_global_placement_uniform_density_cmd]
     gpl::replace_reset_cmd
-
   } else {
     utl::error GPL 131 "No rows defined in design. Use initialize_floorplan to add rows."
   }
   return $uniform_density
 }
-
 }

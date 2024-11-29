@@ -1625,7 +1625,7 @@ void TritonPart::BuildTimingPaths()
     expand.path(expand.size() - 1);
     for (size_t i = 0; i < expand.size(); i++) {
       // PathRef is reference to a path vertex
-      sta::PathRef* ref = expand.path(i);
+      const sta::PathRef* ref = expand.path(i);
       sta::Pin* pin = ref->vertex(sta_)->pin();
       // Nets connect pins at a level of the hierarchy
       auto net = network_->net(pin);  // sta::Net*
@@ -2020,8 +2020,10 @@ void TritonPart::MultiLevelPartition()
 
   // Perform the last-minute refinement
   tritonpart_coarsener->SetThrCoarsenHyperedgeSizeSkip(global_net_threshold_);
-  tritonpart_mlevel_partitioner->VcycleRefinement(
-      hypergraph_, upper_block_balance, lower_block_balance, solution_);
+  tritonpart_mlevel_partitioner->VcycleRefinement(original_hypergraph_,
+                                                  upper_block_balance,
+                                                  lower_block_balance,
+                                                  solution_);
 
   // evaluate on the original hypergraph
   // tritonpart_evaluator->CutEvaluator(original_hypergraph_, solution_, true);

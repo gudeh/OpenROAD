@@ -37,7 +37,6 @@
 
 #include <iostream>
 #include <map>
-#include <memory>
 #include <random>
 #include <set>
 #include <string>
@@ -67,6 +66,9 @@ namespace mpl2 {
 struct Rect;
 class HardMacro;
 class SoftMacro;
+class Cluster;
+
+using UniqueClusterVector = std::vector<std::unique_ptr<Cluster>>;
 
 // ****************************************************************************
 // This file includes the basic functions and basic classes for the HierRTLMP
@@ -145,6 +147,7 @@ class Metrics
   float getStdCellArea() const;
   float getMacroArea() const;
   float getArea() const;
+  bool empty() const;
 
  private:
   // In the hierarchical autoclustering part,
@@ -184,6 +187,7 @@ class Cluster
   void addDbModule(odb::dbModule* db_module);
   void addLeafStdCell(odb::dbInst* leaf_std_cell);
   void addLeafMacro(odb::dbInst* leaf_macro);
+  void addLeafInst(odb::dbInst* inst);
   void specifyHardMacros(std::vector<HardMacro*>& hard_macros);
   const std::vector<odb::dbModule*> getDbModules() const;
   const std::vector<odb::dbInst*> getLeafStdCells() const;
@@ -202,6 +206,8 @@ class Cluster
   bool isIOCluster() const;
   void setAsArrayOfInterconnectedMacros();
   bool isArrayOfInterconnectedMacros() const;
+  bool isEmpty() const;
+  bool correspondsToLogicalModule() const;
 
   // Metrics Support
   void setMetrics(const Metrics& metrics);
@@ -220,20 +226,20 @@ class Cluster
   void setX(float x);
   void setY(float y);
   const std::pair<float, float> getLocation() const;
+  Rect getBBox() const;
 
   // Hierarchy Support
   void setParent(Cluster* parent);
-  void addChild(Cluster* child);
-  void removeChild(const Cluster* child);
-  void addChildren(const std::vector<Cluster*>& children);
-  void removeChildren();
+  void addChild(std::unique_ptr<Cluster> child);
+  std::unique_ptr<Cluster> releaseChild(const Cluster* candidate);
+  void addChildren(UniqueClusterVector children);
+  UniqueClusterVector releaseChildren();
   Cluster* getParent() const;
-  std::vector<Cluster*> getChildren() const;
+  const UniqueClusterVector& getChildren() const;
 
   bool isLeaf() const;  // if the cluster is a leaf cluster
   std::string getIsLeafString() const;
-  bool mergeCluster(Cluster& cluster,
-                    bool& delete_flag);  // return true if succeed
+  bool attemptMerge(Cluster* incomer, bool& incomer_deleted);
 
   // Connection signature support
   void initConnection();
@@ -268,7 +274,7 @@ class Cluster
   void printBasicInformation(utl::Logger* logger) const;
 
   // Macro Placement Support
-  void setSoftMacro(SoftMacro* soft_macro);
+  void setSoftMacro(std::unique_ptr<SoftMacro> soft_macro);
   SoftMacro* getSoftMacro() const;
 
   void setMacroTilings(const std::vector<std::pair<float, float>>& tilings);
@@ -305,8 +311,8 @@ class Cluster
 
   // Each cluster is a node in the physical hierarchy tree
   // Thus we need to define related to parent and children pointers
-  Cluster* parent_ = nullptr;       // parent of current cluster
-  std::vector<Cluster*> children_;  // children of current cluster
+  Cluster* parent_ = nullptr;  // parent of current cluster
+  UniqueClusterVector children_;
 
   // macro tilings for hard macros
   std::vector<std::pair<float, float>> macro_tilings_;  // <width, height>
@@ -520,6 +526,7 @@ class SoftMacro
   float getWidth() const { return width_; }
   float getHeight() const { return height_; }
   float getArea() const;
+  Rect getBBox() const;
   // Num Macros
   bool isMacroCluster() const;
   bool isStdCellCluster() const;

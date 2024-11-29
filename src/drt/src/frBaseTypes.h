@@ -208,7 +208,10 @@ enum class frConstraintTypeEnum
   frcLef58TwoWiresForbiddenSpcConstraint,
   frcLef58ForbiddenSpcConstraint,
   frcLef58EnclosureConstraint,
-  frcSpacingRangeConstraint
+  frcSpacingRangeConstraint,
+  frcLef58MaxSpacingConstraint,
+  frcSpacingTableOrth,
+  frcLef58WidthTableOrth
 };
 
 std::ostream& operator<<(std::ostream& os, frConstraintTypeEnum type);
@@ -272,6 +275,12 @@ static constexpr frDirEnum frDirEnumAll[] = {frDirEnum::D,
 static constexpr frDirEnum frDirEnumPlanar[]
     = {frDirEnum::S, frDirEnum::W, frDirEnum::E, frDirEnum::N};
 
+static constexpr frDirEnum frDirEnumVia[] = {frDirEnum::U, frDirEnum::D};
+
+static constexpr frDirEnum frDirEnumVert[] = {frDirEnum::N, frDirEnum::S};
+
+static constexpr frDirEnum frDirEnumHorz[] = {frDirEnum::W, frDirEnum::E};
+
 enum class AccessPointTypeEnum
 {
   Ideal,
@@ -295,7 +304,8 @@ enum class RipUpMode
   DRC = 0,
   ALL = 1,
   NEARDRC = 2,
-  INCR = 3
+  INCR = 3,
+  VIASWAP = 4
 };
 
 namespace bg = boost::geometry;

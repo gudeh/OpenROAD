@@ -121,6 +121,8 @@ bool MacroPlacer2::place(const int num_threads,
   hier_rtlmp_->setBusPlanningOn(bus_planning_on);
   hier_rtlmp_->setReportDirectory(report_directory);
   hier_rtlmp_->setNumThreads(num_threads);
+
+  hier_rtlmp_->init();
   hier_rtlmp_->run();
 
   return true;
@@ -144,8 +146,17 @@ void MacroPlacer2::placeMacro(odb::dbInst* inst,
   if (!core_area.contains(macro_new_bbox)) {
     logger_->error(MPL,
                    34,
-                   "Specified location results in illegal placement. Cannot "
-                   "place macro outside of the core.");
+                   "Cannot place {} at ({}, {}) ({}, {}), outside of the core "
+                   "({}, {}) ({}, {}).",
+                   inst->getName(),
+                   block->dbuToMicrons(macro_new_bbox.xMin()),
+                   block->dbuToMicrons(macro_new_bbox.yMin()),
+                   block->dbuToMicrons(macro_new_bbox.xMax()),
+                   block->dbuToMicrons(macro_new_bbox.yMax()),
+                   block->dbuToMicrons(core_area.xMin()),
+                   block->dbuToMicrons(core_area.yMin()),
+                   block->dbuToMicrons(core_area.xMax()),
+                   block->dbuToMicrons(core_area.yMax()));
   }
 
   // Orientation must be set before location so we don't end up flipping
@@ -154,7 +165,7 @@ void MacroPlacer2::placeMacro(odb::dbInst* inst,
   inst->setLocation(x1, y1);
 
   if (!orientation.isRightAngleRotation()) {
-    Snapper snapper(inst);
+    Snapper snapper(logger_, inst);
     snapper.snapMacro();
   } else {
     logger_->warn(
@@ -192,6 +203,25 @@ void MacroPlacer2::setDebug(std::unique_ptr<Mpl2Observer>& graphics)
 void MacroPlacer2::setDebugShowBundledNets(bool show_bundled_nets)
 {
   hier_rtlmp_->setDebugShowBundledNets(show_bundled_nets);
+}
+void MacroPlacer2::setDebugShowClustersIds(bool show_clusters_ids)
+{
+  hier_rtlmp_->setDebugShowClustersIds(show_clusters_ids);
+}
+
+void MacroPlacer2::setDebugSkipSteps(bool skip_steps)
+{
+  hier_rtlmp_->setDebugSkipSteps(skip_steps);
+}
+
+void MacroPlacer2::setDebugOnlyFinalResult(bool only_final_result)
+{
+  hier_rtlmp_->setDebugOnlyFinalResult(only_final_result);
+}
+
+void MacroPlacer2::setDebugTargetClusterId(const int target_cluster_id)
+{
+  hier_rtlmp_->setDebugTargetClusterId(target_cluster_id);
 }
 
 }  // namespace mpl2

@@ -345,10 +345,7 @@ bool use_interface_cell(utl::Logger* logger,
 bool set_domain_area(utl::Logger* logger,
                      odb::dbBlock* block,
                      const std::string& domain,
-                     float x1,
-                     float y1,
-                     float x2,
-                     float y2)
+                     const odb::Rect& area)
 {
   odb::dbPowerDomain* pd = block->findPowerDomain(domain.c_str());
   if (pd == nullptr) {
@@ -359,7 +356,7 @@ bool set_domain_area(utl::Logger* logger,
     return false;
   }
 
-  pd->setArea(x1, y1, x2, y2);
+  pd->setArea(area);
 
   return true;
 }
@@ -491,9 +488,10 @@ static bool associate_groups(
     }
     region->setRegionType(odb::dbRegionType::EXCLUSIVE);
     // Specifying region area
-    int x1, x2, y1, y2;
-    if (domain->getArea(x1, y1, x2, y2)) {
-      odb::dbBox::create(region, x1, y1, x2, y2);
+    odb::Rect area;
+    if (domain->getArea(area)) {
+      odb::dbBox::create(
+          region, area.xMin(), area.yMin(), area.xMax(), area.yMax());
     } else {
       logger->warn(utl::UPF,
                    21,
@@ -521,10 +519,18 @@ static bool instantiate_logic_ports(utl::Logger* logger, odb::dbBlock* block)
   bool success = true;
   auto lps = block->getLogicPorts();
   for (auto&& port : lps) {
-    if (!odb::dbNet::create(block, port->getName())) {
+    auto net = odb::dbNet::create(block, port->getName());
+    if (!net) {
       logger->warn(utl::UPF,
                    23,
                    "Creation of '{}' dbNet from UPF Logic Port failed",
+                   port->getName());
+      success = false;
+    }
+    if (success && !odb::dbBTerm::create(net, port->getName())) {
+      logger->warn(utl::UPF,
+                   45,
+                   "Creation of '{}' dbBTerm from UPF Logic Port failed",
                    port->getName());
       success = false;
     }
@@ -754,6 +760,9 @@ static bool insert_isolation_cell(odb::dbBlock* block,
     inv_inst->getITerm(input_m)->connect(inverted_out_net);
     output_iterm->connect(inverted_out_net);
 
+    if (target_group) {
+      target_group->addInst(inv_inst);
+    }
   } else {
     output_iterm->connect(output_net);
   }
@@ -772,6 +781,9 @@ static bool insert_isolation_cell(odb::dbBlock* block,
     inv_inst->getITerm(output_m)->connect(inverted_control_net);
     enable_iterm->connect(inverted_control_net);
 
+    if (target_group) {
+      target_group->addInst(inv_inst);
+    }
   } else {
     enable_iterm->connect(control_net);
   }

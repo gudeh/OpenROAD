@@ -257,6 +257,8 @@ using odb::dbTech;
 //
 ////////////////////////////////////////////////////////////////
 
+%include <std_string.i>
+
 #ifdef SWIGTCL
 %include "Exception.i"
 
@@ -397,10 +399,10 @@ write_cdl_cmd(const char *outFilename,
 }
 
 void
-read_db_cmd(const char *filename)
+read_db_cmd(const char *filename, bool hierarchy)
 {
   OpenRoad *ord = getOpenRoad();
-  ord->readDb(filename);
+  ord->readDb(filename,hierarchy);
 }
 
 void
@@ -612,6 +614,18 @@ void design_created()
 {
   OpenRoad *ord = getOpenRoad();
   ord->designCreated();
+}
+
+std::string get_exe_path()
+{
+  OpenRoad *ord = getOpenRoad();
+  return ord->getExePath();
+}
+
+std::string get_docs_path()
+{
+  OpenRoad *ord = getOpenRoad();
+  return ord->getDocsPath();
 }
 
 }

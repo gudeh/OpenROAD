@@ -165,7 +165,10 @@ class OpenRoad
   // Tools should use their initialization functions to get the
   // OpenRoad object and/or any other tools they need to reference.
   static OpenRoad* openRoad();
-  void init(Tcl_Interp* tcl_interp);
+  static void setOpenRoad(OpenRoad* app, bool reinit_ok = false);
+  void init(Tcl_Interp* tcl_interp,
+            const char* log_filename,
+            const char* metrics_filename);
 
   Tcl_Interp* tclInterp() { return tcl_interp_; }
   utl::Logger* getLogger() { return logger_; }
@@ -234,7 +237,9 @@ class OpenRoad
   // to notify the tools (eg dbSta, gui).
   void designCreated();
 
-  void readDb(const char* filename);
+  void readDb(std::istream& stream);
+  void readDb(const char* filename, bool hierarchy = false);
+  void writeDb(std::ostream& stream);
   void writeDb(const char* filename);
 
   void diffDbs(const char* filename1, const char* filename2, const char* diffs);
@@ -245,6 +250,9 @@ class OpenRoad
 
   void addObserver(OpenRoadObserver* observer);
   void removeObserver(OpenRoadObserver* observer);
+
+  std::string getExePath() const;
+  std::string getDocsPath() const;
 
   static const char* getVersion();
   static const char* getGitDescribe();
@@ -291,8 +299,13 @@ class OpenRoad
   std::set<OpenRoadObserver*> observers_;
 
   int threads_ = 1;
+
+  static OpenRoad* app_;
+
+  friend class Tech;
 };
 
 int tclAppInit(Tcl_Interp* interp);
+int tclInit(Tcl_Interp* interp);
 
 }  // namespace ord

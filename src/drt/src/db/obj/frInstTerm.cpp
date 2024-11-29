@@ -52,30 +52,19 @@ bool frInstTerm::hasAccessPoint(frCoord x, frCoord y, frLayerNum lNum)
   return getAccessPoint(x, y, lNum) != nullptr;
 }
 
-void frInstTerm::getShapes(std::vector<frRect>& outShapes,
-                           bool updatedTransform)
+void frInstTerm::getShapes(std::vector<frRect>& outShapes) const
 {
   term_->getShapes(outShapes);
   for (auto& shape : outShapes) {
-    dbTransform trans;
-    if (updatedTransform) {
-      trans = getInst()->getUpdatedXform();
-    } else {
-      trans = getInst()->getTransform();
-    }
+    dbTransform trans = getInst()->getDBTransform();
     shape.move(trans);
   }
 }
 
-Rect frInstTerm::getBBox(bool updatedTransform)
+Rect frInstTerm::getBBox() const
 {
   Rect bbox(term_->getBBox());
-  dbTransform trans;
-  if (updatedTransform) {
-    trans = getInst()->getUpdatedXform();
-  } else {
-    trans = getInst()->getTransform();
-  }
+  dbTransform trans = getInst()->getDBTransform();
   trans.apply(bbox);
   return bbox;
 }

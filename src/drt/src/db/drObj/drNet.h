@@ -43,17 +43,17 @@ class drNet : public drBlockObject
 {
  public:
   // constructors
-  drNet(frNet* net) : fNet_(net)
+  drNet(frNet* net, RouterConfiguration* router_cfg) : fNet_(net)
   {
     if (hasNDR()) {
-      maxRipupAvoids_ = NDR_NETS_RIPUP_HARDINESS;
+      maxRipupAvoids_ = router_cfg->NDR_NETS_RIPUP_HARDINESS;
     }
     if (isClockNetTrunk()) {
-      maxRipupAvoids_
-          = std::max((int) maxRipupAvoids_, CLOCK_NETS_TRUNK_RIPUP_HARDINESS);
+      maxRipupAvoids_ = std::max((int) maxRipupAvoids_,
+                                 router_cfg->CLOCK_NETS_TRUNK_RIPUP_HARDINESS);
     } else if (isClockNetLeaf()) {
-      maxRipupAvoids_
-          = std::max((int) maxRipupAvoids_, CLOCK_NETS_LEAF_RIPUP_HARDINESS);
+      maxRipupAvoids_ = std::max((int) maxRipupAvoids_,
+                                 router_cfg->CLOCK_NETS_LEAF_RIPUP_HARDINESS);
     }
   }
   // getters
@@ -118,6 +118,7 @@ class drNet : public drBlockObject
     modified_ = true;
     numMarkers_ = 0;
     routed_ = false;
+    ext_figs_updates_.clear();
   }
   bool isClockNet() const;
   bool isClockNetTrunk() const
@@ -148,7 +149,7 @@ class drNet : public drBlockObject
   void resetInQueue() { inQueue_ = false; }
   void setRouted() { routed_ = true; }
   void resetRouted() { routed_ = false; }
-  void setOrigGuides(std::vector<frRect>& in)
+  void setOrigGuides(const std::vector<frRect>& in)
   {
     origGuides_.assign(in.begin(), in.end());
   }
@@ -173,6 +174,45 @@ class drNet : public drBlockObject
                                   frCoord y,
                                   frLayerNum lNum,
                                   frBlockObject** owner = nullptr);
+  void updateExtFigStyle(const Point3D& pt, const frSegStyle& style)
+  {
+    ext_figs_updates_[pt].is_via = false;
+    ext_figs_updates_[pt].updated_style = style;
+  }
+  void updateExtFigConnected(const Point3D& pt,
+                             const bool is_bottom_connected,
+                             const bool is_top_connected)
+  {
+    ext_figs_updates_[pt].is_via = true;
+    ext_figs_updates_[pt].is_bottom_connected = is_bottom_connected;
+    ext_figs_updates_[pt].is_top_connected = is_top_connected;
+  }
+  bool hasExtFigUpdates() const { return !ext_figs_updates_.empty(); }
+  std::vector<Point3D> getExtFigsUpdatesLocs() const
+  {
+    std::vector<Point3D> locs;
+    locs.reserve(ext_figs_updates_.size());
+    std::transform(ext_figs_updates_.begin(),
+                   ext_figs_updates_.end(),
+                   std::back_inserter(locs),
+                   [](const auto& pair) { return pair.first; });
+    return locs;
+  }
+  bool isExtFigUpdateVia(const Point3D& loc) const
+  {
+    return ext_figs_updates_.at(loc).is_via;
+  }
+  void getExtFigUpdate(const Point3D& loc, frSegStyle& style) const
+  {
+    style = ext_figs_updates_.at(loc).updated_style;
+  }
+  void getExtFigUpdate(const Point3D& loc,
+                       bool& is_bottom_connected,
+                       bool& is_top_connected) const
+  {
+    is_bottom_connected = ext_figs_updates_.at(loc).is_bottom_connected;
+    is_top_connected = ext_figs_updates_.at(loc).is_top_connected;
+  }
 
  private:
   drNet() = default;  // for serialization
@@ -201,6 +241,20 @@ class drNet : public drBlockObject
 
   std::vector<frRect> origGuides_;
   uint16_t priority_{0};
+  struct ExtFigUpdate
+  {
+    frSegStyle updated_style;
+    bool is_bottom_connected{false};
+    bool is_top_connected{false};
+    bool is_via{false};
+
+   private:
+    template <class Archive>
+    void serialize(Archive& ar, unsigned int version);
+
+    friend class boost::serialization::access;
+  };
+  std::map<Point3D, ExtFigUpdate> ext_figs_updates_;
 
   template <class Archive>
   void serialize(Archive& ar, unsigned int version);

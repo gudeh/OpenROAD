@@ -35,8 +35,6 @@
 
 namespace dpl {
 
-Cell Cell::dummy_cell;
-
 const char* Cell::name() const
 {
   return db_inst_->getConstName();
@@ -133,7 +131,6 @@ bool Cell::isStdCell() const
     case dbMasterType::PAD_INOUT:
     case dbMasterType::PAD_POWER:
     case dbMasterType::PAD_SPACER:
-    case dbMasterType::NONE:
       return false;
   }
   // gcc warniing

@@ -147,19 +147,19 @@ replace_incremental_place_cmd()
 }
 
 
-void
-set_force_cpu(bool force_cpu)
-{
-  Replace* replace = getReplace();
-  replace->setForceCPU(force_cpu);
-}
-
 void set_timing_driven_mode(bool timing_driven)
 {
   Replace* replace = getReplace();
   replace->setTimingDrivenMode(timing_driven);
 }
 
+
+void
+set_keep_resize_below_overflow_cmd(float overflow) 
+{
+  Replace* replace = getReplace();
+  replace->setKeepResizeBelowOverflow(overflow);
+}
 
 void
 set_routability_driven_mode(bool routability_driven)
@@ -181,7 +181,7 @@ set_routability_check_overflow_cmd(float overflow)
   Replace* replace = getReplace();
   replace->setRoutabilityCheckOverflow(overflow);
 }
-
+ 
 void
 set_routability_max_density_cmd(float density) 
 {

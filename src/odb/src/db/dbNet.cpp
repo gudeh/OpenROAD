@@ -2054,7 +2054,6 @@ dbRSeg* dbNet::findRSeg(uint srcn, uint tgtn)
   return nullptr;
 }
 
-int ttttsv = 0;
 void dbNet::createZeroRc(bool foreign)
 {
   dbCapNode* cap1 = dbCapNode::create(this, 1, foreign);
@@ -2063,10 +2062,6 @@ void dbNet::createZeroRc(bool foreign)
   cap1->setNode(iterm->getId());
   dbCapNode* cap2 = dbCapNode::create(this, 2, foreign);
   cap2->setInternalFlag();
-  if (ttttsv) {
-    cap1->setCapacitance(0.0001, 0);
-    cap2->setCapacitance(0.0001, 0);
-  }
   dbRSeg* rseg1 = dbRSeg::create(
       this, 0 /*x*/, 0 /*y*/, 0 /*path_dir*/, !foreign /*allocate_cap*/);
   dbRSeg* rseg0 = dbRSeg::create(
@@ -2075,10 +2070,6 @@ void dbNet::createZeroRc(bool foreign)
   rseg0->setTargetNode(cap1->getId());
   rseg1->setSourceNode(cap1->getId());
   rseg1->setTargetNode(cap2->getId());
-  if (ttttsv) {
-    rseg1->setResistance(1.0, 0);
-  }
-  // rseg1->setCapacitance(0.0001, 0);
 }
 
 void dbNet::set1stRSegId(uint rid)
@@ -3075,6 +3066,7 @@ dbNet* dbNet::create(dbBlock* block_, const char* name_, bool skipExistingCheck)
     return nullptr;
   }
 
+  _dbNet* net = block->_net_tbl->create();
   if (block->_journal) {
     debugPrint(block->getImpl()->getLogger(),
                utl::ODB,
@@ -3085,10 +3077,10 @@ dbNet* dbNet::create(dbBlock* block_, const char* name_, bool skipExistingCheck)
     block->_journal->beginAction(dbJournal::CREATE_OBJECT);
     block->_journal->pushParam(dbNetObj);
     block->_journal->pushParam(name_);
+    block->_journal->pushParam(net->getOID());
     block->_journal->endAction();
   }
 
-  _dbNet* net = block->_net_tbl->create();
   net->_name = strdup(name_);
   ZALLOCATED(net->_name);
   block->_net_hash.insert(net);
@@ -3122,18 +3114,12 @@ void dbNet::destroy(dbNet* net_)
   }
 
   dbSet<dbBTerm> bterms = net_->getBTerms();
-
-  dbSet<dbBTerm>::iterator bitr;
-
-  for (bitr = bterms.begin(); bitr != bterms.end();) {
+  for (auto bitr = bterms.begin(); bitr != bterms.end();) {
     bitr = dbBTerm::destroy(bitr);
   }
 
   dbSet<dbSWire> swires = net_->getSWires();
-  ;
-  dbSet<dbSWire>::iterator sitr;
-
-  for (sitr = swires.begin(); sitr != swires.end();) {
+  for (auto sitr = swires.begin(); sitr != swires.end();) {
     sitr = dbSWire::destroy(sitr);
   }
 
@@ -3147,6 +3133,11 @@ void dbNet::destroy(dbNet* net_)
     group->removeNet(net_);
   }
 
+  dbSet<dbGuide> guides = net_->getGuides();
+  for (auto gitr = guides.begin(); gitr != guides.end();) {
+    gitr = dbGuide::destroy(gitr);
+  }
+
   if (block->_journal) {
     debugPrint(block->getImpl()->getLogger(),
                utl::ODB,
@@ -3156,7 +3147,11 @@ void dbNet::destroy(dbNet* net_)
                net->getId());
     block->_journal->beginAction(dbJournal::DELETE_OBJECT);
     block->_journal->pushParam(dbNetObj);
-    block->_journal->pushParam(net->getId());
+    block->_journal->pushParam(net_->getName());
+    block->_journal->pushParam(net->getOID());
+    uint* flags = (uint*) &net->_flags;
+    block->_journal->pushParam(*flags);
+    block->_journal->pushParam(net->_non_default_rule);
     block->_journal->endAction();
   }
 
@@ -3195,6 +3190,35 @@ dbNet* dbNet::getValidNet(dbBlock* block_, uint dbid_)
     return nullptr;
   }
   return (dbNet*) block->_net_tbl->getPtr(dbid_);
+}
+
+void dbNet::mergeNet(dbNet* in_net)
+{
+  _dbNet* net = (_dbNet*) this;
+  _dbBlock* block = (_dbBlock*) net->getOwner();
+  for (auto callback : block->_callbacks) {
+    callback->inDbNetPreMerge(this, in_net);
+  }
+
+  std::vector<dbITerm*> iterms;
+  for (dbITerm* iterm : in_net->getITerms()) {
+    iterm->disconnect();
+    iterms.push_back(iterm);
+  }
+
+  for (dbITerm* iterm : iterms) {
+    iterm->connect(this);
+  }
+
+  std::vector<dbBTerm*> bterms;
+  for (dbBTerm* bterm : in_net->getBTerms()) {
+    bterm->disconnect();
+    bterms.push_back(bterm);
+  }
+
+  for (dbBTerm* bterm : bterms) {
+    bterm->connect(this);
+  }
 }
 
 void dbNet::markNets(std::vector<dbNet*>& nets, dbBlock* block, bool mk)

@@ -36,6 +36,7 @@
 #include <QCloseEvent>
 #include <QLabel>
 #include <QMainWindow>
+#include <QShortcut>
 #include <QToolBar>
 #include <memory>
 
@@ -71,6 +72,7 @@ class DRCWidget;
 class ClockWidget;
 class BrowserWidget;
 class ChartsWidget;
+class HelpWidget;
 
 // This is the main window for the GUI.  Currently we use a single
 // instance of this class.
@@ -79,11 +81,11 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   Q_OBJECT
 
  public:
-  MainWindow(QWidget* parent = nullptr);
+  MainWindow(bool load_settings = true, QWidget* parent = nullptr);
   ~MainWindow();
 
   void setDatabase(odb::dbDatabase* db);
-  void init(sta::dbSta* sta);
+  void init(sta::dbSta* sta, const std::string& help_path);
 
   odb::dbDatabase* getDb() const { return db_; }
 
@@ -105,6 +107,7 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   ClockWidget* getClockViewer() const { return clock_viewer_; }
   ScriptWidget* getScriptWidget() const { return script_; }
   Inspector* getInspector() const { return inspector_; }
+  HelpWidget* getHelpViewer() const { return help_widget_; }
 
   std::vector<std::string> getRestoreTclCommands();
 
@@ -137,6 +140,12 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
 
   void displayUnitsChanged(int dbu_per_micron, bool useDBU);
 
+  // Find selection in the CTS Viewer
+  void findInCts(const Selected& selection);
+
+  // Find selections in the CTS Viewer
+  void findInCts(const SelectionSet& selection);
+
  public slots:
   // Save the current state into settings for the next session.
   void saveSettings();
@@ -148,10 +157,10 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   void updateSelectedStatus(const Selected& selection);
 
   // Add to the selection
-  void addSelected(const Selected& selection);
+  void addSelected(const Selected& selection, bool find_in_cts = false);
 
   // Add the selections to the current selections
-  void addSelected(const SelectionSet& selections);
+  void addSelected(const SelectionSet& selections, bool find_in_cts = false);
 
   // Sets and replaces the current selections
   void setSelected(const SelectionSet& selections);
@@ -257,11 +266,15 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   void setUseDBU(bool use_dbu);
   void setClearLocation();
   void showApplicationFont();
+  void showArrowKeysScrollStep();
   void showGlobalConnect();
   void openDesign();
+  void saveDesign();
 #ifdef ENABLE_CHARTS
-  void reportSlackHistogramPaths(const std::set<const sta::Pin*>& report_pins);
+  void reportSlackHistogramPaths(const std::set<const sta::Pin*>& report_pins,
+                                 const std::string& path_group_name);
 #endif
+  void enableDeveloper();
 
  protected:
   // used to check if user intends to close Openroad or just the GUI.
@@ -293,6 +306,8 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   HighlightSet highlighted_;
   Rulers rulers_;
 
+  int arrow_keys_scroll_step_;
+
   // All but viewer_ are owned by this widget.  Qt will
   // handle destroying the children.
   DisplayControls* controls_;
@@ -305,6 +320,7 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   ClockWidget* clock_viewer_;
   BrowserWidget* hierarchy_widget_;
   ChartsWidget* charts_widget_;
+  HelpWidget* help_widget_;
 
   FindObjectDialog* find_dialog_;
   GotoLocationDialog* goto_dialog_;
@@ -317,6 +333,7 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   QToolBar* view_tool_bar_;
 
   QAction* open_;
+  QAction* save_;
   QAction* exit_;
   QAction* hide_option_;
   QAction* hide_;
@@ -330,9 +347,14 @@ class MainWindow : public QMainWindow, public ord::OpenRoadObserver
   QAction* help_;
   QAction* build_ruler_;
   QAction* show_dbu_;
+  QAction* show_poly_decomp_view_;
   QAction* default_ruler_style_;
+  QAction* default_mouse_wheel_zoom_;
+  QAction* arrow_keys_scroll_step_dialog_;
   QAction* font_;
   QAction* global_connect_;
+
+  QShortcut* enable_developer_mode_;
 
   QLabel* location_;
 
