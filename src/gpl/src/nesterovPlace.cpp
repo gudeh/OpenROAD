@@ -498,12 +498,6 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       }
     }
 
-    // diverge detection on
-    // large max_phi_cof value + large design
-    //
-    // 1) happen overflow < 20%
-    // 2) Hpwl is growing
-
     int numDiverge = 0;
     for (auto& nb : nbVec_) {
       numDiverge += nb->checkDivergence();
@@ -595,12 +589,15 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       // log_->report("[NesterovSolve] Finished, all regions converged");
       break;
     }
-  }
+    updateDb();
+  } //end gpl iter loop
+
   // in all case including diverge,
   // db should be updated.
   updateDb();
 
   if (isDiverged_) {
+    log_->report("Divergence at iteration:{}", iter);
     log_->error(GPL, divergeCode_, divergeMsg_);
   }
 

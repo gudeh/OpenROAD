@@ -1439,7 +1439,7 @@ void NesterovBaseCommon::fixPointers()
           size_t gpin_index = it->second;
           gCell.addGPin(&gPinStor_[gpin_index]);
         } else {
-          log_->report("error: gpin nullptr (from iterm:{}) in gcell:{}",
+          log_->report("warning: gpin nullptr (from iterm:{}) in gcell:{}",
                        iterm->getName(),
                        gCell.instance()->dbInst()->getName());
         }
@@ -1463,7 +1463,7 @@ void NesterovBaseCommon::fixPointers()
         if (net_it != db_net_map_.end()) {
           gPin.setGNet(&gNetStor_[net_it->second]);
         } else {
-          log_->report("Net not found in db_net_map_ for ITerm: {} -> {}",
+          log_->report("warning: Net not found in db_net_map_ for ITerm: {} -> {}",
                        iterm->getNet()->getName(),
                        iterm->getName());
         }
@@ -2463,22 +2463,33 @@ void NesterovBase::updateNextIter(const int iter)
   float phiCoef = getPhiCoef(static_cast<float>(hpwl - prevHpwl_)
                              / npVars_->referenceHpwl);
 
-  prevHpwl_ = hpwl;
-  densityPenalty_ *= phiCoef;
-
-  debugPrint(log_, GPL, "updateNextIter", 1, "PhiCoef: {:g}", phiCoef);
-
+  float percentageChange = 0.0;
   if (iter == 0 || (iter + 1) % 10 == 0) {
+    if (prevTenthHpwl_ != 0) {
+      percentageChange = (static_cast<double>(hpwl - prevTenthHpwl_) / static_cast<double>(prevTenthHpwl_)) * 100.0;
+    }
+
+    prevTenthHpwl_ = hpwl;
+
     std::string group;
     if (pb_->group()) {
       group = fmt::format(" ({})", pb_->group()->getName());
     }
-    log_->report("[NesterovSolve] Iter: {:4d} overflow: {:.3f} HPWL: {}{}",
-                 iter + 1,
-                 sumOverflowUnscaled_,
-                 prevHpwl_,
-                 group);
+
+    log_->report(
+        "[NesterovSolve] Iter: {:4d} overflow: {:.3f} HPWL: {} ({:+.2f}%){}",
+        iter + 1,
+        sumOverflowUnscaled_,
+        hpwl,
+        percentageChange,
+        group);
   }
+
+// Update prevHpwl_ for all iterations
+prevHpwl_ = hpwl;
+densityPenalty_ *= phiCoef;
+
+debugPrint(log_, GPL, "updateNextIter", 1, "PhiCoef: {:g}", phiCoef);
 
   if (iter > 50 && minSumOverflow_ > sumOverflowUnscaled_) {
     minSumOverflow_ = sumOverflowUnscaled_;
@@ -2855,6 +2866,7 @@ void NesterovBaseCommon::createITerm(odb::dbITerm* iTerm)
 //  maintaining consistency in NBC::gcellStor_ and NB::gCells_
 void NesterovBase::destroyGCell(odb::dbInst* db_inst)
 {
+  log_->report("destroyGCell called: {}", db_inst->getName());
   auto db_it = db_inst_index_map_.find(db_inst);
   if (db_it != db_inst_index_map_.end()) {
     size_t last_index = gCells_.size() - 1;

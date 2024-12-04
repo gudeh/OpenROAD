@@ -1064,6 +1064,11 @@ class NesterovBase
   void snapshot();
 
   bool checkConvergence();
+  // diverge detection on
+  // large max_phi_cof value + large design
+  //
+  // 1) happen overflow < 20%
+  // 2) Hpwl is growing
   bool checkDivergence();
   bool revertDivergence();
 
@@ -1174,6 +1179,7 @@ class NesterovBase
 
   // half-parameter-wire-length
   int64_t prevHpwl_ = 0;
+  int64_t prevTenthHpwl_ = 0;
 
   float isDiverged_ = false;
 
