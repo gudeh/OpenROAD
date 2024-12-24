@@ -460,7 +460,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       }
 
       auto block = pbc_->db()->getChip()->getBlock();
-      bool shouldTdProceed = tb_->updateGNetWeights(virtual_td_iter);
+      bool shouldTdProceed = tb_->updateGNetWeights(virtual_td_iter, nbVec_);
 
       if (!virtual_td_iter) {
         for (auto& nesterov : nbVec_) {
@@ -486,6 +486,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
                      "Timing-driven: new target density: {}",
                      nesterov->targetDensity());
           nbc_->resetDeltaArea();
+          log_->report("");
           nesterov->updateAreas();
           nesterov->updateDensitySize();
         }

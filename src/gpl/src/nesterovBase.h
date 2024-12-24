@@ -1091,6 +1091,7 @@ class NesterovBase
   // Must be called after fixPointers() to initialize internal values of gcells,
   // including parallel vectors.
   void updateGCellState(float wlCoeffX, float wlCoeffY);
+  void removeFillerGCells(int64_t areaToRemove);
 
  private:
   NesterovBaseVars nbVars_;
@@ -1195,7 +1196,7 @@ class NesterovBase
   std::vector<FloatPoint> snapshotSLPSumGrads_;
   float snapshotDensityPenalty_ = 0;
   float snapshotStepLength_ = 0;
-
+  
   void initFillerGCells();
 
   void swapAndPop(std::vector<FloatPoint>& vec,

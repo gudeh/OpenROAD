@@ -47,6 +47,7 @@ class Logger;
 namespace gpl {
 
 class NesterovBaseCommon;
+class NesterovBase;
 class GNet;
 
 class TimingBase
@@ -70,7 +71,7 @@ class TimingBase
   // updateNetWeight.
   // True: successfully reweighted gnets
   // False: no slacks found
-  bool updateGNetWeights(bool run_journal_restore);
+  bool updateGNetWeights(bool run_journal_restore, std::vector<std::shared_ptr<NesterovBase>>& nbvec);
 
  private:
   rsz::Resizer* rs_ = nullptr;

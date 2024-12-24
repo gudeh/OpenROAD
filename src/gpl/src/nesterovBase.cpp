@@ -1600,6 +1600,17 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
   updateDensitySize();
 }
 
+void NesterovBase::removeFillerGCells(int64_t areaToRemove) {  
+  while(areaToRemove > 0){
+    fillerStor_.pop_back();
+    areaToRemove -= fillerCellArea();
+    // TODO how to get indexes of filler?
+    swapAndPopParallelVectors(gcell_index, last_index);
+  }
+  log_->report("done removing fillers!");
+  
+}
+
 // virtual filler GCells
 void NesterovBase::initFillerGCells()
 {
@@ -2742,6 +2753,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
       size_t gcells_index = db_it->second;
       GCellHandle& handle = gCells_[gcells_index];
       GCell* gcell = handle;
+
 
       for (auto& gpin : gcell->gPins()) {
         gpin->pin()->updateCoordi(gpin->pin()->dbITerm());
