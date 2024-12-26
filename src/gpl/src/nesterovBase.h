@@ -924,7 +924,7 @@ class NesterovBase
 
   GCell& getFillerGCell(size_t index) { return fillerStor_[index]; }
 
-  const std::vector<GCellHandle>& gCells() const { return gCells_; }
+  const std::vector<GCellHandle>& gCells() const { return gCells_nb_; }
   const std::vector<GCell*>& gCellInsts() const { return gCellInsts_; }
   const std::vector<GCell*>& gCellFillers() const { return gCellFillers_; }
 
@@ -1113,7 +1113,7 @@ class NesterovBase
 
   std::vector<GCell> fillerStor_;
 
-  std::vector<GCellHandle> gCells_;
+  std::vector<GCellHandle> gCells_nb_;
   std::vector<GCell*> gCellInsts_;
   std::vector<GCell*> gCellFillers_;
 

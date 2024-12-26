@@ -468,21 +468,25 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           // updates order in routability:
           // 1. change areas
           // 2. set target density with delta area
-          // 3. updateareas
+          // 3. update areas
           // 4. updateDensitySize
 
-          nesterov->setTargetDensity(
-              static_cast<float>(nbc_->getDeltaArea()
-                                 + nesterov->nesterovInstsArea()
-                                 + nesterov->totalFillerArea())
-              / static_cast<float>(nesterov->whiteSpaceArea()));
+          float old_target_density = nesterov->targetDensity();
+          float new_target_density = static_cast<float>(
+              nbc_->getDeltaArea() + nesterov->nesterovInstsArea() +
+              nesterov->totalFillerArea()) /
+              static_cast<float>(nesterov->whiteSpaceArea());
+          float target_density_change_percentage =
+              ((new_target_density - old_target_density) / old_target_density) * 100.0f;
 
-          float rsz_delta_area_microns
-              = block->dbuAreaToMicrons(nbc_->getDeltaArea());
-          float rsz_delta_area_percentage
-              = (nbc_->getDeltaArea()
-                 / static_cast<float>(nesterov->nesterovInstsArea()))
-                * 100.0f;
+          nesterov->setTargetDensity(new_target_density);
+
+          float rsz_delta_area_microns = block->dbuAreaToMicrons(nbc_->getDeltaArea());
+          float rsz_delta_area_percentage =
+              (nbc_->getDeltaArea() /
+              static_cast<float>(nesterov->nesterovInstsArea())) *
+              100.0f;
+
           log_->info(
               GPL,
               107,
@@ -490,15 +494,18 @@ int NesterovPlace::doNesterovPlace(int start_iter)
               rsz_delta_area_microns,
               rsz_delta_area_percentage);
           log_->info(GPL,
-                     108,
-                     "Timing-driven: new target density: {}",
-                     nesterov->targetDensity());
+                    108,
+                    "Timing-driven: new target density: {:.3f} (old: {:.3f}, change: {:+.2f}%)",
+                    new_target_density,
+                    old_target_density,
+                    target_density_change_percentage);
+
           nbc_->resetDeltaArea();
-          log_->report("");
           nesterov->updateAreas();
           nesterov->updateDensitySize();
         }
       }
+
 
       // problem occured
       // escape timing driven later
