@@ -1091,7 +1091,7 @@ class NesterovBase
   // Must be called after fixPointers() to initialize internal values of gcells,
   // including parallel vectors.
   void updateGCellState(float wlCoeffX, float wlCoeffY);
-  void removeFillerGCells(int64_t areaToRemove);
+  void removeFillerGCells(int64_t areaToRemove, RouteBase* rb);
 
  private:
   NesterovBaseVars nbVars_;

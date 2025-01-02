@@ -202,6 +202,16 @@ class RouteBase
   {
     minRcCellSize_.emplace_back(dx, dy);
   }
+  void swapAndPopMinRcCellSize(size_t remove_index, utl::Logger* logger) {
+    size_t last_index = minRcCellSize_.size() - 1;
+    logger->report("remove from minrc, remove_index:{}, last_index:{}", remove_index, last_index);
+    if (remove_index != last_index) {
+      // log_->report(
+      //     "Swapping index {} with last_index {}", remove_index, last_index);
+      std::swap(minRcCellSize_[remove_index], minRcCellSize_[last_index]);
+    }
+    minRcCellSize_.pop_back();
+  }
 
  private:
   RouteBaseVars rbVars_;

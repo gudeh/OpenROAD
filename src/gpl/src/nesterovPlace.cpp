@@ -460,7 +460,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       }
 
       auto block = pbc_->db()->getChip()->getBlock();
-      bool shouldTdProceed = tb_->updateGNetWeights(virtual_td_iter, nbVec_);
+      bool shouldTdProceed = tb_->updateGNetWeights(virtual_td_iter, nbVec_, rb_.get());
 
       if (!virtual_td_iter) {
         for (auto& nesterov : nbVec_) {

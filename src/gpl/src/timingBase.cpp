@@ -142,14 +142,14 @@ void TimingBase::setTimingNetWeightMax(float max)
   net_weight_max_ = max;
 }
 
-bool TimingBase::updateGNetWeights(bool run_journal_restore, std::vector<std::shared_ptr<NesterovBase>>& nbVec)
+bool TimingBase::updateGNetWeights(bool run_journal_restore, std::vector<std::shared_ptr<NesterovBase>>& nbVec, RouteBase* rb)
 {
   rs_->findResizeSlacks(run_journal_restore);
 
   if (!run_journal_restore) {
-    // for (auto& nesterov : nbVec) {
-    //   nesterov->removeFillerGCells(nbc_->getDeltaArea());
-    // }
+    for (auto& nesterov : nbVec) {
+      nesterov->removeFillerGCells(nbc_->getDeltaArea(), rb);
+    }
 
     nbc_->fixPointers();
   }

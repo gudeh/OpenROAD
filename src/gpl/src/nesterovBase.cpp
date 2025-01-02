@@ -1600,22 +1600,54 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
   updateDensitySize();
 }
 
-void NesterovBase::removeFillerGCells(int64_t areaToRemove) {  
+void NesterovBase::removeFillerGCells(int64_t areaToRemove, RouteBase* rb) {  
   while(areaToRemove > 0){
-    // fillerStor_.pop_back();
+    log_->report("area to remove: {}",areaToRemove);
     size_t i = 0;
-    while(!gCells_nb_[i]->isFiller()) {
-      i++;
+    log_->report("gCells_nb_.size():{}", gCells_nb_.size());
+    while (i < gCells_nb_.size()) {
+        if (i >= gCells_nb_.size()) {
+            log_->report("No fillers found, exiting...");
+            return;
+        }
+
+        if (gCells_nb_[i] == nullptr) {
+            log_->report("Null pointer found at index {} in gCells_nb_!", i);
+            i++;
+            continue; // Skip null pointers and check the next element
+        }
+
+        if (gCells_nb_[i]->isFiller()) {
+            break; // Found a filler, exit the loop
+        }
+
+        i++;
     }
+
+    if (i >= gCells_nb_.size()) {
+        log_->report("No fillers found, exiting...");
+        return;
+    }
+    log_->report("i:{}",i);
+    gCells_nb_[i]->print(log_);
+    log_->report("i:{}",i);
     size_t filler_index = gCells_nb_[i].getIndex();
+    log_->report("i:{}",i);
     size_t last_index = gCells_nb_.size() - 1;
+    log_->report("i:{}",i);
+    log_->report("filler_index:{}", filler_index);
+    log_->report("last_index:{}", last_index);
     destroyFillerGCell(filler_index);
-    swapAndPopParallelVectors(filler_index,last_index);
+    swapAndPopParallelVectors(i,last_index);
+    rb->swapAndPopMinRcCellSize(i, log_);
+    if (i != last_index) {
+      std::swap(gCells_nb_[i], gCells_nb_[last_index]);
+    }
+    gCells_nb_.pop_back();
     areaToRemove -= fillerCellArea();
     log_->report("removed a filler with i: {}", i);
   }
   log_->report("done removing fillers!");
-  
 }
 
 // virtual filler GCells
@@ -3040,8 +3072,8 @@ void NesterovBase::swapAndPop(std::vector<FloatPoint>& vec,
   }
 
   if (remove_index != last_index) {
-    log_->report(
-        "Swapping index {} with last_index {}", remove_index, last_index);
+    // log_->report(
+    //     "Swapping index {} with last_index {}", remove_index, last_index);
     std::swap(vec[remove_index], vec[last_index]);
   }
   vec.pop_back();

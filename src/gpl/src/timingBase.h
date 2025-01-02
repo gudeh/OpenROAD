@@ -49,6 +49,7 @@ namespace gpl {
 class NesterovBaseCommon;
 class NesterovBase;
 class GNet;
+class RouteBase;
 
 class TimingBase
 {
@@ -71,7 +72,7 @@ class TimingBase
   // updateNetWeight.
   // True: successfully reweighted gnets
   // False: no slacks found
-  bool updateGNetWeights(bool run_journal_restore, std::vector<std::shared_ptr<NesterovBase>>& nbvec);
+  bool updateGNetWeights(bool run_journal_restore, std::vector<std::shared_ptr<NesterovBase>>& nbvec, RouteBase* rb);
 
  private:
   rsz::Resizer* rs_ = nullptr;
