@@ -268,9 +268,14 @@ void Graphics::drawNesterov(gui::Painter& painter)
     drawCells(nb->gCells(), painter);
   }
 
-  painter.setBrush(gui::Painter::Color(gui::Painter::light_gray, 50));
+
   for (const auto& pb : pbVec_) {
     for (auto& inst : pb->nonPlaceInsts()) {
+      if(inst->isBlockage()) {
+        painter.setBrush(gui::Painter::Color(gui::Painter::red, 50));
+      } else {
+        painter.setBrush(gui::Painter::Color(gui::Painter::light_gray, 50));
+      }
       painter.drawRect({inst->lx(), inst->ly(), inst->ux(), inst->uy()});
     }
   }

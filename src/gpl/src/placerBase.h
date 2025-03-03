@@ -46,6 +46,7 @@ class dbITerm;
 class dbBTerm;
 class dbNet;
 class dbGroup;
+class dbBlockage;
 
 class dbPlacementStatus;
 class dbSigType;
@@ -90,6 +91,8 @@ class Instance
   bool isPlaceInstance() const;
 
   bool isMacro() const;
+  bool isBlockage() const;
+  void setBlockage() { is_blockage_ = true; }
 
   // A placeable instance may be fixed during part of incremental placement.
   // It remains in the set of placeable objects though so as to simplify
@@ -104,6 +107,13 @@ class Instance
 
   void setLocation(int x, int y);
   void setCenterLocation(int x, int y);
+  void setBlockage(odb::dbBlockage* db_blockage) {
+    db_blockage_ = db_blockage;
+  }
+
+  odb::dbBlockage* getBlockage(){ 
+    return db_blockage_;
+  }
 
   void dbSetPlaced();
   void dbSetPlacementStatus(const odb::dbPlacementStatus& ps);
@@ -137,7 +147,9 @@ class Instance
   int uy_ = 0;
   int extId_ = INT_MIN;
   bool is_macro_ = false;
+  bool is_blockage_ = false;
   bool is_locked_ = false;
+  odb::dbBlockage* db_blockage_ = nullptr;
 };
 
 class Pin

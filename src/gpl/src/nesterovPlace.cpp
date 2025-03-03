@@ -606,6 +606,9 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       // log_->report("[NesterovSolve] Finished, all regions converged");
       break;
     }
+
+    //for checking macros and insts overflow.
+    updateDb();
   }
   // in all case including diverge,
   // db should be updated.

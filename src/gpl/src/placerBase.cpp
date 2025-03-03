@@ -273,6 +273,11 @@ bool Instance::isMacro() const
   return is_macro_;
 }
 
+bool Instance::isBlockage() const
+{
+  return is_blockage_;
+}
+
 bool Instance::isLocked() const
 {
   return is_locked_;
@@ -1100,6 +1105,7 @@ void PlacerBase::initInstsForUnusableSites()
   enum PlaceInfo
   {
     Empty,
+    Blockage,
     Row,
     FixedInst
   };
@@ -1149,38 +1155,59 @@ void PlacerBase::initInstsForUnusableSites()
     }
   }
 
-  // Mark blockage areas as empty so that their sites will be blocked.
-  for (dbBlockage* blockage : db_->getChip()->getBlock()->getBlockages()) {
-    dbInst* inst = blockage->getInstance();
-    if (inst && !inst->isFixed()) {
-      std::string msg
-          = "Blockages associated with moveable instances "
-            " are unsupported and ignored [inst: "
-            + inst->getName() + "]\n";
-      log_->error(GPL, 3, msg);
-      continue;
-    }
-    dbBox* bbox = blockage->getBBox();
-    std::pair<int, int> pairX = getMinMaxIdx(
-        bbox->xMin(), bbox->xMax(), die_.coreLx(), siteSizeX_, 0, siteCountX);
+  // Mark blockage areas as blockage so that their sites will be blocked.
+for (dbBlockage* blockage : db_->getChip()->getBlock()->getBlockages()) {
+  dbInst* inst = blockage->getInstance();
+  if (inst && !inst->isFixed()) {
+    std::string msg
+        = "Blockages associated with moveable instances "
+          "are unsupported and ignored [inst: "
+          + inst->getName() + "]\n";
+    log_->error(GPL, 3, msg);
+    continue;
+  }
 
-    std::pair<int, int> pairY = getMinMaxIdx(
-        bbox->yMin(), bbox->yMax(), die_.coreLy(), siteSizeY_, 0, siteCountY);
+  dbBox* bbox = blockage->getBBox();
+  std::pair<int, int> pairX = getMinMaxIdx(
+      bbox->xMin(), bbox->xMax(), die_.coreLx(), siteSizeX_, 0, siteCountX);
 
-    float filler_density = (100 - blockage->getMaxDensity()) / 100;
-    int cells = 0;
-    int filled = 0;
+  std::pair<int, int> pairY = getMinMaxIdx(
+      bbox->yMin(), bbox->yMax(), die_.coreLy(), siteSizeY_, 0, siteCountY);
 
-    for (int j = pairY.first; j < pairY.second; j++) {
-      for (int i = pairX.first; i < pairX.second; i++) {
-        if (cells == 0 || filled / (float) cells <= filler_density) {
-          siteGrid[j * siteCountX + i] = Empty;
-          ++filled;
-        }
-        ++cells;
+  float filler_density = (100 - blockage->getMaxDensity()) / 100;
+
+  int startX = siteCountX, endX = 0;
+  int startY = siteCountY, endY = 0;
+  int cells = 0;
+  int filled = 0;
+
+  for (int j = pairY.first; j < pairY.second; j++) {
+    for (int i = pairX.first; i < pairX.second; i++) {
+      if (cells == 0 || filled / (float)cells <= filler_density) {
+        siteGrid[j * siteCountX + i] = Blockage;
+
+        startX = std::min(startX, i);
+        endX = std::max(endX, i + 1);
+        startY = std::min(startY, j);
+        endY = std::max(endY, j + 1);
+
+        ++filled;
       }
+      ++cells;
     }
   }
+
+  // Create a single dummy for this blockage using the bounding box
+  if (startX < endX && startY < endY) {
+    Instance myInst(die_.coreLx() + siteSizeX_ * startX,
+                    die_.coreLy() + siteSizeY_ * startY,
+                    die_.coreLx() + siteSizeX_ * endX,
+                    die_.coreLy() + siteSizeY_ * endY);
+    myInst.setBlockage();
+    instStor_.push_back(myInst);
+  }
+}
+
 
   // fill fixed instances' bbox
   for (auto& inst : pbCommon_->insts()) {
@@ -1236,22 +1263,26 @@ void PlacerBase::initInstsForUnusableSites()
   // --> These sites need to be dummyInstance
   //
   for (int j = 0; j < siteCountY; j++) {
-    for (int i = 0; i < siteCountX; i++) {
-      // if empty spot found
-      if (siteGrid[j * siteCountX + i] == Empty) {
-        int startX = i;
-        // find end points
-        while (i < siteCountX && siteGrid[j * siteCountX + i] == Empty) {
-          i++;
-        }
-        int endX = i;
-        Instance myInst(die_.coreLx() + siteSizeX_ * startX,
-                        die_.coreLy() + siteSizeY_ * j,
-                        die_.coreLx() + siteSizeX_ * endX,
-                        die_.coreLy() + siteSizeY_ * (j + 1));
-        instStor_.push_back(myInst);
+      for (int i = 0; i < siteCountX; i++) {
+          if (siteGrid[j * siteCountX + i] == Blockage) {
+              continue;
+          }
+
+          if (siteGrid[j * siteCountX + i] == Empty) {
+              int startX = i;
+
+              while (i < siteCountX && siteGrid[j * siteCountX + i] == Empty) {
+                  i++;
+              }
+              int endX = i;
+
+              Instance myInst(die_.coreLx() + siteSizeX_ * startX,
+                              die_.coreLy() + siteSizeY_ * j,
+                              die_.coreLx() + siteSizeX_ * endX,
+                              die_.coreLy() + siteSizeY_ * (j + 1));
+              instStor_.push_back(myInst);
+          }
       }
-    }
   }
 }
 

@@ -716,6 +716,8 @@ class BinGrid
 
   std::pair<int, int> getMinMaxIdxX(const Instance* inst) const;
   std::pair<int, int> getMinMaxIdxY(const Instance* inst) const;
+  std::pair<int, int> getMinMaxIdxX(odb::dbBlockage* blockage) const;
+  std::pair<int, int> getMinMaxIdxY(odb::dbBlockage* blockage) const;
 
   std::vector<Bin>& bins();
   const std::vector<Bin>& binsConst() const { return bins_; };

@@ -59,10 +59,13 @@ static int fastModulo(int input, int ceil);
 static float calculateBiVariateNormalCDF(biNormalParameters i);
 
 static int64_t getOverlapArea(const Bin* bin,
-                              const Instance* inst,
+                              // const Instance* inst,
+                              int xmin, int ymin, int xmax, int ymax,
+                              bool is_macro,
                               int dbu_per_micron);
 
-static int64_t getOverlapAreaUnscaled(const Bin* bin, const Instance* inst);
+static int64_t getOverlapAreaUnscaled(const Bin* bin, 
+                                      int xmin, int ymin, int xmax, int ymax);
 
 static float getDistance(const std::vector<FloatPoint>& a,
                          const std::vector<FloatPoint>& b);
@@ -694,6 +697,7 @@ void BinGrid::initBins()
   int64_t averagePlaceInstArea = 0;
   if (!pb_->placeInsts().empty()) {
     averagePlaceInstArea = pb_->placeInstsArea() / pb_->placeInsts().size();
+    // averagePlaceInstArea *= 5;
   } else {
     log_->warn(GPL, 306, "GPL component has no placed instances.");
   }
@@ -798,6 +802,64 @@ void BinGrid::updateBinsNonPlaceArea()
     bin.setNonPlaceArea(0);
     bin.setNonPlaceAreaUnscaled(0);
   }
+    odb::dbSet<odb::dbBlockage> blockages = pb_->db()->getChip()->getBlock()->getBlockages();
+    for (auto it1 = blockages.begin(); it1 != blockages.end(); ++it1) {
+        odb::dbBlockage* blockage1 = *it1;
+        odb::Rect bbox1 = blockage1->getBBox()->getBox();
+
+        for (auto it2 = std::next(it1); it2 != blockages.end(); ++it2) {
+            odb::dbBlockage* blockage2 = *it2;
+            odb::Rect bbox2 = blockage2->getBBox()->getBox();
+
+            if (bbox1.overlaps(bbox2)) {
+                log_->report("Overlap detected between blockages: [{}] and [{}]",
+                           blockage1->getId(), blockage2->getId());
+            }
+        }
+    }
+
+    // Process each blockage and update bins
+  //   for (odb::dbBlockage* blockage : blockages) {
+  //   odb::dbInst* db_blockage = blockage->getInstance();
+  //   if (db_blockage && !db_blockage->isFixed()) {
+  //     std::string msg
+  //         = "Blockages associated with moveable instances "
+  //           " are unsupported and ignored [inst: "
+  //           + db_blockage->getName() + "]\n";
+  //     log_->error(GPL, 3, msg);
+  //     continue;
+  //   }
+  //   std::pair<int, int> pairX = getMinMaxIdxX(blockage);
+  //   std::pair<int, int> pairY = getMinMaxIdxY(blockage);
+  //   for (int y = pairY.first; y < pairY.second; y++) {
+  //     for (int x = pairX.first; x < pairX.second; x++) {
+  //       Bin& bin = bins_[y * binCntX_ + x];
+
+  //       // Note that nonPlaceArea should have scale-down with
+  //       // target density.
+  //       // See MS-replace paper
+  //       //
+  //       bin.addNonPlaceArea(
+  //           getOverlapArea(
+  //               &bin,                
+  //               blockage->getBBox()->xMin(),
+  //               blockage->getBBox()->yMin(),
+  //               blockage->getBBox()->xMax(),
+  //               blockage->getBBox()->yMax(),
+  //               true,
+  //               pb_->db()->getChip()->getBlock()->getDbUnitsPerMicron())
+  //           * bin.targetDensity());
+  //       bin.addNonPlaceAreaUnscaled(
+  //           getOverlapAreaUnscaled(
+  //               &bin,
+  //               blockage->getBBox()->xMin(),
+  //               blockage->getBBox()->yMin(),
+  //               blockage->getBBox()->xMax(),
+  //               blockage->getBBox()->yMax())
+  //           * bin.targetDensity());
+  //     }
+  //   }
+  // }
 
   for (auto& inst : pb_->nonPlaceInsts()) {
     std::pair<int, int> pairX = getMinMaxIdxX(inst);
@@ -806,18 +868,27 @@ void BinGrid::updateBinsNonPlaceArea()
       for (int x = pairX.first; x < pairX.second; x++) {
         Bin& bin = bins_[y * binCntX_ + x];
 
-        // Note that nonPlaceArea should have scale-down with
-        // target density.
-        // See MS-replace paper
-        //
-        bin.addNonPlaceArea(
-            getOverlapArea(
-                &bin,
-                inst,
-                pb_->db()->getChip()->getBlock()->getDbUnitsPerMicron())
-            * bin.targetDensity());
-        bin.addNonPlaceAreaUnscaled(getOverlapAreaUnscaled(&bin, inst)
-                                    * bin.targetDensity());
+        // if (!inst->isMacro() && !inst->isBlockage()) {
+        if (!inst->isMacro()) {
+            bin.addNonPlaceArea(
+                getOverlapArea(
+                    &bin,                    
+                    inst->lx(),
+                    inst->ly(),
+                    inst->ux(),
+                    inst->uy(),
+                    false,
+                    pb_->db()->getChip()->getBlock()->getDbUnitsPerMicron())
+                * bin.targetDensity());
+            bin.addNonPlaceAreaUnscaled(
+                getOverlapAreaUnscaled(
+                    &bin,
+                    inst->lx(),
+                    inst->ly(),
+                    inst->ux(),
+                    inst->uy())
+                * bin.targetDensity());
+        }
       }
     }
   }
@@ -933,6 +1004,89 @@ void BinGrid::updateBinsGCellDensityArea(const std::vector<GCellHandle>& cells)
           block->dbuAreaToMicrons(bin.nonPlaceAreaUnscaled()));
     }
   }
+
+odb::dbSet<odb::dbBlockage> blockages = pb_->db()->getChip()->getBlock()->getBlockages();
+
+std::vector<Instance*> macros;
+for (auto& inst : pb_->nonPlaceInsts()) {
+  if (inst->isMacro()) {
+    macros.push_back(inst);
+  }
+}
+// log_->report("Number of macros found in pb_->nonPlaceInsts(): {}", macros.size());
+
+int intersect_count = 0;
+int64_t total_macro_overlap_area = 0;
+int64_t total_blockage_overlap_area = 0;
+
+for (auto& place_inst : pb_->placeInsts()) {
+  odb::dbBox* place_bbox;
+  if (place_inst->dbInst()) {
+    place_bbox = place_inst->dbInst()->getBBox();
+  } else {
+    log_->report("place_inst->dbInst() is nullptr! continuing.");
+    continue;
+  }
+
+  // Check overlap with macros
+  for (auto& macro_pb : macros) {
+    odb::dbInst* macro = macro_pb->dbInst();
+    if (!macro) {
+      log_->report("error: macro dbInst nullptr!");
+      continue;
+    }
+    auto macro_bbox = macro->getBBox();
+    if (place_bbox->getBox().intersects(macro_bbox->getBox())) {
+      intersect_count++;
+      int x_overlap = std::max(0, std::min(place_bbox->xMax(), macro_bbox->xMax()) -
+                                   std::max(place_bbox->xMin(), macro_bbox->xMin()));
+      int y_overlap = std::max(0, std::min(place_bbox->yMax(), macro_bbox->yMax()) -
+                                   std::max(place_bbox->yMin(), macro_bbox->yMin()));
+      int64_t overlap_area = static_cast<int64_t>(x_overlap) * y_overlap;
+      total_macro_overlap_area += overlap_area;
+      break; // Stop further checks for this place_inst if an intersection is found
+    }
+  }
+
+  // Check overlap with blockages
+  for (auto it = blockages.begin(); it != blockages.end(); ++it) {
+    odb::dbBox* blockage_bbox = (*it)->getBBox();
+    if (place_bbox->getBox().intersects(blockage_bbox->getBox())) {
+      int x_overlap = std::max(0, std::min(place_bbox->xMax(), blockage_bbox->xMax()) -
+                                   std::max(place_bbox->xMin(), blockage_bbox->xMin()));
+      int y_overlap = std::max(0, std::min(place_bbox->yMax(), blockage_bbox->yMax()) -
+                                   std::max(place_bbox->yMin(), blockage_bbox->yMin()));
+      int64_t overlap_area = static_cast<int64_t>(x_overlap) * y_overlap;
+      total_blockage_overlap_area += overlap_area;
+    }
+  }
+}
+
+  int total_place_insts = pb_->placeInsts().size();
+  float macro_intersect_percentage = (total_place_insts > 0) 
+      ? static_cast<float>(intersect_count) / total_place_insts * 100
+      : 0.0f;
+  // log_->report("Number of intersections with macros:      {} ({:.2f}%)", intersect_count, macro_intersect_percentage);
+  // log_->report("Total inst and macro overlapping area:    {}", block->dbuAreaToMicrons(total_macro_overlap_area));
+  // log_->report("Total inst and blockage overlapping area: {}", block->dbuAreaToMicrons(total_blockage_overlap_area));
+  // log_->report("sumOverflowAreaUnscaled_ for all bins:    {}", block->dbuAreaToMicrons(sumOverflowAreaUnscaled_));
+
+  if (sumOverflowAreaUnscaled_ > 0) {
+    // float macro_proportion_overlap = static_cast<float>(total_macro_overlap_area) / sumOverflowAreaUnscaled_;
+    float blockage_proportion_overlap = static_cast<float>(total_blockage_overlap_area) / sumOverflowAreaUnscaled_;
+    log_->report("Proportion of instances on blockages from total overflow: {:.2f}%", 
+                blockage_proportion_overlap * 100);
+  }
+  float nesterov_area = pb_->placeInstsArea();
+  if (nesterov_area > 0) {
+    // float macro_nesterov_proportion = static_cast<float>(total_macro_overlap_area) / nestero_area;
+    float blockage_nesterov_proportion = static_cast<float>(total_blockage_overlap_area) / nesterov_area;
+    // log_->report("Proportion of instances on blockages from palceIntsArea:  {:.2f}%", 
+    //              blockage_nesterov_proportion * 100);
+  } else {
+    log_->report("nesterovInstsArea is 0, cannot calculate proportion.");
+  }
+
 }
 
 std::pair<int, int> BinGrid::getDensityMinMaxIdxX(const GCell* gcell) const
@@ -975,6 +1129,30 @@ std::pair<int, int> BinGrid::getMinMaxIdxY(const Instance* inst) const
   int upperIdx = (fastModulo((inst->uy() - ly()), binSizeY_) == 0)
                      ? (inst->uy() - ly()) / binSizeY_
                      : (inst->uy() - ly()) / binSizeY_ + 1;
+
+  return std::make_pair(std::max(lowerIdx, 0), std::min(upperIdx, binCntY_));
+}
+
+std::pair<int, int> BinGrid::getMinMaxIdxX(odb::dbBlockage* blockage) const
+{
+  int blockage_lx = blockage->getBBox()->getBox().xMin();
+  int blockage_ux = blockage->getBBox()->getBox().xMax();
+  int lowerIdx = (blockage_lx - lx()) / binSizeX_;
+  int upperIdx = (fastModulo((blockage_ux - lx()), binSizeX_) == 0)
+                     ? (blockage_ux - lx()) / binSizeX_
+                     : (blockage_ux - lx()) / binSizeX_ + 1;
+
+  return std::make_pair(std::max(lowerIdx, 0), std::min(upperIdx, binCntX_));
+}
+
+std::pair<int, int> BinGrid::getMinMaxIdxY(odb::dbBlockage* blockage) const
+{
+  int blockage_ly = blockage->getBBox()->getBox().yMin();
+  int blockage_uy = blockage->getBBox()->getBox().yMax();
+  int lowerIdx = (blockage_ly - ly()) / binSizeY_;
+  int upperIdx = (fastModulo((blockage_uy - ly()), binSizeY_) == 0)
+                     ? (blockage_uy - ly()) / binSizeY_
+                     : (blockage_uy - ly()) / binSizeY_ + 1;
 
   return std::make_pair(std::max(lowerIdx, 0), std::min(upperIdx, binCntY_));
 }
@@ -3073,69 +3251,72 @@ static float getOverlapDensityArea(const Bin& bin, const GCell* cell)
 }
 
 static int64_t getOverlapArea(const Bin* bin,
-                              const Instance* inst,
+                              // const Instance* inst,
+                              int xmin, int ymin, int xmax, int ymax,
+                              bool is_macro,
                               int dbu_per_micron)
 {
-  int rectLx = std::max(bin->lx(), inst->lx()),
-      rectLy = std::max(bin->ly(), inst->ly()),
-      rectUx = std::min(bin->ux(), inst->ux()),
-      rectUy = std::min(bin->uy(), inst->uy());
+    int rectLx = std::max(bin->lx(), xmin);
+    int rectLy = std::max(bin->ly(), ymin);
+    int rectUx = std::min(bin->ux(), xmax);
+    int rectUy = std::min(bin->uy(), ymax);
 
-  if (rectLx >= rectUx || rectLy >= rectUy) {
-    return 0;
-  }
-
-  if (inst->isMacro()) {
-    const float meanX = (inst->cx() - inst->lx()) / (float) dbu_per_micron;
-    const float meanY = (inst->cy() - inst->ly()) / (float) dbu_per_micron;
-
-    // For the bivariate normal distribution, we are using
-    // the shifted means of X and Y.
-    // Sigma is used as the mean/4 for both dimensions
-    const biNormalParameters i
-        = {meanX,
-           meanY,
-           meanX / 6,
-           meanY / 6,
-           (rectLx - inst->lx()) / (float) dbu_per_micron,
-           (rectLy - inst->ly()) / (float) dbu_per_micron,
-           (rectUx - inst->lx()) / (float) dbu_per_micron,
-           (rectUy - inst->ly()) / (float) dbu_per_micron};
-
-    const float original = static_cast<float>(rectUx - rectLx)
-                           * static_cast<float>(rectUy - rectLy);
-    const float scaled = calculateBiVariateNormalCDF(i)
-                         * static_cast<float>(inst->ux() - inst->lx())
-                         * static_cast<float>(inst->uy() - inst->ly());
-
-    // For heavily dense regions towards the center of the macro,
-    // we are using an upper limit of 1.10*(overlap) between the macro
-    // and the bin.
-    if (scaled >= original) {
-      return std::min<float>(scaled, original * 1.10);
+    if (rectLx >= rectUx || rectLy >= rectUy) {
+        return 0;
     }
-    // If the scaled value is smaller than the actual overlap
-    // then use the original overlap value instead.
-    // This is implemented to prevent cells from being placed
-    // at the outer sides of the macro.
-    return original;
-  }
-  return static_cast<float>(rectUx - rectLx)
-         * static_cast<float>(rectUy - rectLy);
+
+    if (is_macro) {
+        const float meanX = ((xmin + xmax) / 2.0f - xmin) / static_cast<float>(dbu_per_micron);
+        const float meanY = ((ymin + ymax) / 2.0f - ymin) / static_cast<float>(dbu_per_micron);
+
+        // For the bivariate normal distribution, we are using
+        // the shifted means of X and Y.
+        // Sigma is used as the mean/4 for both dimensions
+        const biNormalParameters i
+            = {meanX,
+               meanY,
+               meanX / 6,
+               meanY / 6,
+               (rectLx - xmin) / static_cast<float>(dbu_per_micron),
+               (rectLy - ymin) / static_cast<float>(dbu_per_micron),
+               (rectUx - xmin) / static_cast<float>(dbu_per_micron),
+               (rectUy - ymin) / static_cast<float>(dbu_per_micron)};
+
+        const float original = static_cast<float>(rectUx - rectLx)
+                               * static_cast<float>(rectUy - rectLy);
+        const float scaled = calculateBiVariateNormalCDF(i)
+                             * static_cast<float>(xmax - xmin)
+                             * static_cast<float>(ymax - ymin);
+
+        // For heavily dense regions towards the center of the macro,
+        // we are using an upper limit of 1.10*(overlap) between the macro
+        // and the bin.
+        if (scaled >= original) {
+            return std::min<float>(scaled, original * 1.10);
+        }
+        // If the scaled value is smaller than the actual overlap
+        // then use the original overlap value instead.
+        // This is implemented to prevent cells from being placed
+        // at the outer sides of the macro.
+        return original;
+    }
+    return static_cast<float>(rectUx - rectLx)
+           * static_cast<float>(rectUy - rectLy);
 }
 
-static int64_t getOverlapAreaUnscaled(const Bin* bin, const Instance* inst)
+static int64_t getOverlapAreaUnscaled(const Bin* bin, 
+                                   int xmin, int ymin, int xmax, int ymax)
 {
-  const int rectLx = std::max(bin->lx(), inst->lx());
-  const int rectLy = std::max(bin->ly(), inst->ly());
-  const int rectUx = std::min(bin->ux(), inst->ux());
-  const int rectUy = std::min(bin->uy(), inst->uy());
+    const int rectLx = std::max(bin->lx(), xmin);
+    const int rectLy = std::max(bin->ly(), ymin);
+    const int rectUx = std::min(bin->ux(), xmax);
+    const int rectUy = std::min(bin->uy(), ymax);
 
-  if (rectLx >= rectUx || rectLy >= rectUy) {
-    return 0;
-  }
-  return static_cast<int64_t>(rectUx - rectLx)
-         * static_cast<int64_t>(rectUy - rectLy);
+    if (rectLx >= rectUx || rectLy >= rectUy) {
+        return 0;
+    }
+    return static_cast<int64_t>(rectUx - rectLx)
+           * static_cast<int64_t>(rectUy - rectLy);
 }
 
 // A function that does 2D integration to the density function of a
