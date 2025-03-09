@@ -1040,6 +1040,56 @@ bool Opendp::checkEdgeSpacing(const Cell* cell,
   }
   return true;
 }
+bool Opendp::checkAbuttedPins(const Cell* cell,
+                              const GridX x,
+                              const GridY y,
+                              const odb::dbOrientType& orient) const
+{
+  if (cell->pin_to_net_.empty()) {
+    return true;
+  }
+  GridX x_end = x + grid_->gridX(DbuX(cell->width_));
+  GridY y_end = y + grid_->gridHeight(cell);
+  const auto& master = db_master_map_.at(cell->db_inst_->getMaster());
+  DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
+  DbuY y_real = grid_->gridYToDbu(y);
+  std::set<Cell*> checked_cells;
+  for (GridX xi : {x - 1, x_end}) {
+    for (GridY yi = y; yi < y_end; yi++) {
+      const Pixel* pixel = grid_->gridPixel(xi, yi);
+      if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
+        // Skip if pixel is empty or occupied only by the current cell.
+        continue;
+      }
+      auto cell2 = pixel->cell;
+      if (checked_cells.find(cell2) != checked_cells.end()) {
+        // Skip if cell was already checked
+        continue;
+      }
+      checked_cells.insert(cell2);
+      auto master2 = db_master_map_.at(cell2->db_inst_->getMaster());
+      for (auto [pin1_idx, net1_idx] : cell->pin_to_net_) {
+        Rect pin1_rect = cell_edges::transformEdgeRect(
+            master.pin_edges_.at(pin1_idx), cell, x_real, y_real, orient);
+        for (auto [pin2_idx, net2_idx] : cell2->pin_to_net_) {
+          if (net1_idx == net2_idx) {
+            continue;
+          }
+          Rect pin2_rect
+              = cell_edges::transformEdgeRect(master2.pin_edges_.at(pin2_idx),
+                                              cell2,
+                                              cell2->x_,
+                                              cell2->y_,
+                                              cell2->orient_);
+          if (pin1_rect.intersects(pin2_rect)) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
 
 // Check all pixels are empty.
 bool Opendp::checkPixels(const Cell* cell,
@@ -1101,7 +1151,13 @@ bool Opendp::checkPixels(const Cell* cell,
   }
   const auto& orient = grid_->gridPixel(x, y)->sites.at(
       cell->db_inst_->getMaster()->getSite());
-  return checkEdgeSpacing(cell, x, y, orient);
+  if (!checkAbuttedPins(cell, x, y, orient)) {
+    return false;
+  }
+  if (!checkEdgeSpacing(cell, x, y, orient)) {
+    return false;
+  }
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////

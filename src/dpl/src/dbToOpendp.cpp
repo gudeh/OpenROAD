@@ -190,6 +190,15 @@ void Opendp::makeMaster(Master* master, dbMaster* db_master)
 {
   master->is_multi_row = grid_->isMultiHeight(db_master);
   master->edges_.clear();
+  Rect bbox;
+  db_master->getPlacementBoundary(bbox);
+  for (const auto mterm : db_master->getMTerms()) {
+    auto mterm_box = mterm->getBBox();
+    if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+        || mterm_box.yMin() == bbox.yMin() || mterm_box.yMax() == bbox.yMax()) {
+      master->pin_edges_[mterm->getIndex()] = mterm_box;
+    }
+  }
   if (edge_spacing_table_.empty()) {
     return;
   }
@@ -197,8 +206,6 @@ void Opendp::makeMaster(Master* master, dbMaster* db_master)
       == odb::dbMasterType::CORE_SPACER) {  // Skip fillcells
     return;
   }
-  Rect bbox;
-  db_master->getPlacementBoundary(bbox);
   std::map<odb::dbMasterEdgeType::EdgeDir, std::vector<Rect>> typed_segs;
   int num_rows = grid_->gridHeight(db_master).v;
   for (auto edge : db_master->getEdgeTypes()) {
@@ -320,6 +327,13 @@ void Opendp::makeCells()
       // place and not whenever we see a placed block.
       if (master.is_multi_row && db_master->isCore()) {
         have_multi_row_cells_ = true;
+      }
+      for (auto [idx, _] : master.pin_edges_) {
+        auto iterm = db_inst->getITerm(idx);
+        auto net = iterm->getNet();
+        if (net != nullptr && !net->getSigType().isSupply()) {
+          cell.pin_to_net_[idx] = net->getId();
+        }
       }
     }
     if (isFiller(db_inst)) {
