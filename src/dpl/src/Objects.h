@@ -73,6 +73,7 @@ struct Master
 {
   bool is_multi_row = false;
   std::vector<Edge> edges_;
+  std::map<uint, Rect> pin_edges_;  // list of pin edges on the master boundary
 };
 
 struct Cell
@@ -98,7 +99,8 @@ struct Cell
   bool is_placed_ = false;
   bool hold_ = false;
   Group* group_ = nullptr;
-  Rect* region_ = nullptr;  // group rect
+  Rect* region_ = nullptr;           // group rect
+  std::map<uint, uint> pin_to_net_;  // maps pin ids to net ids
 };
 
 struct Group

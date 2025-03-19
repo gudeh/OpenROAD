@@ -62,6 +62,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
   vector<Cell*> site_align_failures;
   vector<Cell*> region_placement_failures;
   vector<Cell*> edge_spacing_failures;
+  vector<Cell*> abutment_conn_failures;
 
   initGrid();
   groupAssignCellRegions();
@@ -89,6 +90,12 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
     // Overlap check
     if (checkOverlap(cell)) {
       overlap_failures.push_back(&cell);
+    }
+    if (!checkAbuttedPins(&cell,
+                          grid_->gridX(&cell),
+                          grid_->gridSnapDownY(&cell),
+                          cell.orient_)) {
+      abutment_conn_failures.push_back(&cell);
     }
     // EdgeSpacing check
     if (!checkEdgeSpacing(&cell,
@@ -118,7 +125,8 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
                site_align_failures,
                region_placement_failures,
                {},
-               edge_spacing_failures);
+               edge_spacing_failures,
+               abutment_conn_failures);
   if (!report_file_name.empty()) {
     writeJsonReport(report_file_name);
   }
@@ -133,6 +141,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
   reportFailures(region_placement_failures, 8, "Region placement", verbose);
   reportFailures(
       edge_spacing_failures, 9, "LEF58_CELLEDGESPACINGTABLE", verbose);
+  reportFailures(abutment_conn_failures, 10, "Abutment connectivity", verbose);
 
   logger_->metric("design__violations",
                   placed_failures.size() + in_rows_failures.size()
@@ -142,6 +151,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
           + site_align_failures.size()
           + (disallow_one_site_gaps_ ? one_site_gap_failures.size() : 0)
           + region_placement_failures.size() + edge_spacing_failures.size()
+          + abutment_conn_failures.size()
       > 0) {
     logger_->error(DPL, 33, "detailed placement checks failed.");
   }
@@ -201,12 +211,14 @@ void Opendp::saveFailures(const vector<Cell*>& placed_failures,
                           const vector<Cell*>& site_align_failures,
                           const vector<Cell*>& region_placement_failures,
                           const vector<Cell*>& placement_failures,
-                          const vector<Cell*>& edge_spacing_failures)
+                          const vector<Cell*>& edge_spacing_failures,
+                          const vector<Cell*>& abutment_conn_failures)
 {
   if (placed_failures.empty() && in_rows_failures.empty()
       && overlap_failures.empty() && one_site_gap_failures.empty()
       && site_align_failures.empty() && region_placement_failures.empty()
-      && placement_failures.empty() && edge_spacing_failures.empty()) {
+      && placement_failures.empty() && edge_spacing_failures.empty()
+      && abutment_conn_failures.empty()) {
     return;
   }
 
@@ -263,6 +275,14 @@ void Opendp::saveFailures(const vector<Cell*>& placed_failures,
     category->setDescription(
         "Cells that violate the LEF58_CELLEDGESPACINGTABLE.");
     saveViolations(edge_spacing_failures, category);
+  }
+  if (!abutment_conn_failures.empty()) {
+    auto category = odb::dbMarkerCategory::createOrReplace(
+        tool_category, "Abutment_conn_failures");
+    category->setDescription(
+        "Cells with pins connected by abutment but belonging to different "
+        "nets.");
+    saveViolations(abutment_conn_failures, category);
   }
 }
 
