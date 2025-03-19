@@ -1058,7 +1058,7 @@ bool Opendp::checkAbuttedPins(const Cell* cell,
         // Skip if pixel is empty or occupied only by the current cell.
         continue;
       }
-      auto cell2 = pixel->cell;
+      auto cell2 = static_cast<Cell*>(pixel->cell);
       if (checked_cells.find(cell2) != checked_cells.end()) {
         // Skip if cell was already checked
         continue;
