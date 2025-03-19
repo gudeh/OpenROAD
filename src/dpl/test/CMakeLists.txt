@@ -73,6 +73,7 @@ or_integration_tests(
     simple09
     simple10
     edge_spacing
+    abutting_pins
 )
 
 # Skipped
