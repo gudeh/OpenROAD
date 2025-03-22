@@ -167,6 +167,8 @@ class DetailedMgr
   int checkOverlapInSegments();
   int checkEdgeSpacingInSegments();
   bool hasEdgeSpacingViolation(const Node* node) const;
+  bool hasAbuttedPinViolation(const Node* node) const;
+  bool hasViolation(const Node* node) const;
   int checkSiteAlignment();
   int checkRowAlignment();
   int checkRegionAssignment();

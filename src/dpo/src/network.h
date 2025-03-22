@@ -86,6 +86,7 @@ class Master
   Master() = default;
   odb::Rect boundary_box_;
   std::vector<MasterEdge> edges_;
+  std::map<uint, odb::Rect> pin_edges_;
 };
 
 class Node : public GridNode
@@ -153,6 +154,7 @@ class Node : public GridNode
   void setWidth(int w) { w_ = w; }
   void setMaster(Master* in) { master_ = in; }
   void setDbInst(odb::dbInst* inst) { db_inst_ = inst; }
+  void addConnection(uint pin_id, uint net_id) { pin_to_net_[pin_id] = net_id; }
 
   bool adjustCurrOrient(unsigned newOrient);
 
@@ -168,6 +170,7 @@ class Node : public GridNode
 
   int getNumPins() const { return (int) pins_.size(); }
   const std::vector<Pin*>& getPins() const { return pins_; }
+  const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
 
  private:
   // Id.
@@ -202,6 +205,7 @@ class Node : public GridNode
 
   // dbInst
   odb::dbInst* db_inst_{nullptr};
+  std::map<uint, uint> pin_to_net_;  // maps pin ids to net ids
 
   friend class Network;
 };

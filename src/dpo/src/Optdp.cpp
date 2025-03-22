@@ -493,7 +493,18 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
   }
   auto master = network_->createAndAddMaster();
   masterMap_[db_master] = master;
-  db_master->getPlacementBoundary(master->boundary_box_);
+  Rect bbox;
+  db_master->getPlacementBoundary(bbox);
+  // Fill the pin_edges_ with pins touching boundary box of the master
+  master->boundary_box_ = bbox;
+  for (const auto mterm : db_master->getMTerms()) {
+    auto mterm_box = mterm->getBBox();
+    if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+        || mterm_box.yMin() == bbox.yMin() || mterm_box.yMax() == bbox.yMax()) {
+      master->pin_edges_[mterm->getIndex()] = mterm_box;
+    }
+  }
+  // Fill master edges needed for LEF58_CELLEDGESPACINGTABLE
   master->edges_.clear();
   if (!arch_->getUseSpacingTable()) {
     return master;
@@ -502,8 +513,7 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
       == odb::dbMasterType::CORE_SPACER) {  // Skip fillcells
     return nullptr;
   }
-  Rect bbox;
-  db_master->getPlacementBoundary(bbox);
+
   std::map<odb::dbMasterEdgeType::EdgeDir, std::vector<Rect>> typed_segs;
   int num_rows = std::lround(db_master->getHeight() / (double) min_row_height);
   for (auto edge : db_master->getEdgeTypes()) {
@@ -667,6 +677,13 @@ void Optdp::createNetwork()
     ndi->setType(Node::CELL);
     ndi->setDbInst(inst);
     ndi->setMaster(getMaster(inst->getMaster()));
+    for (auto [idx, _] : ndi->getMaster()->pin_edges_) {
+      auto iterm = inst->getITerm(idx);
+      auto net = iterm->getNet();
+      if (net != nullptr && !net->getSigType().isSupply()) {
+        ndi->addConnection(idx, net->getId());
+      }
+    }
     // Set left and right edge types:
     {
       for (auto edge_type : inst->getMaster()->getEdgeTypes()) {

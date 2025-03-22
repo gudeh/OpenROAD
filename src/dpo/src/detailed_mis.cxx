@@ -717,7 +717,7 @@ void DetailedMis::solveMatch()
   }
   bool viol = false;
   for (const auto node : nodes) {
-    if (mgrPtr_->hasEdgeSpacingViolation(node)) {
+    if (mgrPtr_->hasViolation(node)) {
       viol = true;
       break;
     }
