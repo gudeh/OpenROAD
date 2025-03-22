@@ -90,21 +90,6 @@ DetailedMgr::DetailedMgr(Architecture* arch,
 
   // For generating a move list...
   moveLimit_ = 100;
-  nMoved_ = 0;
-  curLeft_.resize(moveLimit_);
-  curBottom_.resize(moveLimit_);
-  newLeft_.resize(moveLimit_);
-  newBottom_.resize(moveLimit_);
-  curOri_.resize(moveLimit_);
-  newOri_.resize(moveLimit_);
-  curSeg_.resize(moveLimit_);
-  newSeg_.resize(moveLimit_);
-  movedNodes_.resize(moveLimit_);
-  for (size_t i = 0; i < moveLimit_; i++) {
-    curSeg_[i] = std::vector<int>();
-    newSeg_[i] = std::vector<int>();
-  }
-
   // The purpose of this reverse map is to be able to remove the cell from
   // all segments that it has been placed into.  It only works (i.e., is
   // only up-to-date) if you use the proper routines to add and remove cells
@@ -905,9 +890,6 @@ void DetailedMgr::assignCellsToSegments(
   double movementX = 0.;
   double movementY = 0.;
   for (Node* nd : nodesToConsider) {
-    // place in grid
-
-    //
     const int nRowsSpanned = arch_->getCellHeightInRows(nd);
 
     if (nRowsSpanned == 1) {
@@ -1393,28 +1375,6 @@ odb::Rect transformEdgeRect(const odb::Rect& edge_rect,
   transform.apply(result);
   return result;
 }
-odb::dbOrientType getOrientType(unsigned int orient_in)
-{
-  odb::dbOrientType orient = odb::dbOrientType::R0;
-  switch (orient_in) {
-    case Orientation_N:
-      orient = odb::dbOrientType::R0;
-      break;
-    case Orientation_FN:
-      orient = odb::dbOrientType::MY;
-      break;
-    case Orientation_FS:
-      orient = odb::dbOrientType::MX;
-      break;
-    case Orientation_S:
-      orient = odb::dbOrientType::R180;
-      break;
-    default:
-      // ?
-      break;
-  }
-  return orient;
-}
 odb::Rect getQueryRect(const odb::Rect& edge_box, const int spc)
 {
   odb::Rect query_rect(edge_box);
@@ -1446,12 +1406,12 @@ bool DetailedMgr::hasEdgeSpacingViolation(const Node* node) const
   for (const auto& edge1 : master->edges_) {
     int max_spc = arch_->getMaxSpacing(edge1.getEdgeType()).spc
                   + 1;  // +1 to account for EXACT rules
-    odb::Rect edge1_box = cell_edges::transformEdgeRect(
-        edge1.getBBox(),
-        node,
-        x_real,
-        y_real,
-        cell_edges::getOrientType(node->getCurrOrient()));
+    odb::Rect edge1_box
+        = cell_edges::transformEdgeRect(edge1.getBBox(),
+                                        node,
+                                        x_real,
+                                        y_real,
+                                        dpoToDbOrient(node->getCurrOrient()));
     bool is_vertical_edge = edge1_box.getDir() == 0;
     odb::Rect query_rect = cell_edges::getQueryRect(edge1_box, max_spc);
     auto xMin = grid_->gridX(DbuX(query_rect.xMin()));
@@ -1487,7 +1447,7 @@ bool DetailedMgr::hasEdgeSpacingViolation(const Node* node) const
               cell2,
               cell2->getLeft(),
               cell2->getBottom(),
-              cell_edges::getOrientType(cell2->getCurrOrient()));
+              dpoToDbOrient(cell2->getCurrOrient()));
           if (edge1_box.getDir() != edge2_box.getDir()) {
             // Skip if edges are not parallel.
             continue;
@@ -3447,7 +3407,6 @@ bool DetailedMgr::trySwap1(Node* ndi,
 ////////////////////////////////////////////////////////////////////////////////
 void DetailedMgr::clearMoveList()
 {
-  nMoved_ = 0;
   journal.clearJournal();
 }
 
@@ -3462,7 +3421,7 @@ bool DetailedMgr::addToMoveList(Node* ndi,
                                 const int newSeg)
 {
   // Limit maximum number of cells that can move at once.
-  if (nMoved_ >= moveLimit_) {
+  if (journal.size() >= moveLimit_) {
     return false;
   }
 
@@ -3495,7 +3454,6 @@ bool DetailedMgr::addToMoveList(Node* ndi,
   action.setNewLocation(newLeft, newBottom);
   action.setNewSegs({newSeg});
   journal.addAction(action);
-  ++nMoved_;
   return true;
 }
 
@@ -3510,7 +3468,7 @@ bool DetailedMgr::addToMoveList(Node* ndi,
                                 const std::vector<int>& newSegs)
 {
   // Most number of cells that can move.
-  if (nMoved_ >= moveLimit_) {
+  if (journal.size() >= moveLimit_) {
     return false;
   }
   // commit move and add to journal
@@ -3532,7 +3490,6 @@ bool DetailedMgr::addToMoveList(Node* ndi,
   action.setNewLocation(newLeft, newBottom);
   action.setNewSegs(newSegs);
   journal.addAction(action);
-  ++nMoved_;
   return true;
 }
 
@@ -3565,7 +3522,10 @@ void DetailedMgr::paintInGrid(Node* node)
 {
   const auto grid_x = grid_->gridX(DbuX(node->getLeft()));
   const auto grid_y = grid_->gridRoundY(DbuY(node->getBottom()));
+  auto pixel = grid_->gridPixel(grid_x, grid_y);
   grid_->paintPixel(node, grid_x, grid_y);
+  node->adjustCurrOrient(dbToDpoOrient(
+      pixel->sites.at(node->getDbInst()->getMaster()->getSite())));
 }
 ////////////////////////////////////////////////////////////////////////////////
 void DetailedMgr::undo(const JournalAction& action, const bool positions_only)
