@@ -1,6 +1,10 @@
-include("openroad")
-
-set(TEST_NAMES
+or_integration_tests(
+  "rsz"
+  TESTS
+    gain_buffering1_hier
+    repair_fanout1_hier
+    repair_fanout2_hier
+    repair_fanout3_hier      
     buffer_ports1
     buffer_ports3
     buffer_ports4
@@ -12,20 +16,24 @@ set(TEST_NAMES
     clone_flat
     clone_hier
     eliminate_dead_logic1
+    eliminate_dead_logic2
     eqy_repair_setup2
     eqy_repair_setup5
     fanin_fanout1
     gain_buffering1
     gcd_resize
+    liberty_dont_use
     make_parasitics1
     make_parasitics2
     make_parasitics3
     make_parasitics4
     make_parasitics5
     make_parasitics6
+    make_parasitics7
     pin_swap1
     pinswap_flat
     pinswap_hier
+    recover_power_verbose
     remove_buffers1
     remove_buffers2
     remove_buffers3
@@ -75,6 +83,7 @@ set(TEST_NAMES
     repair_setup5
     repair_setup6
     repair_setup7
+    repair_setup7_limit
     repair_setup8
     repair_setup_undo
     repair_slew1
@@ -102,6 +111,7 @@ set(TEST_NAMES
     repair_tie6
     repair_tie7
     repair_tie8
+    repair_tie9
     repair_wire1
     repair_wire2
     repair_wire3
@@ -113,9 +123,18 @@ set(TEST_NAMES
     repair_wire9
     repair_wire10
     repair_wire11
+    report_dont_touch
+    report_dont_use
+    report_dont_use_corners
     report_floating_nets1
     report_floating_nets2
     report_floating_nets3
+    report_overdriven_nets1
+    report_overdriven_nets2
+    report_overdriven_nets3
+    report_overdriven_nets4
+    report_overdriven_nets5
+    report_overdriven_nets6
     resize1
     resize1_hier
     resize4
@@ -127,14 +146,22 @@ set(TEST_NAMES
     set_dont_touch1
     set_dont_use1
     split_load_hier
+    repair_fanout6_multi
+    repair_fanout7_multi
+    repair_fanout8_multi
+    repair_setup1_multi
+    repair_setup2_multi
+    repair_setup3_multi
+    repair_setup4_multi
+    repair_setup6_multi
+    repair_setup7_multi
+    report_equiv_cells
+  PASSFAIL_TESTS
+    cpp_tests
 )
 
 # Skipped
 #rsz_man_tcl_check
 #rsz_readme_msgs_check
-
-foreach(TEST_NAME IN LISTS TEST_NAMES)
-    or_integration_test("rsz" ${TEST_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/regression)
-endforeach()
 
 add_subdirectory(cpp)

@@ -17,9 +17,10 @@ cts_aux.clock_tree_synthesis(
     root_buf="CLKBUF_X3",
     buf_list="CLKBUF_X3",
     wire_unit=20,
-    obstruction_aware=True,
     apply_ndr=True,
 )
+
+cts_aux.report_cts(design)
 
 def_file = helpers.make_result_file("simple_test_out.def")
 design.writeDef(def_file)

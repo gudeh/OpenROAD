@@ -35,6 +35,7 @@
 #include <boost/geometry.hpp>
 #include <boost/polygon/polygon.hpp>
 #include <limits>
+#include <vector>
 
 #include "connect.h"
 #include "domain.h"
@@ -128,8 +129,9 @@ bool Straps::checkLayerOffsetSpecification(bool error) const
       getLogger()->error(
           utl::PDN,
           185,
-          "Insufficient width ({} um) to add straps on layer {} in grid \"{}\" "
-          "with total strap width {} um and offset {} um.",
+          "Insufficient width ({:.2f} um) to add straps on layer {} in grid "
+          "\"{}\" "
+          "with total strap width {:.1f} um and offset {:.1f} um.",
           layer.dbuToMicron(grid_width),
           layer_->getName(),
           getGrid()->getLongName(),

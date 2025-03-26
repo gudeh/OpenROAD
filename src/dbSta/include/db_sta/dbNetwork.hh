@@ -159,6 +159,7 @@ class dbNetwork : public ConcreteNetwork
   Instance* dbToSta(dbInst* inst) const;
   Net* dbToSta(dbNet* net) const;
   const Net* dbToSta(const dbNet* net) const;
+  const Net* dbToSta(const dbModNet* net) const;
   Cell* dbToSta(dbMaster* master) const;
   Port* dbToSta(dbMTerm* mterm) const;
 
@@ -178,9 +179,16 @@ class dbNetwork : public ConcreteNetwork
   dbBTerm* isTopPort(const Port*) const;
   void setTopPortDirection(dbBTerm* bterm, const dbIoType& io_type);
   ObjectId id(const Port* port) const override;
+  ObjectId id(const Cell* cell) const override;
 
+  // generic connect pin -> net, supports all pin/net types
+  void connectPin(Pin* pin, Net* net) override;
+  // generic connect pin -> flat_net, hier_net.
+  void connectPin(Pin* pin, Net* flat_net, Net* hier_net);
   // hierarchical support functions
-  dbModule* getNetDriverParentModule(Net* net);
+  dbModule* getNetDriverParentModule(Net* net,
+                                     Pin*& driver_pin,
+                                     bool hier = false);
   Instance* getOwningInstanceParent(Pin* pin);
 
   bool ConnectionToModuleExists(dbITerm* source_pin,
@@ -193,11 +201,11 @@ class dbNetwork : public ConcreteNetwork
                            const char* connection_name);
 
   void getParentHierarchy(dbModule* start_module,
-                          std::vector<dbModule*>& parent_hierarchy);
+                          std::vector<dbModule*>& parent_hierarchy) const;
   dbModule* findHighestCommonModule(std::vector<dbModule*>& itree1,
                                     std::vector<dbModule*>& itree2);
   Instance* findHierInstance(const char* name);
-  void replaceDesign(dbModInst* mod_inst, dbModule* module);
+  void replaceHierModule(dbModInst* mod_inst, dbModule* module);
 
   ////////////////////////////////////////////////////////////////
   //
@@ -217,6 +225,10 @@ class dbNetwork : public ConcreteNetwork
   // Name local to containing cell/instance.
   const char* name(const Instance* instance) const override;
   const char* name(const Port* port) const override;
+  // Path name functions needed hierarchical verilog netlists.
+  using ConcreteNetwork::pathName;
+  const char* pathName(const Net* net) const override;
+
   const char* busName(const Port* port) const override;
   ObjectId id(const Instance* instance) const override;
   Cell* cell(const Instance* instance) const override;
@@ -232,6 +244,7 @@ class dbNetwork : public ConcreteNetwork
   void setAttribute(Instance* instance,
                     const string& key,
                     const string& value) override;
+  dbModNet* findRelatedModNet(const dbNet*) const;
 
   ////////////////////////////////////////////////////////////////
   // Pin functions
@@ -247,6 +260,9 @@ class dbNetwork : public ConcreteNetwork
   dbITerm* flatPin(const Pin* pin) const;
   dbModITerm* hierPin(const Pin* pin) const;
 
+  bool isFlat(const Pin* pin) const;
+  bool isFlat(const Net* net) const;
+
   Term* term(const Pin* pin) const override;
   PortDirection* direction(const Pin* pin) const override;
   VertexId vertexId(const Pin* pin) const override;
@@ -255,6 +271,7 @@ class dbNetwork : public ConcreteNetwork
   ////////////////////////////////////////////////////////////////
   // Terminal functions
   Net* net(const Term* term) const override;
+  dbNet* flatNet(const Term* term) const;
   Pin* pin(const Term* term) const override;
   ObjectId id(const Term* term) const override;
 
@@ -308,11 +325,13 @@ class dbNetwork : public ConcreteNetwork
   void replaceCell(Instance* inst, Cell* cell) override;
   // Deleting instance also deletes instance pins.
   void deleteInstance(Instance* inst) override;
+
   // Connect the port on an instance to a net.
   Pin* connect(Instance* inst, Port* port, Net* net) override;
   Pin* connect(Instance* inst, LibertyPort* port, Net* net) override;
   void connectPinAfter(Pin* pin);
   void disconnectPin(Pin* pin) override;
+  void disconnectPin(Pin* pin, Net*);
   void disconnectPinBefore(const Pin* pin);
   void deletePin(Pin* pin) override;
   Net* makeNet(const char* name, Instance* parent) override;

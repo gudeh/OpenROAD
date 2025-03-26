@@ -38,6 +38,7 @@
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QPushButton>
+#include <vector>
 
 #include "gui/gui.h"
 #include "gui_utils.h"
@@ -633,6 +634,7 @@ Inspector::Inspector(const SelectionSet& selected,
       button_prev_(new QPushButton("← Previous", this)),
       selected_itr_label_(new QLabel(this)),
       commands_menu_(new QMenu("Commands Menu", this)),
+      readonly_(false),
       highlighted_(highlighted)
 {
   setObjectName("inspector");  // for settings
@@ -849,6 +851,18 @@ void Inspector::reload()
   model_->updateObject();
 }
 
+void Inspector::setReadOnly()
+{
+  readonly_ = true;
+  reload();
+}
+
+void Inspector::unsetReadOnly()
+{
+  readonly_ = false;
+  reload();
+}
+
 void Inspector::highlightChanged()
 {
   loadActions();
@@ -947,6 +961,10 @@ void Inspector::makeAction(const Descriptor::Action& action)
   });
   action_layout_->addWidget(button);
   actions_[button] = action.callback;
+
+  if (readonly_ && name == "Delete") {
+    button->setEnabled(false);
+  }
 }
 
 void Inspector::clicked(const QModelIndex& index)
@@ -1003,7 +1021,7 @@ void Inspector::indexDoubleClicked(const QModelIndex& index)
   QStandardItem* item = model_->itemFromIndex(index);
   QVariant item_data = item->data(EditorItemDelegate::editor_);
 
-  if (item_data.isValid()) {
+  if (!readonly_ && item_data.isValid()) {
     // set editable
     item->setEditable(true);
     // start editing

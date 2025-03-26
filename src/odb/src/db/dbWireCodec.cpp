@@ -32,7 +32,7 @@
 
 #include "odb/dbWireCodec.h"
 
-#include <ctype.h>
+#include <cctype>
 
 #include "dbBlock.h"
 #include "dbDatabase.h"
@@ -751,8 +751,6 @@ inline void dbWireDecoder::flushRule()
 
 dbWireDecoder::OpCode dbWireDecoder::peek() const
 {
-  ZASSERT(_wire);
-
   int idx = _idx;
 
 nextOpCode:
@@ -811,8 +809,6 @@ nextOpCode:
 
 dbWireDecoder::OpCode dbWireDecoder::next()
 {
-  ZASSERT(_wire);
-
 nextOpCode:
 
   if (_idx == (int) _wire->_opcodes.size()) {
@@ -1253,7 +1249,7 @@ void dumpDecoder4Net(dbNet* innet)
   dbTechLayer* layer;
   dbWireType wtype;
   dbTechLayerRule* lyr_rule = nullptr;
-  while (1) {
+  while (true) {
     opcode = decoder.next();
     if (opcode == dbWireDecoder::END_DECODE) {
       logger->info(
@@ -1480,7 +1476,7 @@ void dumpDecoder4Net(dbNet* innet)
         break;
       }
     }  // switch opcode
-  }    // while
+  }  // while
 }
 
 void dumpDecoder(dbBlock* inblk, const char* net_name_or_id)

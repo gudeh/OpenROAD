@@ -36,11 +36,13 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "chartsWidget.h"
 #include "clockWidget.h"
 #include "displayControls.h"
 #include "drcWidget.h"
+#include "heatMapPinDensity.h"
 #include "heatMapPlacementDensity.h"
 #include "helpWidget.h"
 #include "inspector.h"
@@ -48,9 +50,7 @@
 #include "mainWindow.h"
 #include "odb/db.h"
 #include "odb/dbShape.h"
-#include "odb/defin.h"
 #include "odb/geom.h"
-#include "odb/lefin.h"
 #include "ord/OpenRoad.hh"
 #include "ruler.h"
 #include "scriptWidget.h"
@@ -228,6 +228,7 @@ Gui::Gui()
     : continue_after_close_(false),
       logger_(nullptr),
       db_(nullptr),
+      pin_density_heat_map_(nullptr),
       placement_density_heat_map_(nullptr)
 {
   resetConversions();
@@ -780,6 +781,28 @@ void Gui::saveClockTreeImage(const std::string& clock_name,
       clock_name, filename, corner, width, height);
 }
 
+void Gui::saveHistogramImage(const std::string& filename,
+                             const std::string& mode,
+                             int width_px,
+                             int height_px)
+{
+  if (!enabled()) {
+    return;
+  }
+  std::optional<int> width;
+  std::optional<int> height;
+  if (width_px > 0) {
+    width = width_px;
+  }
+  if (height_px > 0) {
+    height = height_px;
+  }
+  const ChartsWidget::Mode chart_mode
+      = main_window->getChartsWidget()->modeFromString(mode);
+  main_window->getChartsWidget()->saveImage(
+      filename, chart_mode, width, height);
+}
+
 void Gui::selectClockviewerClock(const std::string& clock_name)
 {
   if (!enabled()) {
@@ -1000,6 +1023,19 @@ void Gui::dumpHeatMap(const std::string& name, const std::string& file)
 {
   HeatMapDataSource* source = getHeatMap(name);
   source->dumpToFile(file);
+}
+
+void Gui::setMainWindowTitle(const std::string& title)
+{
+  main_window_title_ = title;
+  if (main_window) {
+    main_window->setTitle(title);
+  }
+}
+
+std::string Gui::getMainWindowTitle()
+{
+  return main_window_title_;
 }
 
 Renderer::~Renderer()
@@ -1283,7 +1319,9 @@ void Gui::init(odb::dbDatabase* db, utl::Logger* logger)
   db_ = db;
   setLogger(logger);
 
-  // placement density heatmap
+  pin_density_heat_map_ = std::make_unique<PinDensityDataSource>(logger);
+  pin_density_heat_map_->registerHeatMap();
+
   placement_density_heat_map_
       = std::make_unique<PlacementDensityDataSource>(logger);
   placement_density_heat_map_->registerHeatMap();
@@ -1304,20 +1342,34 @@ void Gui::selectChart(const std::string& name)
     return;
   }
 
-  ChartsWidget::Mode mode;
-  if (name == "Endpoint Slack") {
-    mode = ChartsWidget::Mode::SLACK_HISTOGRAM;
-  } else if (name == "Select Mode") {
-    mode = ChartsWidget::Mode::SELECT;
-  } else {
-    logger_->error(utl::GUI, 105, "Chart {} is unknown.", name);
-  }
+  const ChartsWidget::Mode mode
+      = main_window->getChartsWidget()->modeFromString(name);
   main_window->getChartsWidget()->setMode(mode);
 }
 
 void Gui::updateTimingReport()
 {
   main_window->getTimingWidget()->populatePaths();
+}
+
+// See class header for documentation.
+std::size_t Gui::TypeInfoHasher::operator()(const std::type_index& x) const
+{
+#ifdef __GLIBCXX__
+  return std::hash<std::type_index>{}(x);
+#else
+  return std::hash<std::string_view>{}(std::string_view(x.name()));
+#endif
+}
+// See class header for documentation.
+bool Gui::TypeInfoComparator::operator()(const std::type_index& a,
+                                         const std::type_index& b) const
+{
+#ifdef __GLIBCXX__
+  return a == b;
+#else
+  return strcmp(a.name(), b.name()) == 0;
+#endif
 }
 
 class SafeApplication : public QApplication
@@ -1368,6 +1420,7 @@ int startGui(int& argc,
   if (minimize) {
     main_window->showMinimized();
   }
+  main_window->setTitle(gui->getMainWindowTitle());
 
   open_road->addObserver(main_window);
   if (!interactive) {

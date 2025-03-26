@@ -33,6 +33,7 @@
 #include "grid.h"
 
 #include <boost/geometry.hpp>
+#include <vector>
 
 #include "connect.h"
 #include "domain.h"
@@ -853,6 +854,7 @@ void Grid::removeInvalidVias()
 std::vector<GridComponent*> Grid::getGridComponents() const
 {
   std::vector<GridComponent*> components;
+  components.reserve(rings_.size() + straps_.size());
   for (const auto& ring : rings_) {
     components.push_back(ring.get());
   }

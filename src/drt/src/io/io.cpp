@@ -32,6 +32,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 #include "db/tech/frConstraint.h"
 #include "frProfileTask.h"
@@ -122,34 +123,34 @@ void io::Parser::setTracks(odb::dbBlock* block)
   }
 }
 
-void io::Parser::setInst(odb::dbInst* inst)
+frInst* io::Parser::setInst(odb::dbInst* db_inst)
 {
-  frMaster* master = getDesign()->name2master_.at(inst->getMaster()->getName());
-  auto uInst = std::make_unique<frInst>(inst->getName(), master, inst);
-  auto tmpInst = uInst.get();
+  frMaster* master
+      = getDesign()->name2master_.at(db_inst->getMaster()->getName());
+  auto inst = std::make_unique<frInst>(db_inst->getName(), master, db_inst);
 
   int x, y;
-  inst->getLocation(x, y);
-  tmpInst->setOrigin(Point(x, y));
-  tmpInst->setOrient(inst->getOrient());
+  db_inst->getLocation(x, y);
+  inst->setOrigin(Point(x, y));
+  inst->setOrient(db_inst->getOrient());
   int numInstTerms = 0;
-  tmpInst->setPinAccessIdx(inst->getPinAccessIdx());
-  for (auto& uTerm : tmpInst->getMaster()->getTerms()) {
-    auto term = uTerm.get();
+  inst->setPinAccessIdx(db_inst->getPinAccessIdx());
+  for (auto& term : inst->getMaster()->getTerms()) {
     std::unique_ptr<frInstTerm> instTerm
-        = std::make_unique<frInstTerm>(tmpInst, term);
+        = std::make_unique<frInstTerm>(inst.get(), term.get());
     instTerm->setIndexInOwner(numInstTerms++);
     int pinCnt = term->getPins().size();
     instTerm->setAPSize(pinCnt);
-    tmpInst->addInstTerm(std::move(instTerm));
+    inst->addInstTerm(std::move(instTerm));
   }
-  for (auto& uBlk : tmpInst->getMaster()->getBlockages()) {
-    auto blk = uBlk.get();
+  for (auto& blk : inst->getMaster()->getBlockages()) {
     std::unique_ptr<frInstBlockage> instBlk
-        = std::make_unique<frInstBlockage>(tmpInst, blk);
-    tmpInst->addInstBlockage(std::move(instBlk));
+        = std::make_unique<frInstBlockage>(inst.get(), blk.get());
+    inst->addInstBlockage(std::move(instBlk));
   }
-  getBlock()->addInst(std::move(uInst));
+  frInst* raw_inst = inst.get();
+  getBlock()->addInst(std::move(inst));
+  return raw_inst;
 }
 
 void io::Parser::setInsts(odb::dbBlock* block)
@@ -1175,10 +1176,8 @@ odb::Rect io::Parser::getViaBoxForTermAboveMaxLayer(odb::dbBTerm* term,
                       ->getLayerNum();
             if (layerNum == router_cfg_->TOP_ROUTING_LAYER) {
               odb::Rect viaBox = vbox->getBox();
-              odb::dbTransform xform;
               odb::Point path_origin = pshape.point;
-              xform.setOffset({path_origin.x(), path_origin.y()});
-              xform.setOrient(odb::dbOrientType(odb::dbOrientType::R0));
+              odb::dbTransform xform(path_origin);
               xform.apply(viaBox);
               if (bbox.intersects(viaBox)) {
                 bbox = viaBox;
@@ -1245,7 +1244,7 @@ void io::Parser::setAccessPoints(odb::dbDatabase* db)
     }
   }
   for (auto db_inst : db->getChip()->getBlock()->getInsts()) {
-    auto inst = getBlock()->findInst(db_inst->getName());
+    auto inst = getBlock()->findInst(db_inst);
     if (inst == nullptr) {
       continue;
     }
@@ -3090,7 +3089,7 @@ void io::Parser::updateDesign()
   auto block = db_->getChip()->getBlock();
   getBlock()->removeDeletedInsts();
   for (auto db_inst : block->getInsts()) {
-    auto inst = getBlock()->findInst(db_inst->getName());
+    auto inst = getBlock()->findInst(db_inst);
     if (inst == nullptr) {
       setInst(db_inst);
     }
@@ -3468,7 +3467,7 @@ void io::Writer::fillConnFigs(bool isTA, int verbose)
 
 void io::Writer::writeViaDefToODB(odb::dbBlock* block,
                                   odb::dbTech* db_tech,
-                                  frViaDef* via)
+                                  const frViaDef* via)
 {
   if (!via->isAddedByRouter()) {
     return;
@@ -3986,7 +3985,7 @@ void io::TopLayerBTermHandler::stackVias(odb::dbBTerm* bterm,
   for (auto layer : tech->getLayers()) {
     if (layer->getType() == odb::dbTechLayerType::CUT) {
       frLayer* fr_layer = fr_tech->getLayer(layer->getName());
-      frViaDef* via_def = fr_layer->getDefaultViaDef();
+      const frViaDef* via_def = fr_layer->getDefaultViaDef();
       if (via_def == nullptr) {
         logger_->warn(utl::DRT,
                       204,

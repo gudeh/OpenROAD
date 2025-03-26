@@ -55,6 +55,7 @@ if (Qt5_FOUND AND BUILD_GUI)
     src/ruler.cpp
     src/heatMap.cpp
     src/heatMapSetup.cpp
+    src/heatMapPinDensity.cpp
     src/heatMapPlacementDensity.cpp
     src/browserWidget.cpp
     src/globalConnectDialog.cpp
@@ -63,6 +64,7 @@ if (Qt5_FOUND AND BUILD_GUI)
     src/colorGenerator.cpp
     src/bufferTreeDescriptor.cpp
     src/chartsWidget.cpp
+    src/GUIProgress.cpp
     resources/resource.qrc
   )
 
@@ -73,7 +75,7 @@ if (Qt5_FOUND AND BUILD_GUI)
       Qt5::Core
       Qt5::Widgets
       Qt5::Charts
-      utl
+      utl_lib
       Boost::boost
   )
 

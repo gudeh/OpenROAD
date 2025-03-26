@@ -31,6 +31,7 @@
 #include <boost/icl/interval_set.hpp>
 #include <list>
 #include <memory>
+#include <vector>
 
 #include "frDesign.h"
 
@@ -83,7 +84,7 @@ class Parser
   void initSecondaryVias();
   void initRPin();
   auto& getTrackOffsetMap() { return trackOffsetMap_; }
-  std::vector<frTrackPattern*>& getPrefTrackPatterns()
+  std::vector<frTrackPattern*>& computePrefTrackPatterns()
   {
     return prefTrackPatterns_;
   }
@@ -99,7 +100,7 @@ class Parser
   void setDieArea(odb::dbBlock*);
   void setTracks(odb::dbBlock*);
   void setInsts(odb::dbBlock*);
-  void setInst(odb::dbInst*);
+  frInst* setInst(odb::dbInst*);
   void setObstructions(odb::dbBlock*);
   void setBTerms(odb::dbBlock*);
   odb::Rect getViaBoxForTermAboveMaxLayer(odb::dbBTerm* term,
@@ -139,7 +140,7 @@ class Parser
                 bool& foundCenterTracks,
                 bool& hasPolys);
   void checkPins();
-  void getViaRawPriority(frViaDef* viaDef, viaRawPriorityTuple& priority);
+  void getViaRawPriority(const frViaDef* viaDef, viaRawPriorityTuple& priority);
   void initDefaultVias_GF14(const std::string& node);
   void initCutLayerWidth();
   void initConstraintLayerIdx();
@@ -203,7 +204,7 @@ class Writer
   void updateDbConn(odb::dbBlock* block, odb::dbTech* db_tech, bool snapshot);
   void writeViaDefToODB(odb::dbBlock* block,
                         odb::dbTech* db_tech,
-                        frViaDef* via);
+                        const frViaDef* via);
   void updateDbAccessPoints(odb::dbBlock* block, odb::dbTech* db_tech);
   void updateDbAccessPoint(odb::dbAccessPoint* db_ap,
                            frAccessPoint* ap,

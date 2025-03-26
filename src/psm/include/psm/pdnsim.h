@@ -100,10 +100,12 @@ class PDNSim : public odb::dbBlockCallBackObj
             dpl::Opendp* opendp);
 
   void setNetVoltage(odb::dbNet* net, sta::Corner* corner, double voltage);
+  void setInstPower(odb::dbInst* inst, sta::Corner* corner, float power);
   void analyzePowerGrid(odb::dbNet* net,
                         sta::Corner* corner,
                         GeneratedSourceType source_type,
                         const std::string& voltage_file,
+                        bool use_prev_solution,
                         bool enable_em,
                         const std::string& em_file,
                         const std::string& error_file,
@@ -119,7 +121,8 @@ class PDNSim : public odb::dbBlockCallBackObj
                          IRDropByPoint& ir_drop) const;
   bool checkConnectivity(odb::dbNet* net,
                          bool floorplanning,
-                         const std::string& error_file);
+                         const std::string& error_file,
+                         bool require_bterm);
   void setDebugGui(bool enable);
 
   void clearSolvers();
@@ -165,6 +168,7 @@ class PDNSim : public odb::dbBlockCallBackObj
 
   std::map<odb::dbNet*, std::unique_ptr<IRSolver>> solvers_;
   std::map<odb::dbNet*, std::map<sta::Corner*, double>> user_voltages_;
+  std::map<odb::dbInst*, std::map<sta::Corner*, float>> user_powers_;
 
   sta::Corner* last_corner_ = nullptr;
 };

@@ -1,9 +1,12 @@
-include("openroad")
-
-set(TEST_NAMES
+or_integration_tests(
+  "gpl"
+  TESTS
     ar01
     ar02
     clust01
+    clust02
+    clust03
+    cluster_place01
     convergence01
     core01
     density01
@@ -37,10 +40,6 @@ set(TEST_NAMES
 # Skipped
 #gpl_man_tcl_check
 #gpl_readme_msgs_check
-
-foreach(TEST_NAME IN LISTS TEST_NAMES)
-    or_integration_test("gpl" ${TEST_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/regression)
-endforeach()
 
 add_executable(fft_test fft_test.cc)
 

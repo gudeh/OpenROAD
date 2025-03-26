@@ -26,6 +26,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <vector>
+
 #include "ta/FlexTA.h"
 
 namespace drt {
@@ -487,7 +489,7 @@ void FlexTAWorker::initIroute(frGuide* guide)
   }
   // owner set when add to taPin
   iroute->addPinFig(std::move(ps));
-  frViaDef* viaDef;
+  const frViaDef* viaDef;
   for (auto coord : upViaCoordSet) {
     if (guide->getNet()->getNondefaultRule()
         && guide->getNet()->getNondefaultRule()->getPrefVia(layerNum / 2 - 1)) {
@@ -815,7 +817,7 @@ void FlexTAWorker::initFixedObjs()
   }
 }
 
-frCoord FlexTAWorker::initFixedObjs_calcOBSBloatDistVia(frViaDef* viaDef,
+frCoord FlexTAWorker::initFixedObjs_calcOBSBloatDistVia(const frViaDef* viaDef,
                                                         const frLayerNum lNum,
                                                         const Rect& box,
                                                         bool isOBS)

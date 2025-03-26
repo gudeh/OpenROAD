@@ -1,6 +1,6 @@
-include("openroad")
-
-set(TEST_NAMES
+or_integration_tests(
+  "ppl"
+  TESTS
     add_constraint1
     add_constraint2
     add_constraint3
@@ -51,6 +51,7 @@ set(TEST_NAMES
     exclude1
     exclude2
     exclude3
+    exclude4
     gcd
     group_pins1
     group_pins2
@@ -62,6 +63,8 @@ set(TEST_NAMES
     group_pins8
     group_pins9
     group_pins10
+    group_pins11
+    group_pins12
     group_pins_error1
     group_pins_warn1
     invalid_layer
@@ -73,8 +76,13 @@ set(TEST_NAMES
     macro_not_placed_random
     min_dist_in_tracks1
     min_dist_in_tracks2
-    multi_layers
     multiple_calls
+    multi_layers
+    multi_track_pattern1
+    multi_track_pattern2
+    multi_track_pattern3
+    multi_track_pattern4
+    multi_track_pattern5
     no_instance_pins
     no_pins
     no_tracks
@@ -124,7 +132,3 @@ set(TEST_NAMES
 # Skipped
 #ppl_man_tcl_check
 #ppl_readme_msgs_check
-
-foreach(TEST_NAME IN LISTS TEST_NAMES)
-    or_integration_test("ppl" ${TEST_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/regression)
-endforeach()

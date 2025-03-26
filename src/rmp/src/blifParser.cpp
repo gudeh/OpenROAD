@@ -63,7 +63,6 @@ namespace phoenix = boost::phoenix;
 
 using namespace boost::placeholders;
 
-using boost::fusion::at_c;
 using boost::spirit::ascii::space_type;
 using boost::spirit::ascii::string;
 using boost::spirit::qi::lit;
@@ -71,10 +70,6 @@ using qi::lexeme;
 
 using ascii::char_;
 using ascii::space;
-
-using phoenix::ref;
-using qi::double_;
-using qi::int_;
 
 void setNewInput(std::string input, rmp::BlifParser* parser)
 {
@@ -172,10 +167,10 @@ void BlifParser::addNewInstanceType(const std::string& type)
     gates_.push_back(
         Gate(currentInstanceType_, currentGate_, currentConnections_));
   }
-  currentInstanceType_
-      = (type == "mlatch")
-            ? GateType::Mlatch
-            : ((type == "gate") ? GateType::Gate : GateType::None);
+  currentInstanceType_ = GateType::Mlatch;
+  if (type != "mlatch") {
+    currentInstanceType_ = (type == "gate") ? GateType::Gate : GateType::None;
+  }
   if (currentInstanceType_ == GateType::Mlatch)
     flopCount_++;
   else if (currentInstanceType_ == GateType::Gate)

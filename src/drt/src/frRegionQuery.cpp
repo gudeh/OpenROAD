@@ -30,6 +30,7 @@
 
 #include <boost/polygon/polygon.hpp>
 #include <iostream>
+#include <vector>
 
 #include "frDesign.h"
 #include "frRTree.h"
@@ -206,7 +207,7 @@ void frRegionQuery::addBlockObj(frBlockObject* obj)
       auto pin = blk->getPin();
       for (auto& uFig : pin->getFigs()) {
         auto shape = uFig.get();
-        if (shape->typeId() == frcPathSeg || shape->typeId() == frcRect) {
+        if (shape->typeId() == frcRect) {
           Rect frb = shape->getBBox();
           xform.apply(frb);
           impl_->shapes_.at(static_cast<frShape*>(shape)->getLayerNum())
@@ -388,9 +389,7 @@ void frRegionQuery::removeMarker(frMarker* in)
 void frRegionQuery::Impl::add(frVia* via,
                               ObjectsByLayer<frBlockObject>& allShapes)
 {
-  dbTransform xform;
-  Point origin = via->getOrigin();
-  xform.setOffset(origin);
+  dbTransform xform = via->getTransform();
   for (auto& uShape : via->getViaDef()->getLayer1Figs()) {
     auto shape = uShape.get();
     if (shape->typeId() == frcRect) {

@@ -33,13 +33,13 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include "extRCap.h"
 #include "odb/array1.h"
 #include "odb/db.h"
 #include "odb/dbShape.h"
 #include "odb/odb.h"
-#include "odb/parse.h"
 
 namespace utl {
 class Logger;
@@ -52,6 +52,7 @@ using odb::uint;
 using utl::Logger;
 
 class NameTable;
+class Ath__parser;
 
 class extSpef
 {

@@ -65,7 +65,7 @@ InitialPlace::InitialPlace(InitialPlaceVars ipVars,
 {
 }
 
-void InitialPlace::doBicgstabPlace()
+void InitialPlace::doBicgstabPlace(int threads)
 {
   ResidualError error;
 
@@ -90,7 +90,8 @@ void InitialPlace::doBicgstabPlace()
                            placeInstForceMatrixY_,
                            fixedInstForceVecY_,
                            instLocVecY_,
-                           log_);
+                           log_,
+                           threads);
     float error_max = std::max(error.x, error.y);
     log_->report("[InitialPlace]  Iter: {} CG residual: {:0.8f} HPWL: {}",
                  iter,
@@ -133,7 +134,7 @@ void InitialPlace::placeInstsCenter()
         inst->setCenterLocation(domain_xMax - (domain_xMax - domain_xMin) / 2,
                                 domain_yMax - (domain_yMax - domain_yMin) / 2);
       } else if (ipVars_.maxIter == 0 && db_inst->isPlaced()) {
-        // It is helpful to pick up the placement from mpl2 if available,
+        // It is helpful to pick up the placement from mpl if available,
         // particularly when you are going to skip initial placement
         // (eg skip_io).
         const auto bbox = db_inst->getBBox()->getBox();

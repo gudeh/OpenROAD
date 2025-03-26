@@ -37,6 +37,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "AbstractSteinerRenderer.h"
 #include "db_sta/dbNetwork.hh"
@@ -139,8 +140,19 @@ static void connectedPins(const Net* net,
   NetConnectedPinIterator* pin_iter = network->connectedPinIterator(net);
   while (pin_iter->hasNext()) {
     const Pin* pin = pin_iter->next();
-    Point loc = db_network->location(pin);
-    pins.push_back({pin, loc});
+    odb::dbITerm* iterm;
+    odb::dbBTerm* bterm;
+    odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
+    db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
+    //
+    // only accumuate the flat pins (in hierarchical mode we may
+    // hit moditerms/modbterms).
+    //
+    if (iterm || bterm) {
+      Point loc = db_network->location(pin);
+      pins.push_back({pin, loc});
+    }
   }
   delete pin_iter;
 }

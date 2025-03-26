@@ -59,7 +59,6 @@ using sta::fuzzyLessEqual;
 using sta::INF;
 using sta::NetConnectedPinIterator;
 using sta::PinSeq;
-using sta::Port;
 
 // Return inserted buffer count.
 int RepairSetup::rebuffer(const Pin* drvr_pin)
@@ -388,7 +387,7 @@ BufferedNetSeq RepairSetup::addWireAndBuffer(const BufferedNetSeq& Z,
   }
   if (!Z1.empty()) {
     BufferedNetSeq buffered_options;
-    for (LibertyCell* buffer_cell : resizer_->buffer_cells_) {
+    for (LibertyCell* buffer_cell : resizer_->buffer_fast_sizes_) {
       Required best_req = -INF;
       BufferedNetPtr best_option = nullptr;
       for (const BufferedNetPtr& z : Z1) {

@@ -179,7 +179,7 @@ class GlobalRouter : public ant::GlobalRouteSource
                            int layer,
                            float reduction_percentage);
   void setVerbose(bool v);
-  void setOverflowIterations(int iterations);
+  void setCongestionIterations(int iterations);
   void setCongestionReportIterStep(int congestion_report_iter_step);
   void setCongestionReportFile(const char* file_name);
   void setGridOrigin(int x, int y);
@@ -220,6 +220,7 @@ class GlobalRouter : public ant::GlobalRouteSource
                              const int& pos_x,
                              const int& pos_y,
                              const int& layer_level);
+  odb::Point getPositionOnGrid(const odb::Point& real_position);
   int repairAntennas(odb::dbMTerm* diode_mterm,
                      int iterations,
                      float ratio_margin,
@@ -236,6 +237,7 @@ class GlobalRouter : public ant::GlobalRouteSource
   std::set<odb::dbNet*> getDirtyNets() { return dirty_nets_; }
   // check_antennas
   bool haveRoutes() override;
+  bool designIsPlaced();
   bool haveDetailedRoutes();
   bool haveDetailedRoutes(const std::vector<odb::dbNet*>& db_nets);
   void makeNetWires() override;
@@ -358,6 +360,7 @@ class GlobalRouter : public ant::GlobalRouteSource
                                   odb::dbTechLayer* tech_layer,
                                   bool is_macro = false);
   void addResourcesForPinAccess();
+  bool isPinReachable(const Pin& pin, const odb::Point& pos_on_grid);
   int computeNetWirelength(odb::dbNet* db_net);
   void computeWirelength();
   std::vector<Pin*> getAllPorts();
@@ -485,7 +488,7 @@ class GlobalRouter : public ant::GlobalRouteSource
   // Flow variables
   float adjustment_;
   int layer_for_guide_dimension_;
-  int overflow_iterations_;
+  int congestion_iterations_{50};
   int congestion_report_iter_step_;
   bool allow_congestion_;
   std::vector<int> vertical_capacities_;

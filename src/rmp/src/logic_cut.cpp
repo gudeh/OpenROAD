@@ -7,12 +7,14 @@
 #include "logic_cut.h"
 
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "abc_library_factory.h"
 #include "base/abc/abc.h"
 #include "db_sta/dbNetwork.hh"
 #include "map/mio/mio.h"
+#include "map/mio/mioInt.h"
 #include "sta/Liberty.hh"
 #include "unique_name.h"
 #include "utl/Logger.h"
@@ -97,6 +99,7 @@ MioGateToPortOrder(abc::Mio_Library_t* library)
 
 std::unordered_map<sta::Instance*, abc::Abc_Obj_t*> CreateStandardCells(
     const std::unordered_set<sta::Instance*>& cut_instances,
+    AbcLibrary& abc_library,
     abc::Abc_Ntk_t& abc_network,
     sta::dbNetwork* network,
     abc::Mio_Library_t* library,
@@ -107,12 +110,22 @@ std::unordered_map<sta::Instance*, abc::Abc_Obj_t*> CreateStandardCells(
 
   std::unordered_map<sta::Instance*, abc::Abc_Obj_t*> instance_map;
   for (sta::Instance* instance : cut_instances) {
-    abc::Abc_Obj_t* abc_cell = abc::Abc_NtkCreateNode(&abc_network);
-
     // Assign this node its standard cell. This is what makes this node
     // an AND gate or whatever.
     sta::LibertyCell* cell = network->libertyCell(instance);
     std::string cell_name = cell->name();
+
+    // Need to check for const cells since the Mio_Library_t* filters out
+    // const cells.
+    if (abc_library.IsConst0Cell(cell_name)) {
+      cell_name = abc::Mio_LibraryReadConst0(library)->pName;
+    }
+
+    if (abc_library.IsConst1Cell(cell_name)) {
+      cell_name = abc::Mio_LibraryReadConst1(library)->pName;
+    }
+
+    // Is a regular standard cell
     if (cell_name_to_mio.find(cell_name) == cell_name_to_mio.end()) {
       logger->error(utl::RMP,
                     1001,
@@ -120,8 +133,8 @@ std::unordered_map<sta::Instance*, abc::Abc_Obj_t*> CreateStandardCells(
                     "this internal error.",
                     cell_name);
     }
+    abc::Abc_Obj_t* abc_cell = abc::Abc_NtkCreateNode(&abc_network);
     abc::Abc_ObjSetData(abc_cell, cell_name_to_mio.at(cell_name));
-
     std::string instance_name = network->name(instance);
     abc::Abc_ObjAssignName(abc_cell, instance_name.data(), /*pSuffix=*/nullptr);
     instance_map[instance] = abc_cell;
@@ -176,11 +189,13 @@ void ConnectPinToDriver(
   abc::Abc_Obj_t* abc_net = abc::Abc_NtkCreateNet(&abc_network);
 
   if (abc_instances.find(driver_instance) == abc_instances.end()) {
-    logger->error(utl::RMP,
-                  1003,
-                  "ABC version of instance {} not found. Please report this "
-                  "internal error.",
-                  network->name(driver_instance));
+    logger->error(
+        utl::RMP,
+        1003,
+        "ABC version of instance {} of type {} not found. Please report this "
+        "internal error.",
+        network->name(driver_instance),
+        network->libertyCell(driver_instance)->name());
   }
   abc::Abc_ObjAddFanin(abc_net, abc_instances.at(driver_instance));
   abc::Abc_ObjAddFanin(abc_fanin_reciever, abc_net);
@@ -256,6 +271,24 @@ void CreateNets(
   }
 }
 
+void AssertAbcNetworkHasNoZeroFanoutNodes(abc::Abc_Ntk_t* abc_network,
+                                          utl::Logger* logger)
+{
+  for (int i = 0; i < abc::Vec_PtrSize(abc_network->vObjs); i++) {
+    abc::Abc_Obj_t* obj = abc::Abc_NtkObj(abc_network, i);
+    if (obj == nullptr || !abc::Abc_ObjIsNode(obj)) {
+      continue;
+    }
+
+    if (abc::Abc_ObjFanoutNum(obj) == 0) {
+      logger->error(utl::RMP,
+                    1025,
+                    "Zero fanout node emitted from ABC. Please report this "
+                    "internal error.");
+    }
+  }
+}
+
 utl::UniquePtrWithDeleter<abc::Abc_Ntk_t> LogicCut::BuildMappedAbcNetwork(
     AbcLibrary& abc_library,
     sta::dbNetwork* network,
@@ -280,8 +313,12 @@ utl::UniquePtrWithDeleter<abc::Abc_Ntk_t> LogicCut::BuildMappedAbcNetwork(
   // Create cells from cut instances, get a map of the created nodes
   // keyed by the instance in the netlist.
   std::unordered_map<sta::Instance*, abc::Abc_Obj_t*> standard_cells
-      = CreateStandardCells(
-          cut_instances_, *abc_network, network, mio_library, logger);
+      = CreateStandardCells(cut_instances_,
+                            abc_library,
+                            *abc_network,
+                            network,
+                            mio_library,
+                            logger);
 
   CreateNets(primary_outputs_,
              abc_input_nets,
@@ -291,6 +328,8 @@ utl::UniquePtrWithDeleter<abc::Abc_Ntk_t> LogicCut::BuildMappedAbcNetwork(
              network,
              mio_library,
              logger);
+
+  AssertAbcNetworkHasNoZeroFanoutNodes(abc_network.get(), logger);
 
   return abc_network;
 }
@@ -446,6 +485,13 @@ void DeleteExistingLogicCut(sta::dbNetwork* network,
     while (pin_iterator->hasNext()) {
       sta::Pin* pin = pin_iterator->next();
       sta::Net* connected_net = network->net(pin);
+      if (connected_net == nullptr) {
+        // This net is not connected to anything, so we cannot delete it.
+        // This can happen if you have an unconnected output port.
+        // For example one of Sky130's tie cell has both high and low outputs
+        // and only one is connected to a net.
+        continue;
+      }
       // If pin isn't a primary input or output add to deleted list. The only
       // way this can happen is if a net is only used within the cutset, and
       // in that case we want to delete it.
@@ -561,7 +607,42 @@ void ConnectInstances(
   }
 }
 
+void MapConstantCells(AbcLibrary& abc_library,
+                      abc::Abc_Ntk_t* abc_network,
+                      utl::Logger* logger)
+{
+  std::pair<abc::SC_Cell*, abc::SC_Pin*> const_0
+      = abc_library.ConstantZeroCell();
+  if (!const_0.first || !const_0.second) {
+    logger->error(utl::RMP, 1026, "cannot find 0 valued constant tie cell.");
+  }
+
+  std::pair<abc::SC_Cell*, abc::SC_Pin*> const_1
+      = abc_library.ConstantOneCell();
+  if (!const_1.first || !const_1.second) {
+    logger->error(utl::RMP, 1027, "cannot find 1 valued constant tie cell.");
+  }
+  std::string const_0_output_pin_name = const_0.second->pName;
+  std::string const_1_output_pin_name = const_1.second->pName;
+
+  auto library = static_cast<abc::Mio_Library_t*>(abc_network->pManFunc);
+
+  // Map 0 cell
+  abc::Mio_Gate_t* zero_cell = abc::Mio_LibraryReadConst0(library);
+  free(zero_cell->pName);
+  free(zero_cell->pOutName);
+  zero_cell->pName = strdup(const_0.first->pName);
+  zero_cell->pOutName = strdup(const_0_output_pin_name.c_str());
+
+  abc::Mio_Gate_t* one_cell = abc::Mio_LibraryReadConst1(library);
+  free(one_cell->pName);
+  free(one_cell->pOutName);
+  one_cell->pName = strdup(const_1.first->pName);
+  one_cell->pOutName = strdup(const_1_output_pin_name.c_str());
+}
+
 void LogicCut::InsertMappedAbcNetwork(abc::Abc_Ntk_t* abc_network,
+                                      AbcLibrary& abc_library,
                                       sta::dbNetwork* network,
                                       UniqueName& unique_name,
                                       utl::Logger* logger)
@@ -579,6 +660,8 @@ void LogicCut::InsertMappedAbcNetwork(abc::Abc_Ntk_t* abc_network,
         1009,
         "abc_network is not a netlist, please report this internal error.");
   }
+
+  MapConstantCells(abc_library, abc_network, logger);
 
   sta::Instance* parent_instance
       = GetLogicalParentInstance(cut_instances_, network, logger);

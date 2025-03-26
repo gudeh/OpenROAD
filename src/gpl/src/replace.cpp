@@ -106,8 +106,8 @@ void Replace::reset()
   routabilityCheckOverflow_ = 0.3;
   routabilityMaxDensity_ = 0.99;
   routabilityTargetRcMetric_ = 1.01;
-  routabilityInflationRatioCoef_ = 5;
-  routabilityMaxInflationRatio_ = 8;
+  routabilityInflationRatioCoef_ = 3;
+  routabilityMaxInflationRatio_ = 6;
   routabilityRcK1_ = routabilityRcK2_ = 1.0;
   routabilityRcK3_ = routabilityRcK4_ = 0.0;
   routabilityMaxInflationIter_ = 4;
@@ -118,18 +118,24 @@ void Replace::reset()
   routabilityUseRudy_ = true;
   uniformTargetDensityMode_ = false;
   skipIoMode_ = false;
+  disableRevertIfDiverge_ = false;
 
   padLeft_ = padRight_ = 0;
 
   timingNetWeightOverflows_.clear();
   timingNetWeightOverflows_.shrink_to_fit();
-  timingNetWeightMax_ = 1.9;
+  timingNetWeightMax_ = 5;
 
   gui_debug_ = false;
   gui_debug_pause_iterations_ = 10;
   gui_debug_update_iterations_ = 10;
   gui_debug_draw_bins_ = false;
   gui_debug_initial_ = false;
+}
+
+void Replace::addPlacementCluster(const Cluster& cluster)
+{
+  clusters_.emplace_back(cluster);
 }
 
 void Replace::doIncrementalPlace(int threads)
@@ -190,7 +196,7 @@ void Replace::doIncrementalPlace(int threads)
   constexpr float rough_oveflow = 0.2f;
   float previous_overflow = overflow_;
   setTargetOverflow(std::max(rough_oveflow, overflow_));
-  doInitialPlace();
+  doInitialPlace(threads);
 
   int previous_max_iter = nesterovPlaceMaxIter_;
   initNesterovPlace(threads);
@@ -210,7 +216,7 @@ void Replace::doIncrementalPlace(int threads)
   }
 }
 
-void Replace::doInitialPlace()
+void Replace::doInitialPlace(int threads)
 {
   if (pbc_ == nullptr) {
     PlacerBaseVars pbVars;
@@ -250,7 +256,7 @@ void Replace::doInitialPlace()
   std::unique_ptr<InitialPlace> ip(
       new InitialPlace(ipVars, pbc_, pbVec_, log_));
   ip_ = std::move(ip);
-  ip_->doBicgstabPlace();
+  ip_->doBicgstabPlace(threads);
 }
 
 void Replace::runMBFF(int max_sz,
@@ -259,7 +265,7 @@ void Replace::runMBFF(int max_sz,
                       int threads,
                       int num_paths)
 {
-  MBFF pntset(db_, sta_, log_, threads, 20, num_paths, gui_debug_);
+  MBFF pntset(db_, sta_, log_, rs_, threads, 20, num_paths, gui_debug_);
   pntset.Run(max_sz, alpha, beta);
 }
 
@@ -305,7 +311,8 @@ bool Replace::initNesterovPlace(int threads)
 
     nbVars.useUniformTargetDensity = uniformTargetDensityMode_;
 
-    nbc_ = std::make_shared<NesterovBaseCommon>(nbVars, pbc_, log_, threads);
+    nbc_ = std::make_shared<NesterovBaseCommon>(
+        nbVars, pbc_, log_, threads, clusters_);
 
     for (const auto& pb : pbVec_) {
       nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
@@ -340,19 +347,23 @@ bool Replace::initNesterovPlace(int threads)
     npVars.minPhiCoef = minPhiCoef_;
     npVars.maxPhiCoef = maxPhiCoef_;
     npVars.referenceHpwl = referenceHpwl_;
-    npVars.routabilityCheckOverflow = routabilityCheckOverflow_;
+    npVars.routability_end_overflow = routabilityCheckOverflow_;
     npVars.keepResizeBelowOverflow = keepResizeBelowOverflow_;
     npVars.initDensityPenalty = initDensityPenalityFactor_;
     npVars.initWireLengthCoef = initWireLengthCoef_;
     npVars.targetOverflow = overflow_;
     npVars.maxNesterovIter = nesterovPlaceMaxIter_;
     npVars.timingDrivenMode = timingDrivenMode_;
-    npVars.routabilityDrivenMode = routabilityDrivenMode_;
+    npVars.routability_driven_mode = routabilityDrivenMode_;
     npVars.debug = gui_debug_;
     npVars.debug_pause_iterations = gui_debug_pause_iterations_;
     npVars.debug_update_iterations = gui_debug_update_iterations_;
     npVars.debug_draw_bins = gui_debug_draw_bins_;
     npVars.debug_inst = gui_debug_inst_;
+    npVars.debug_start_iter = gui_debug_start_iter_;
+    npVars.debug_update_db_every_iteration
+        = gui_debug_update_db_every_iteration;
+    npVars.disableRevertIfDiverge = disableRevertIfDiverge_;
 
     for (const auto& nb : nbVec_) {
       nb->setNpVars(&npVars);
@@ -374,7 +385,20 @@ int Replace::doNesterovPlace(int threads, int start_iter)
   if (timingDrivenMode_) {
     rs_->resizeSlackPreamble();
   }
-  return np_->doNesterovPlace(start_iter);
+
+  auto start = std::chrono::high_resolution_clock::now();
+
+  int return_do_nesterov = np_->doNesterovPlace(start_iter);
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+  debugPrint(log_,
+             GPL,
+             "runtime",
+             1,
+             "NP->doNesterovPlace() runtime: {} seconds ",
+             elapsed.count());
+  return return_do_nesterov;
 }
 
 void Replace::setInitialPlaceMaxIter(int iter)
@@ -472,7 +496,9 @@ void Replace::setDebug(int pause_iterations,
                        int update_iterations,
                        bool draw_bins,
                        bool initial,
-                       odb::dbInst* inst)
+                       odb::dbInst* inst,
+                       int start_iter,
+                       bool update_db)
 {
   gui_debug_ = true;
   gui_debug_pause_iterations_ = pause_iterations;
@@ -480,6 +506,13 @@ void Replace::setDebug(int pause_iterations,
   gui_debug_draw_bins_ = draw_bins;
   gui_debug_initial_ = initial;
   gui_debug_inst_ = inst;
+  gui_debug_start_iter_ = start_iter;
+  gui_debug_update_db_every_iteration = update_db;
+}
+
+void Replace::setDisableRevertIfDiverge(bool mode)
+{
+  disableRevertIfDiverge_ = mode;
 }
 
 void Replace::setSkipIoMode(bool mode)

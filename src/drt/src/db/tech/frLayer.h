@@ -29,6 +29,7 @@
 #pragma once
 
 #include <set>
+#include <vector>
 
 #include "db/infra/frSegStyle.h"
 #include "db/obj/frVia.h"
@@ -45,6 +46,11 @@ class Parser;
 class frLayer
 {
  public:
+  using EnclosureConstraints = std::vector<frLef58EnclosureConstraint*>;
+  using Width2EnclosureConstraints = std::map<frCoord, EnclosureConstraints>;
+  using CutClass2Width2EnclosureConstraints
+      = std::vector<Width2EnclosureConstraints>;
+
   // setters
   void setDbLayer(odb::dbTechLayer* dbLayer) { db_layer_ = dbLayer; }
   void setFakeCut(bool fakeCutIn) { fakeCut_ = fakeCutIn; }
@@ -55,14 +61,17 @@ class frLayer
   void setLayerNum(frLayerNum layerNumIn) { layerNum_ = layerNumIn; }
   void setWidth(frUInt4 widthIn) { width_ = widthIn; }
   void setMinWidth(frUInt4 minWidthIn) { minWidth_ = minWidthIn; }
-  void setDefaultViaDef(frViaDef* in) { defaultViaDef_ = in; }
-  void addSecondaryViaDef(frViaDef* in) { secondaryViaDefs_.emplace_back(in); }
-  const std::vector<frViaDef*>& getSecondaryViaDefs() const
+  void setDefaultViaDef(const frViaDef* in) { defaultViaDef_ = in; }
+  void addSecondaryViaDef(const frViaDef* in)
+  {
+    secondaryViaDefs_.emplace_back(in);
+  }
+  const std::vector<const frViaDef*>& getSecondaryViaDefs() const
   {
     return secondaryViaDefs_;
   }
   void addConstraint(frConstraint* consIn) { constraints_.push_back(consIn); }
-  void addViaDef(frViaDef* viaDefIn) { viaDefs_.insert(viaDefIn); }
+  void addViaDef(const frViaDef* viaDefIn) { viaDefs_.insert(viaDefIn); }
   void setHasVia2ViaMinStepViol(bool in) { hasMinStepViol_ = in; }
   void setUnidirectional(bool in) { unidirectional_ = in; }
   // getters
@@ -76,15 +85,18 @@ class frLayer
   frLayerNum getLayerNum() const { return layerNum_; }
   void getName(frString& nameIn) const
   {
-    nameIn = (fakeCut_)           ? "FR_VIA"
-             : (fakeMasterslice_) ? "FR_MASTERSLICE"
-                                  : db_layer_->getName();
+    if (fakeCut_) {
+      nameIn = "FR_VIA";
+    } else {
+      nameIn = (fakeMasterslice_) ? "FR_MASTERSLICE" : db_layer_->getName();
+    }
   }
   frString getName() const
   {
-    return (fakeCut_)           ? "Fr_VIA"
-           : (fakeMasterslice_) ? "FR_MASTERSLICE"
-                                : db_layer_->getName();
+    if (fakeCut_) {
+      return "Fr_VIA";
+    }
+    return (fakeMasterslice_) ? "FR_MASTERSLICE" : db_layer_->getName();
   }
   frUInt4 getPitch() const
   {
@@ -128,13 +140,13 @@ class frLayer
     style.setEndStyle(frcExtendEndStyle, width_ / 2);
     return style;
   }
-  frViaDef* getDefaultViaDef() const { return defaultViaDef_; }
-  frViaDef* getSecondaryViaDef(int idx) const
+  const frViaDef* getDefaultViaDef() const { return defaultViaDef_; }
+  const frViaDef* getSecondaryViaDef(int idx) const
   {
     return secondaryViaDefs_.at(idx);
   }
   bool hasVia2ViaMinStepViol() { return hasMinStepViol_; }
-  std::set<frViaDef*> getViaDefs() const { return viaDefs_; }
+  std::set<const frViaDef*> getViaDefs() const { return viaDefs_; }
   dbTechLayerType getType() const
   {
     if (fakeCut_) {
@@ -747,11 +759,9 @@ class frLayer
   void addLef58EnclosureConstraint(frLef58EnclosureConstraint* con)
   {
     auto addToLef58EncConstraints
-        = [](std::vector<
-                 std::map<frCoord, std::vector<frLef58EnclosureConstraint*>>>&
-                 lef58EncConstraints,
+        = [](CutClass2Width2EnclosureConstraints& lef58EncConstraints,
              frLef58EnclosureConstraint* con) {
-            int cutClassIdx = con->getCutClassIdx();
+            const int cutClassIdx = con->getCutClassIdx();
             if (lef58EncConstraints.size() <= cutClassIdx) {
               lef58EncConstraints.resize(cutClassIdx + 1);
             }
@@ -773,31 +783,39 @@ class frLayer
                                    bool above,
                                    bool eol = false) const
   {
-    auto& lef58EncConstraints = above ? (eol ? aboveLef58EncEolConstraints_
-                                             : aboveLef58EncConstraints_)
-                                      : (eol ? belowLef58EncEolConstraints_
-                                             : belowLef58EncConstraints_);
-    if (cutClassIdx < 0 || lef58EncConstraints.size() <= cutClassIdx) {
+    CutClass2Width2EnclosureConstraints enclosure_constraints;
+    if (above) {
+      enclosure_constraints
+          = eol ? aboveLef58EncEolConstraints_ : aboveLef58EncConstraints_;
+    } else {
+      enclosure_constraints
+          = eol ? belowLef58EncEolConstraints_ : belowLef58EncConstraints_;
+    }
+    if (cutClassIdx < 0 || enclosure_constraints.size() <= cutClassIdx) {
       return false;
     }
-    return !lef58EncConstraints.at(cutClassIdx).empty();
+    return !enclosure_constraints.at(cutClassIdx).empty();
   }
 
-  std::vector<frLef58EnclosureConstraint*> getLef58EnclosureConstraints(
-      int cutClassIdx,
-      frCoord width,
-      bool above,
-      bool eol = false) const
+  frLayer::EnclosureConstraints getLef58EnclosureConstraints(int cutClassIdx,
+                                                             frCoord width,
+                                                             bool above,
+                                                             bool eol
+                                                             = false) const
   {
     // initialize with empty vector
-    std::vector<frLef58EnclosureConstraint*> result;
+    EnclosureConstraints result;
     // check class and size match first
     if (hasLef58EnclosureConstraint(cutClassIdx, above, eol)) {
-      auto& lef58EncConstraints = above ? (eol ? aboveLef58EncEolConstraints_
-                                               : aboveLef58EncConstraints_)
-                                        : (eol ? belowLef58EncEolConstraints_
-                                               : belowLef58EncConstraints_);
-      const auto& mmap = lef58EncConstraints.at(cutClassIdx);
+      CutClass2Width2EnclosureConstraints enclosure_constraints;
+      if (above) {
+        enclosure_constraints
+            = eol ? aboveLef58EncEolConstraints_ : aboveLef58EncConstraints_;
+      } else {
+        enclosure_constraints
+            = eol ? belowLef58EncEolConstraints_ : belowLef58EncConstraints_;
+      }
+      const auto& mmap = enclosure_constraints.at(cutClassIdx);
       auto it = mmap.upper_bound(width);
       if (it != mmap.begin()) {
         it--;
@@ -853,11 +871,11 @@ class frLayer
   frUInt4 width_{0};
   frUInt4 wrongDirWidth_{0};
   frUInt4 minWidth_{0};
-  frViaDef* defaultViaDef_{nullptr};
-  std::vector<frViaDef*> secondaryViaDefs_;
+  const frViaDef* defaultViaDef_{nullptr};
+  std::vector<const frViaDef*> secondaryViaDefs_;
   bool hasMinStepViol_{false};
   bool unidirectional_{false};
-  std::set<frViaDef*> viaDefs_;
+  std::set<const frViaDef*> viaDefs_;
   std::vector<frLef58CutClass*> cutClasses_;
   std::map<std::string, int> name2CutClassIdxMap_;
   frCollection<frConstraint*> constraints_;
@@ -925,14 +943,11 @@ class frLayer
   std::vector<frLef58TwoWiresForbiddenSpcConstraint*>
       twForbiddenSpcConstraints_;
   std::vector<frLef58ForbiddenSpcConstraint*> forbiddenSpcConstraints_;
-  std::vector<std::map<frCoord, std::vector<frLef58EnclosureConstraint*>>>
-      aboveLef58EncConstraints_;
-  std::vector<std::map<frCoord, std::vector<frLef58EnclosureConstraint*>>>
-      belowLef58EncConstraints_;
-  std::vector<std::map<frCoord, std::vector<frLef58EnclosureConstraint*>>>
-      aboveLef58EncEolConstraints_;
-  std::vector<std::map<frCoord, std::vector<frLef58EnclosureConstraint*>>>
-      belowLef58EncEolConstraints_;
+
+  CutClass2Width2EnclosureConstraints aboveLef58EncConstraints_;
+  CutClass2Width2EnclosureConstraints belowLef58EncConstraints_;
+  CutClass2Width2EnclosureConstraints aboveLef58EncEolConstraints_;
+  CutClass2Width2EnclosureConstraints belowLef58EncEolConstraints_;
   // vector of maxspacing constraints
   std::vector<frLef58MaxSpacingConstraint*> maxSpacingConstraints_;
 

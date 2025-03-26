@@ -45,15 +45,16 @@
 #include "db/infra/frTime.h"
 #include "distributed/RoutingJobDescription.h"
 #include "distributed/frArchive.h"
+#include "dr/AbstractDRGraphics.h"
 #include "dr/FlexDR_conn.h"
-#include "dr/FlexDR_graphics.h"
 #include "dst/BalancerJobDescription.h"
 #include "dst/Distributed.h"
 #include "frProfileTask.h"
 #include "gc/FlexGC.h"
 #include "io/io.h"
-#include "ord/OpenRoad.hh"
 #include "serialization.h"
+#include "utl/Progress.h"
+#include "utl/ScopedTemporaryFile.h"
 #include "utl/exception.h"
 
 BOOST_CLASS_EXPORT(drt::RoutingJobDescription)
@@ -123,13 +124,9 @@ FlexDR::FlexDR(TritonRoute* router,
 
 FlexDR::~FlexDR() = default;
 
-void FlexDR::setDebug(frDebugSettings* settings)
+void FlexDR::setDebug(std::unique_ptr<AbstractDRGraphics> dr_graphics)
 {
-  bool on = settings->debugDR;
-  graphics_
-      = on && FlexDRGraphics::guiActive()
-            ? std::make_unique<FlexDRGraphics>(settings, design_, db_, logger_)
-            : nullptr;
+  graphics_ = std::move(dr_graphics);
 }
 
 std::string FlexDRWorker::reloadedMain()
@@ -192,7 +189,7 @@ void FlexDRWorker::writeUpdates(const std::string& file_name)
   }
   for (const auto& marker : getDesign()->getTopBlock()->getMarkers()) {
     drUpdate update;
-    update.setMarker(*(marker.get()));
+    update.setMarker(*marker);
     update.setUpdateType(drUpdate::ADD_SHAPE);
     updates.back().push_back(update);
   }
@@ -260,7 +257,7 @@ int FlexDRWorker::main(frDesign* design)
     }
     {
       std::ofstream router_cfgFile(
-          fmt::format("{}/worker_router_cfg_->bin", workerPath).c_str());
+          fmt::format("{}/worker_router_cfg.bin", workerPath).c_str());
       frOArchive ar(router_cfgFile);
       registerTypes(ar);
       serializeGlobals(ar, router_cfg_);
@@ -637,14 +634,13 @@ void printIterationProgress(Logger* logger,
                             const int num_markers,
                             const int max_perc = 90)
 {
-  iter_prog.cnt_done_workers++;
-  if ((iter_prog.cnt_done_workers * 1.0 / iter_prog.total_num_workers)
-          >= (iter_prog.last_reported_perc / 100.0 + 0.1)
-      && iter_prog.last_reported_perc < max_perc) {
-    iter_prog.last_reported_perc += 10;
-    logger->report("    Completing {}% with {} violations.",
-                   iter_prog.last_reported_perc,
-                   num_markers);
+  int progress
+      = (++iter_prog.cnt_done_workers * 100) / iter_prog.total_num_workers;
+  progress = (progress / 10) * 10;  // clip it to multiples of 10%
+  if (progress > iter_prog.last_reported_perc && progress <= max_perc) {
+    iter_prog.last_reported_perc = progress;
+    logger->report(
+        "    Completing {}% with {} violations.", progress, num_markers);
     logger->report("    {}.", iter_prog.time);
   }
 }
@@ -737,13 +733,15 @@ void FlexDR::processWorkersBatchDistributed(
     int& version,
     IterationProgress& iter_prog)
 {
-  router_->dist_pool_.join();
+  if (router_->dist_pool_.has_value()) {
+    router_->dist_pool_->join();
+  }
   if (version++ == 0 && !design_->hasUpdates()) {
     std::string serializedViaData;
     serializeViaData(via_data_, serializedViaData);
     router_->sendGlobalsUpdates(router_cfg_path_, serializedViaData);
   } else {
-    router_->sendDesignUpdates(router_cfg_path_);
+    router_->sendDesignUpdates(router_cfg_path_, router_cfg_->MAX_THREADS);
   }
 
   ProfileTask task("DIST: PROCESS_BATCH");
@@ -1436,8 +1434,7 @@ void FlexDR::end(bool done)
               << (double) ((sCut[i] + mCut[i])
                                ? mCut[i] * 100.0 / (sCut[i] + mCut[i])
                                : 0.0)
-              << "%)"
-              << "    "
+              << "%)    "
               << std::setw((int) std::to_string(totSCut + totMCut).length())
               << sCut[i] + mCut[i];
         }
@@ -1448,9 +1445,8 @@ void FlexDR::end(bool done)
       msg << "-";
     }
     msg << std::endl;
-    msg << " " << std::setw(nameLen) << ""
-        << "    " << std::setw((int) std::to_string(totSCut).length())
-        << totSCut;
+    msg << " " << std::setw(nameLen) << "    "
+        << std::setw((int) std::to_string(totSCut).length()) << totSCut;
     if (totMCut) {
       msg << " (" << std::setw(5)
           << (double) ((totSCut + totMCut)
@@ -1462,8 +1458,7 @@ void FlexDR::end(bool done)
           << (double) ((totSCut + totMCut)
                            ? totMCut * 100.0 / (totSCut + totMCut)
                            : 0.0)
-          << "%)"
-          << "    "
+          << "%)    "
           << std::setw((int) std::to_string(totSCut + totMCut).length())
           << totSCut + totMCut;
     }
@@ -1788,7 +1783,7 @@ std::vector<frVia*> FlexDR::getLonelyVias(frLayer* layer,
   std::vector<std::atomic_bool> visited(via_positions.size());
   std::fill(visited.begin(), visited.end(), false);
   std::set<int> isolated_via_nodes;
-  omp_set_num_threads(ord::OpenRoad::openRoad()->getThreadCount());
+  omp_set_num_threads(router_cfg_->MAX_THREADS);
 #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < via_positions.size(); i++) {
     if (visited[i].load()) {
@@ -1833,6 +1828,9 @@ std::vector<frVia*> FlexDR::getLonelyVias(frLayer* layer,
 int FlexDR::main()
 {
   ProfileTask profile("DR:main");
+  auto reporter = logger_->progress()->startIterationReporting(
+      "detailed routing", std::min(64, router_cfg_->END_ITERATION), {});
+
   init();
   frTime t;
   bool incremental = false;
@@ -1881,13 +1879,20 @@ int FlexDR::main()
     if (logger_->debugCheck(DRT, "snapshot", 1)) {
       io::Writer writer(getDesign(), logger_);
       writer.updateDb(db_, router_cfg_, false, true);
-      ord::OpenRoad::openRoad()->writeDb(
-          fmt::format("drt_iter{}.odb", iter_).c_str());
+
+      db_->write(
+          utl::StreamHandler(fmt::format("drt_iter{}.odb", iter_).c_str(), true)
+              .getStream());
+    }
+    if (reporter->incrementProgress()) {
+      break;
     }
     ++iter_;
   }
 
   end(/* done */ true);
+  reporter->end(true);
+
   if (!router_cfg_->GUIDE_REPORT_FILE.empty()) {
     reportGuideCoverage();
   }
@@ -2002,8 +2007,6 @@ void FlexDRWorker::serialize(Archive& ar, const unsigned int version)
   (ar) & bestMarkers_;
   (ar) & isCongested_;
   if (is_loading(ar)) {
-    gridGraph_.setTech(design_->getTech());
-    gridGraph_.setWorker(this);
     // boundaryPin_
     int sz = 0;
     (ar) & sz;
@@ -2031,19 +2034,16 @@ void FlexDRWorker::serialize(Archive& ar, const unsigned int version)
   }
 }
 
-std::unique_ptr<FlexDRWorker> FlexDRWorker::load(const std::string& workerStr,
-                                                 utl::Logger* logger,
-                                                 frDesign* design,
-                                                 FlexDRGraphics* graphics)
+std::unique_ptr<FlexDRWorker> FlexDRWorker::load(
+    const std::string& workerStr,
+    FlexDRViaData* via_data,
+    frDesign* design,
+    utl::Logger* logger,
+    RouterConfiguration* router_cfg)
 {
-  auto worker = std::make_unique<FlexDRWorker>();
+  auto worker
+      = std::make_unique<FlexDRWorker>(via_data, design, logger, router_cfg);
   deserializeWorker(worker.get(), design, workerStr);
-
-  // We need to fix up the fields we want from the current run rather
-  // than the stored ones.
-  worker->setLogger(logger);
-  worker->setGraphics(graphics);
-
   return worker;
 }
 

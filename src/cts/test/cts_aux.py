@@ -54,7 +54,6 @@ def clock_tree_synthesis(
     sink_clustering_levels=None,
     num_static_layers=None,
     sink_clustering_buffer=None,
-    obstruction_aware=False,
     apply_ndr=False,
 ):
     cts = design.getTritonCts()
@@ -63,7 +62,6 @@ def clock_tree_synthesis(
     # Boolean
     parms.setSinkClustering(sink_clustering_enable)
     parms.setBalanceLevels(balance_levels)
-    parms.setObstructionAware(obstruction_aware)
     parms.setApplyNDR(apply_ndr)
 
     if is_pos_int(sink_clustering_size):
@@ -129,8 +127,10 @@ def clock_tree_synthesis(
 
 
 def report_cts(design, out_file=None):
+    cts = design.getTritonCts()
     if out_file != None:
-        design.getTritonCts.getParms().setMetricsFile(out_file)
+        cts.getParms().setMetricsFile(out_file)
+    cts.reportCtsMetrics()
 
 
 def is_pos_int(x):

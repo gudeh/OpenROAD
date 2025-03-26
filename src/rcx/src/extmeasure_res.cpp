@@ -30,6 +30,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include "gseq.h"
 #include "rcx/dbUtil.h"
 #include "rcx/extRCap.h"
 #include "utl/Logger.h"
@@ -136,7 +137,6 @@ uint extMeasure::computeRes(SEQ* s,
     uint diagDist = calcDist(tgt->_ll, tgt->_ur);
     uint len1 = getLength(tgt, !_dir);
 
-    DebugDiagCoords(_met, targetMet, len1, diagDist, tgt->_ll, tgt->_ur);
     len += len1;
     calcRes(_rsegSrcId, len1, _dist, diagDist, _met);
   }

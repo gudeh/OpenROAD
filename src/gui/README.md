@@ -139,6 +139,28 @@ save_clocktree_image
 |`-height`| height of the image in pixels, defaults to the height of the GUI widget. |
 |`-width`| width of the image in pixels, defaults to the width of the GUI widget. |
 
+### Save Timing Histogram Image
+
+This command saves the screenshot of timing histogram given options
+to `filename`.
+
+```tcl
+save_histogram_image
+    filename
+    [-mode mode]
+    [-width width]
+    [-height height]
+```
+
+#### Options
+
+| Switch Name | Description |
+| ---- | ---- |
+|`filename`| path to save the image to. |
+|`-mode`| chart mode to save, defaults to "setup". |
+|`-height`| height of the image in pixels, defaults to 500px. |
+|`-width`| width of the image in pixels, defaults to 500px. |
+
 ### Select Objects
 
 This command selects object based on options.
@@ -252,6 +274,20 @@ gui::show
 | ---- | ---- |
 | `script` | TCL script to evaluate in the GUI. |
 | `interactive` | Boolean if true, the GUI should open in an interactive session (default), or if false that the GUI would execute the script and return to the terminal.|
+
+### Set GUI Title
+
+To set the title of the main GUI window:
+
+```tcl
+gui::set_title title
+```
+
+#### Options
+
+| Switch Name | Description |
+| ---- | ---- |
+| `title` | window title to use for the main GUI window |
 
 ### Hide GUI
 
@@ -628,6 +664,7 @@ gui::show_help
 To control the settings in the heat maps:
 
 The currently availble heat maps are:
+- ``Pin``
 - ``Power``
 - ``Routing``
 - ``Placement``

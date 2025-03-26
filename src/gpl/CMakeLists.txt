@@ -50,6 +50,9 @@ message(STATUS "Found OR-Tools: ${ortools_DIR} (version: ${ortools_VERSION})")
 swig_lib(NAME      gpl
          NAMESPACE gpl
          I_FILE    src/replace.i
+         SWIG_INCLUDES ${ODB_HOME}/src/swig/common
+                       ${ODB_HOME}/src/swig/tcl
+                       ${ODB_HOME}/include
          SCRIPTS   src/replace.tcl
 )
 
@@ -81,7 +84,7 @@ target_include_directories(gpl
 
 target_link_libraries(gpl
   PRIVATE
-    utl
+    utl_lib
     Eigen3::Eigen
     gui
     odb
@@ -110,7 +113,7 @@ if (Python3_FOUND AND BUILD_PYTHON)
 
   target_link_libraries(gpl_py
     PUBLIC
-      utl
+      utl_lib
       Eigen3::Eigen
       gui
       odb

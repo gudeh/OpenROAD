@@ -88,18 +88,20 @@ class IRSolver
     std::set<ITermNode*, Node::Compare> unconnected_iterms_;
   };
 
-  IRSolver(odb::dbNet* net,
-           bool floorplanning,
-           sta::dbSta* sta,
-           rsz::Resizer* resizer,
-           utl::Logger* logger,
-           const std::map<odb::dbNet*, std::map<sta::Corner*, Voltage>>&
-               user_voltages,
-           const PDNSim::GeneratedSourceSettings& generated_source_settings);
+  IRSolver(
+      odb::dbNet* net,
+      bool floorplanning,
+      sta::dbSta* sta,
+      rsz::Resizer* resizer,
+      utl::Logger* logger,
+      const std::map<odb::dbNet*, std::map<sta::Corner*, Voltage>>&
+          user_voltages,
+      const std::map<odb::dbInst*, std::map<sta::Corner*, Power>>& user_powers,
+      const PDNSim::GeneratedSourceSettings& generated_source_settings);
 
   odb::dbNet* getNet() const { return net_; };
 
-  bool check();
+  bool check(bool check_bterms);
 
   void solve(sta::Corner* corner,
              GeneratedSourceType source_type,
@@ -143,6 +145,7 @@ class IRSolver
   odb::dbNet* getPowerNet() const;
 
   Connection::ResistanceMap getResistanceMap(sta::Corner* corner) const;
+  void assertResistanceMap(sta::Corner* corner) const;
 
   IRNetwork* getNetwork() const { return network_.get(); }
 
@@ -154,6 +157,7 @@ class IRSolver
   odb::dbTech* getTech() const;
 
   bool checkOpen();
+  bool checkBTerms() const;
   bool checkShort() const;
 
   std::map<odb::dbInst*, Power> getInstancePower(sta::Corner* corner) const;
@@ -185,6 +189,7 @@ class IRSolver
       std::vector<std::unique_ptr<SourceNode>>& sources) const;
 
   void reportUnconnectedNodes() const;
+  void reportMissingBTerm() const;
   bool wasNodeVisited(const std::unique_ptr<ITermNode>& node) const;
   bool wasNodeVisited(const std::unique_ptr<Node>& node) const;
   bool wasNodeVisited(const Node* node) const;
@@ -234,6 +239,7 @@ class IRSolver
   std::unique_ptr<DebugGui> gui_;
 
   const std::map<odb::dbNet*, std::map<sta::Corner*, Voltage>>& user_voltages_;
+  const std::map<odb::dbInst*, std::map<sta::Corner*, Power>>& user_powers_;
   std::map<sta::Corner*, Voltage> solution_voltages_;
 
   const PDNSim::GeneratedSourceSettings& generated_source_settings_;

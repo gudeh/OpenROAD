@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <optional>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -29,15 +31,27 @@ class AbcLibrary
   ~AbcLibrary() = default;
   abc::SC_Lib* abc_library() { return abc_library_.get(); }
   bool IsSupportedCell(const std::string& cell_name);
+  bool IsConst0Cell(const std::string& cell_name);
+  bool IsConst1Cell(const std::string& cell_name);
+  bool IsConstCell(const std::string& cell_name);
+  std::pair<abc::SC_Cell*, abc::SC_Pin*> ConstantZeroCell();
+  std::pair<abc::SC_Cell*, abc::SC_Pin*> ConstantOneCell();
 
  private:
+  void InitializeConstGates();
+
   utl::UniquePtrWithDeleter<abc::SC_Lib> abc_library_;
   std::set<std::string> supported_cells_;
+  std::unordered_set<std::string> const1_gates_;
+  std::unordered_set<std::string> const0_gates_;
+  std::optional<std::pair<abc::SC_Cell*, abc::SC_Pin*>> const0_cell_;
+  std::optional<std::pair<abc::SC_Cell*, abc::SC_Pin*>> const1_cell_;
+  bool const_gates_initalized_ = false;
 };
 
 // A Factory to construct an abc::SC_Lib* from an OpenSTA library.
 // It is key to reconstructing cuts from OpenROAD in ABC's AIG
-// datastructure.
+// data structure.
 class AbcLibraryFactory
 {
  public:

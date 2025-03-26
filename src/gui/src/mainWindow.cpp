@@ -51,6 +51,7 @@
 #include <string>
 #include <vector>
 
+#include "GUIProgress.h"
 #include "browserWidget.h"
 #include "bufferTreeDescriptor.h"
 #include "chartsWidget.h"
@@ -72,6 +73,7 @@
 #include "staGui.h"
 #include "timingWidget.h"
 #include "utl/Logger.h"
+#include "utl/Progress.h"
 #include "utl/algorithms.h"
 
 // must be loaded in global namespace
@@ -253,6 +255,14 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
           [=](const SelectionSet& selected) { addHighlighted(selected); });
   connect(
       inspector_, &Inspector::setCommand, script_, &ScriptWidget::setCommand);
+  connect(script_,
+          &ScriptWidget::commandAboutToExecute,
+          inspector_,
+          &Inspector::setReadOnly);
+  connect(script_,
+          &ScriptWidget::commandExecuted,
+          inspector_,
+          &Inspector::unsetReadOnly);
 
   connect(hierarchy_widget_,
           &BrowserWidget::select,
@@ -417,10 +427,9 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
     settings.endGroup();
   }
 
-  // load resources and set window icon and title
+  // load resources and set window icon
   loadQTResources();
   setWindowIcon(QIcon(":/icon.png"));
-  setWindowTitle(window_title_);
 
   Descriptor::Property::convert_dbu
       = [this](int value, bool add_units) -> std::string {
@@ -442,6 +451,10 @@ MainWindow::~MainWindow()
   gui->unregisterDescriptor<BufferTree>();
   gui->unregisterDescriptor<odb::dbITerm*>();
   gui->unregisterDescriptor<odb::dbMTerm*>();
+
+  if (cli_progress_ != nullptr) {
+    logger_->swapProgress(cli_progress_.release());
+  }
 }
 
 void MainWindow::setDatabase(odb::dbDatabase* db)
@@ -449,13 +462,30 @@ void MainWindow::setDatabase(odb::dbDatabase* db)
   db_ = db;
 }
 
+void MainWindow::setTitle(const std::string& title)
+{
+  window_title_ = title;
+  updateTitle();
+}
+
+void MainWindow::updateTitle()
+{
+  if (!window_title_.empty()) {
+    odb::dbBlock* block = getBlock();
+    if (block != nullptr) {
+      const std::string title
+          = fmt::format("{} - {}", window_title_, block->getName());
+      setWindowTitle(QString::fromStdString(title));
+    } else {
+      setWindowTitle(QString::fromStdString(window_title_));
+    }
+  }
+}
+
 void MainWindow::setBlock(odb::dbBlock* block)
 {
+  updateTitle();
   if (block != nullptr) {
-    const std::string title
-        = fmt::format("{} - {}", window_title_, block->getName());
-    setWindowTitle(QString::fromStdString(title));
-
     save_->setEnabled(true);
   }
   for (auto* heat_map : Gui::get()->getHeatMaps()) {
@@ -533,17 +563,15 @@ void MainWindow::init(sta::dbSta* sta, const std::string& help_path)
       new DbMarkerCategoryDescriptor(db_));
   gui->registerDescriptor<odb::dbMarker*>(new DbMarkerDescriptor(db_));
 
-  gui->registerDescriptor<sta::Corner*>(new CornerDescriptor(db_, sta));
+  gui->registerDescriptor<sta::Corner*>(new CornerDescriptor(sta));
   gui->registerDescriptor<sta::LibertyLibrary*>(
-      new LibertyLibraryDescriptor(db_, sta));
-  gui->registerDescriptor<sta::LibertyCell*>(
-      new LibertyCellDescriptor(db_, sta));
-  gui->registerDescriptor<sta::LibertyPort*>(
-      new LibertyPortDescriptor(db_, sta));
+      new LibertyLibraryDescriptor(sta));
+  gui->registerDescriptor<sta::LibertyCell*>(new LibertyCellDescriptor(sta));
+  gui->registerDescriptor<sta::LibertyPort*>(new LibertyPortDescriptor(sta));
   gui->registerDescriptor<sta::LibertyPgPort*>(
-      new LibertyPgPortDescriptor(db_, sta));
-  gui->registerDescriptor<sta::Instance*>(new StaInstanceDescriptor(db_, sta));
-  gui->registerDescriptor<sta::Clock*>(new ClockDescriptor(db_, sta));
+      new LibertyPgPortDescriptor(sta));
+  gui->registerDescriptor<sta::Instance*>(new StaInstanceDescriptor(sta));
+  gui->registerDescriptor<sta::Clock*>(new ClockDescriptor(sta));
 
   gui->registerDescriptor<BufferTree>(
       new BufferTreeDescriptor(db_,
@@ -1496,6 +1524,10 @@ void MainWindow::postReadDb(odb::dbDatabase* db)
 void MainWindow::setLogger(utl::Logger* logger)
 {
   logger_ = logger;
+
+  auto progress = std::make_unique<GUIProgress>(logger_, this);
+  cli_progress_ = logger_->swapProgress(progress.release());
+
   controls_->setLogger(logger);
   script_->setLogger(logger);
   viewers_->setLogger(logger);

@@ -39,6 +39,7 @@
 #include <boost/serialization/unique_ptr.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/weak_ptr.hpp>
+#include <vector>
 
 #include "db/drObj/drMarker.h"
 #include "db/drObj/drNet.h"
@@ -738,7 +739,7 @@ void serializeBlockObject(Archive& ar, frBlockObject*& obj)
 }
 
 template <class Archive>
-void serializeViaDef(Archive& ar, frViaDef*& viadef)
+void serializeViaDef(Archive& ar, const frViaDef*& viadef)
 {
   frDesign* design = ar.getDesign();
   if (is_loading(ar)) {

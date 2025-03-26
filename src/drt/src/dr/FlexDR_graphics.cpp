@@ -31,10 +31,10 @@
 #include <algorithm>
 #include <cstdio>
 #include <limits>
+#include <vector>
 
 #include "../gc/FlexGC.h"
 #include "FlexDR.h"
-#include "ord/OpenRoad.hh"
 
 namespace drt {
 
@@ -799,7 +799,6 @@ bool FlexDRGraphics::guiActive()
   return gui::Gui::enabled();
 }
 
-/* static */
 void FlexDRGraphics::init()
 {
   if (guiActive()) {

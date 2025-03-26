@@ -11,8 +11,7 @@ _versionCompare() {
 }
 
 _equivalenceDeps() {
-    yosysVersion=0.47
-    eqyYosysVersion=yosys-0.47
+    yosysVersion=v0.51
 
     # yosys
     yosysPrefix=${PREFIX:-"/usr/local"}
@@ -30,7 +29,7 @@ _equivalenceDeps() {
     eqyPrefix=${PREFIX:-"/usr/local"}
     if ! command -v eqy &> /dev/null; then (
         cd "${baseDir}"
-        git clone --depth=1 -b "${eqyYosysVersion}" https://github.com/YosysHQ/eqy
+        git clone --depth=1 -b "${yosysVersion}" https://github.com/YosysHQ/eqy
         cd eqy
         export PATH="${yosysPrefix}/bin:${PATH}"
         make -j $(nproc) PREFIX="${eqyPrefix}"
@@ -42,7 +41,7 @@ _equivalenceDeps() {
     sbyPrefix=${PREFIX:-"/usr/local"}
     if ! command -v sby &> /dev/null; then (
         cd "${baseDir}"
-        git clone --depth=1 -b "${eqyYosysVersion}" --recursive https://github.com/YosysHQ/sby
+        git clone --depth=1 -b "${yosysVersion}" --recursive https://github.com/YosysHQ/sby
         cd sby
         export PATH="${eqyPrefix}/bin:${PATH}"
         make -j $(nproc) PREFIX="${sbyPrefix}" install
@@ -66,16 +65,17 @@ _installCommonDev() {
     pcreChecksum="37d2f77cfd411a3ddf1c64e1d72e43f7"
     swigVersion=4.1.0
     swigChecksum="794433378154eb61270a3ac127d9c5f3"
-    boostVersionBig=1.80
+    boostVersionBig=1.86
     boostVersionSmall=${boostVersionBig}.0
-    boostChecksum="077f074743ea7b0cb49c6ed43953ae95"
+    boostChecksum="ac857d73bb754b718a039830b07b9624"
     eigenVersion=3.4
     cuddVersion=3.0.0
     lemonVersion=1.3.1
-    spdlogVersion=1.8.1
+    spdlogVersion=1.15.0
     gtestVersion=1.13.0
     gtestChecksum="a1279c6fb5bf7d4a5e0d0b2a4adb39ac"
-
+    bisonVersion=3.8.2
+    bisonChecksum="1e541a097cda9eca675d29dd2832921f"
 
     rm -rf "${baseDir}"
     mkdir -p "${baseDir}"
@@ -95,6 +95,26 @@ _installCommonDev() {
     else
         echo "CMake already installed."
     fi
+
+    # bison
+    bisonInstalledVersion="none"
+    bisonPrefix=${PREFIX:-"/usr"}
+    if [ -f ${bisonPrefix}/bin/bison ]; then
+        bisonInstalledVersion=$(${bisonPrefix}/bin/bison --version | awk 'NR==1 {print $NF}')
+    fi
+    if [ ${bisonInstalledVersion} != ${bisonVersion} ]; then
+        cd "${baseDir}"
+        eval wget https://ftp.gnu.org/gnu/bison/bison-${bisonVersion}.tar.gz
+        md5sum -c <(echo "${bisonChecksum} bison-${bisonVersion}.tar.gz") || exit 1
+        tar xf bison-${bisonVersion}.tar.gz
+        cd bison-${bisonVersion}
+        ./configure --prefix=${bisonPrefix}
+        make -j install
+        echo "bison ${bisonVersion} installed (from ${bisonInstalledVersion})."
+    else
+        echo "bison ${bisonVersion} already installed."
+    fi
+    CMAKE_PACKAGE_ROOT_ARGS+=" -D bison_ROOT=$(realpath ${bisonPrefix}) "
 
     # SWIG
     swigPrefix=${PREFIX:-"/usr/local"}
@@ -125,11 +145,10 @@ _installCommonDev() {
 
     # boost
     boostPrefix=${PREFIX:-"/usr/local"}
-    if [[ -z $(grep "BOOST_LIB_VERSION \"${boostVersionBig//./_}\"" ${boostPrefix}/include/boost/version.hpp) ]]; then
+    if [[ -z $(grep "BOOST_LIB_VERSION \"${boostVersionBig//./_}\"" ${boostPrefix}/include/boost/version.hpp 2> /dev/null) ]]; then
         cd "${baseDir}"
         boostVersionUnderscore=${boostVersionSmall//./_}
-        eval wget https://sourceforge.net/projects/boost/files/boost/${boostVersionSmall}/boost_${boostVersionUnderscore}.tar.gz
-        # eval wget https://boostorg.jfrog.io/artifactory/main/release/${boostVersionSmall}/source/boost_${boostVersionUnderscore}.tar.gz
+        eval wget https://archives.boost.io/release/${boostVersionSmall}/source/boost_${boostVersionUnderscore}.tar.gz
         md5sum -c <(echo "${boostChecksum}  boost_${boostVersionUnderscore}.tar.gz") || exit 1
         tar -xf boost_${boostVersionUnderscore}.tar.gz
         cd boost_${boostVersionUnderscore}
@@ -179,7 +198,7 @@ _installCommonDev() {
 
     # lemon
     lemonPrefix=${PREFIX:-"/usr/local"}
-    if [[ -z $(grep "LEMON_VERSION \"${lemonVersion}\"" ${lemonPrefix}/include/lemon/config.h) ]]; then
+    if [[ -z $(grep "LEMON_VERSION \"${lemonVersion}\"" ${lemonPrefix}/include/lemon/config.h 2> /dev/null) ]]; then
         cd "${baseDir}"
         git clone --depth=1 -b ${lemonVersion} https://github.com/The-OpenROAD-Project/lemon-graph.git
         cd lemon-graph
@@ -192,14 +211,19 @@ _installCommonDev() {
 
     # spdlog
     spdlogPrefix=${PREFIX:-"/usr/local"}
-    if [[ ! -d ${spdlogPrefix}/include/spdlog ]]; then
+    spdlogInstalledVersion="none"
+    if [ -d ${spdlogPrefix}/include/spdlog ]; then
+        spdlogInstalledVersion=$(grep "#define SPDLOG_VER_" ${spdlogPrefix}/include/spdlog/version.h | sed 's/.*\s//' | tr '\n' '.' | sed 's/\.$//')
+    fi
+    if [ ${spdlogInstalledVersion} != ${spdlogVersion} ]; then
         cd "${baseDir}"
         git clone --depth=1 -b "v${spdlogVersion}" https://github.com/gabime/spdlog.git
         cd spdlog
         ${cmakePrefix}/bin/cmake -DCMAKE_INSTALL_PREFIX="${spdlogPrefix}" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPDLOG_BUILD_EXAMPLE=OFF -B build .
         ${cmakePrefix}/bin/cmake --build build -j $(nproc) --target install
+        echo "spdlog ${spdlogVersion} installed (from ${spdlogInstalledVersion})."
     else
-        echo "spdlog already installed."
+        echo "spdlog ${spdlogVersion} already installed."
     fi
     CMAKE_PACKAGE_ROOT_ARGS+=" -D spdlog_ROOT=$(realpath $spdlogPrefix) "
 
@@ -328,6 +352,7 @@ _installUbuntuPackages() {
         groff \
         lcov \
         libffi-dev \
+        libfl-dev \
         libgomp1 \
         libomp-dev \
         libpcre2-dev \
@@ -422,7 +447,6 @@ _installRHELPackages() {
         zlib-devel
 
     yum install -y \
-        https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/bison-3.7.4-5.el9.x86_64.rpm \
         https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/flex-2.6.4-9.el9.x86_64.rpm \
         https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/readline-devel-8.1-4.el9.x86_64.rpm \
         https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/tcl-devel-8.6.10-7.el9.x86_64.rpm
@@ -515,7 +539,7 @@ Run the following command to install them:
   xcode-select --install
 Then, rerun this script.
 EOF
-    exit 1
+        exit 1
     fi
     brew install bison boost cmake eigen flex fmt groff libomp or-tools pandoc pyqt5 python spdlog tcl-tk zlib
 
@@ -559,6 +583,7 @@ _installDebianPackages() {
         groff \
         lcov \
         libffi-dev \
+        libfl-dev \
         libgomp1 \
         libomp-dev \
         libpcre2-dev \
@@ -578,6 +603,7 @@ _installDebianPackages() {
     if [[ $1 == 10 ]]; then
         apt-get install -y --no-install-recommends \
             libpython3.7 \
+            libqt5charts5-dev \
             qt5-default
 
     else
@@ -588,6 +614,7 @@ _installDebianPackages() {
         fi
         apt-get install -y --no-install-recommends \
             libpython${pythonver} \
+            libqt5charts5-dev \
             qtbase5-dev \
             qtchooser \
             qt5-qmake \
@@ -654,15 +681,15 @@ _checkIsLocal() {
 _help() {
     cat <<EOF
 
-Usage: $0
+Usage: $0 -all
                                 # Installs all of OpenROAD's dependencies no
                                 #     need to run -base or -common. Requires
                                 #     privileged access.
-                                #
        $0 -base
                                 # Installs OpenROAD's dependencies using
                                 #     package managers (-common must be
-                                #     executed in another command).
+                                #     executed in another command). Requires
+                                #     privileged access.
        $0 -common
                                 # Installs OpenROAD's common dependencies
                                 #     (-base must be executed in another
@@ -698,7 +725,7 @@ EOF
 
 # Default values
 PREFIX=""
-option="all"
+option="none"
 isLocal="false"
 equivalenceDeps="no"
 CI="no"
@@ -718,14 +745,20 @@ while [ "$#" -gt 0 ]; do
         -dev|-development)
             echo "The use of this flag is deprecated and will be removed soon."
             ;;
+        -all)
+            if [[ "${option}" != "none" ]]; then
+                echo "WARNING: previous argument -${option} will be overwritten with -all." >&2
+            fi
+            option="all"
+            ;;
         -base)
-            if [[ "${option}" != "all" ]]; then
+            if [[ "${option}" != "none" ]]; then
                 echo "WARNING: previous argument -${option} will be overwritten with -base." >&2
             fi
             option="base"
             ;;
         -common)
-            if [[ "${option}" != "all" ]]; then
+            if [[ "${option}" != "none" ]]; then
                 echo "WARNING: previous argument -${option} will be overwritten with -common." >&2
             fi
             option="common"
@@ -780,6 +813,11 @@ while [ "$#" -gt 0 ]; do
     esac
     shift 1
 done
+
+if [[ "${option}" == "none" ]]; then
+    echo "You must use one of: -all|-base|-common" >&2
+    _help
+fi
 
 if [[ -z "${saveDepsPrefixes}" ]]; then
     DIR="$(dirname $(readlink -f $0))"

@@ -1,11 +1,10 @@
-include("openroad")
-
-set(TEST_NAMES
+or_integration_tests(
+  "odb"
+  TESTS
     abstract_origin
     bterm_hier_create
     check_routing_tracks
     create_sboxes
-    db_read_write
     def_parser
     design_is_routed1
     design_is_routed2
@@ -19,6 +18,7 @@ set(TEST_NAMES
     edit_def
     edit_via_params
     floorplan_initialize
+    floorplan_initialize2
     gcd_abstract_lef
     gcd_abstract_lef_with_power
     gcd_def_access
@@ -35,9 +35,10 @@ set(TEST_NAMES
     read_def58
     read_lef
     read_zipped
-    replace_design1
-    replace_design2
-    replace_design3
+    replace_hier_mod1
+    replace_hier_mod2
+    replace_hier_mod3
+    replace_hier_mod4
     rounding
     row_settings
     sky130hd_multi_patterned
@@ -48,14 +49,23 @@ set(TEST_NAMES
     write_lef_and_def
     write_lef_polygon
     write_macro_placement
+  PASSFAIL_TESTS
+    cpp_tests
+    dump_netlists
+    dump_netlists_withfill
+    test_block
+    test_bterm
+    test_destroy
+    test_group
+    test_inst
+    test_iterm
+    test_module
+    test_net
+    test_wire_codec
 )
 
 # Skipped
 #odb_man_tcl_check
 #odb_readme_msgs_check
-
-foreach(TEST_NAME IN LISTS TEST_NAMES)
-    or_integration_test("odb" ${TEST_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/regression)
-endforeach()
 
 add_subdirectory(cpp)
