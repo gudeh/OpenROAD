@@ -333,7 +333,7 @@ void Opendp::makeCells()
         auto iterm = db_inst->getITerm(idx);
         auto net = iterm->getNet();
         if (net != nullptr && !net->getSigType().isSupply()) {
-          cell.pin_to_net_[idx] = net->getId();
+          cell.addConnection(idx, net->getId());
         }
       }
     }

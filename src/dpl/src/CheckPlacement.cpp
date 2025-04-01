@@ -94,7 +94,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
     if (!checkAbuttedPins(&cell,
                           grid_->gridX(&cell),
                           grid_->gridSnapDownY(&cell),
-                          cell.orient_)) {
+                          cell.getOrient())) {
       abutment_conn_failures.push_back(&cell);
     }
     // EdgeSpacing check

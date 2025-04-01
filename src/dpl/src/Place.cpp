@@ -978,12 +978,12 @@ bool Opendp::checkAbuttedPins(const Cell* cell,
                               const GridY y,
                               const odb::dbOrientType& orient) const
 {
-  if (cell->pin_to_net_.empty()) {
+  if (!cell->hasConnections()) {
     return true;
   }
-  GridX x_end = x + grid_->gridX(DbuX(cell->width_));
+  GridX x_end = x + grid_->gridX(cell->dx());
   GridY y_end = y + grid_->gridHeight(cell);
-  const auto& master = db_master_map_.at(cell->db_inst_->getMaster());
+  const auto& master = db_master_map_.at(cell->getDbInst()->getMaster());
   DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
   DbuY y_real = grid_->gridYToDbu(y);
   std::set<Cell*> checked_cells;
@@ -1000,20 +1000,20 @@ bool Opendp::checkAbuttedPins(const Cell* cell,
         continue;
       }
       checked_cells.insert(cell2);
-      auto master2 = db_master_map_.at(cell2->db_inst_->getMaster());
-      for (auto [pin1_idx, net1_idx] : cell->pin_to_net_) {
+      auto master2 = db_master_map_.at(cell2->getDbInst()->getMaster());
+      for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
         Rect pin1_rect = cell_edges::transformEdgeRect(
             master.pin_edges_.at(pin1_idx), cell, x_real, y_real, orient);
-        for (auto [pin2_idx, net2_idx] : cell2->pin_to_net_) {
+        for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
           if (net1_idx == net2_idx) {
             continue;
           }
           Rect pin2_rect
               = cell_edges::transformEdgeRect(master2.pin_edges_.at(pin2_idx),
                                               cell2,
-                                              cell2->x_,
-                                              cell2->y_,
-                                              cell2->orient_);
+                                              cell2->xMin(),
+                                              cell2->yMin(),
+                                              cell2->getOrient());
           if (pin1_rect.intersects(pin2_rect)) {
             return false;
           }

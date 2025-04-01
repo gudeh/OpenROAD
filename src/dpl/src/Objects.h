@@ -91,6 +91,7 @@ struct Cell : public GridNode
   void setGroup(Group* in) { group_ = in; }
   void setRegion(Rect* in) { region_ = in; }
   void setMaster(Master* in) { master_ = in; }
+  void addConnection(uint pin, uint net) { pin_to_net_[pin] = net; }
 
   // getters
   const char* name() const;
@@ -116,6 +117,9 @@ struct Cell : public GridNode
   bool isHybridParent() const;
   dbSite* getSite() const;
   bool isBlock() const;
+  bool hasConnections() const { return !pin_to_net_.empty(); }
+  const std::map<uint, uint>& getConnections() const { return pin_to_net_;}
+
 
  private:
   dbInst* db_inst_ = nullptr;
