@@ -30,6 +30,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include <cstddef>
 #include <set>
 
 #include "network.h"
@@ -40,34 +41,29 @@ class JournalAction
  public:
   enum TYPE
   {
-    MOVE_CELL,
-    ORIENT_CELL
+    MOVE_CELL
   };
   JournalAction() = default;
-  void setOrigLocation(const int x, const int y)
+  void setOrigLocation(const DbuX x, const DbuY y)
   {
     orig_x_ = x;
     orig_y_ = y;
   }
-  void setNewLocation(const int x, const int y)
+  void setNewLocation(const DbuX x, const DbuY y)
   {
     new_x_ = x;
     new_y_ = y;
   }
-  void setOrigOrient(const unsigned orient) { orig_orient_ = orient; }
-  void setNewOrient(const unsigned orient) { new_orient_ = orient; }
   void setOrigSegs(const std::vector<int>& segs) { orig_segs_ = segs; }
   void setNewSegs(const std::vector<int>& segs) { new_segs_ = segs; }
   void setNode(Node* node) { node_ = node; }
   void setType(TYPE type) { type_ = type; }
   // getters
   Node* getNode() const { return node_; }
-  int getOrigLeft() const { return orig_x_; }
-  int getOrigBottom() const { return orig_y_; }
-  int getNewLeft() const { return new_x_; }
-  int getNewBottom() const { return new_y_; }
-  unsigned getOrigOrient() const { return orig_orient_; }
-  unsigned getNewOrient() const { return new_orient_; }
+  DbuX getOrigLeft() const { return orig_x_; }
+  DbuY getOrigBottom() const { return orig_y_; }
+  DbuX getNewLeft() const { return new_x_; }
+  DbuY getNewBottom() const { return new_y_; }
   const std::vector<int>& getOrigSegs() const { return orig_segs_; }
   const std::vector<int>& getNewSegs() const { return new_segs_; }
   TYPE getType() const { return type_; }
@@ -75,12 +71,10 @@ class JournalAction
  private:
   TYPE type_;
   Node* node_{nullptr};
-  int orig_x_{0};
-  int orig_y_{0};
-  int new_x_{0};
-  int new_y_{0};
-  unsigned orig_orient_{0};
-  unsigned new_orient_{0};
+  DbuX orig_x_{0};
+  DbuY orig_y_{0};
+  DbuX new_x_{0};
+  DbuY new_y_{0};
   std::vector<int> orig_segs_;
   std::vector<int> new_segs_;
 };
