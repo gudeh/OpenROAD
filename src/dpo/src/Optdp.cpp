@@ -478,7 +478,7 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
     auto mterm_box = mterm->getBBox();
     if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
         || mterm_box.yMin() == bbox.yMin() || mterm_box.yMax() == bbox.yMax()) {
-      master->pin_edges_[mterm->getIndex()] = mterm_box;
+      master->addPin(mterm->getIndex(), mterm_box);
     }
   }
   master->clearEdges();
@@ -654,7 +654,7 @@ void Optdp::createNetwork()
     ndi->setType(Node::CELL);
     ndi->setDbInst(inst);
     ndi->setMaster(getMaster(inst->getMaster()));
-    for (auto [idx, _] : ndi->getMaster()->pin_edges_) {
+    for (auto [idx, _] : ndi->getMaster()->getPins()) {
       auto iterm = inst->getITerm(idx);
       auto net = iterm->getNet();
       if (net != nullptr && !net->getSigType().isSupply()) {

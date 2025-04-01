@@ -80,6 +80,14 @@ void Master::setBBox(const Rect box)
 {
   boundary_box_ = box;
 }
+void Master::addPin(uint pin_idx, const Rect& pin_box)
+{
+  pin_edges_[pin_idx] = pin_box;
+}
+const std::map<uint, Rect> Master::getPins() const
+{
+  return pin_edges_;
+}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 

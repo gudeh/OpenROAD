@@ -230,10 +230,6 @@ class Opendp
                    GridY y,
                    GridX x_end,
                    GridY y_end) const;
-  bool checkAbuttedPins(const Node* cell,
-                        GridX x,
-                        GridY y,
-                        const odb::dbOrientType& orient) const;
 
   void shiftMove(Node* cell);
   bool mapMove(Node* cell);

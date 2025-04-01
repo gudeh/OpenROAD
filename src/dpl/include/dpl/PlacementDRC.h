@@ -39,7 +39,11 @@ class PlacementDRC
                         GridX x,
                         GridY y,
                         const odb::dbOrientType& orient) const;
-
+  bool checkAbuttedPins(const Node* cell) const;
+  bool checkAbuttedPins(const Node* cell,
+                        const GridX x,
+                        const GridY y,
+                        const odb::dbOrientType& orient) const;
   int getEdgeTypeIdx(const std::string& edge_type) const;
   bool hasCellEdgeSpacingTable() const;
   int getMaxSpacing(int edge_type_idx) const;

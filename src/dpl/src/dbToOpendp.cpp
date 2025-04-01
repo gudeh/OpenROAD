@@ -197,7 +197,7 @@ void Opendp::makeMaster(Master* master, dbMaster* db_master)
     auto mterm_box = mterm->getBBox();
     if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
         || mterm_box.yMin() == bbox.yMin() || mterm_box.yMax() == bbox.yMax()) {
-      master->pin_edges_[mterm->getIndex()] = mterm_box;
+      master->addPin(mterm->getIndex(), mterm_box);
     }
   }
   if (!drc_engine_->hasCellEdgeSpacingTable()) {
@@ -291,7 +291,7 @@ void Opendp::makeCells()
       if (master.isMultiRow() && db_master->isCore()) {
         have_multi_row_cells_ = true;
       }
-      for (auto [idx, _] : master.pin_edges_) {
+      for (auto [idx, _] : master.getPins()) {
         auto iterm = db_inst->getITerm(idx);
         auto net = iterm->getNet();
         if (net != nullptr && !net->getSigType().isSupply()) {

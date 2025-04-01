@@ -870,88 +870,6 @@ bool Opendp::checkRegionOverlap(const Node* cell,
   // be fully contained by the cell's bounding box.
   return result.empty();
 }
-namespace cell_edges {
-Rect transformEdgeRect(const Rect& edge_rect,
-                       const Node* cell,
-                       const DbuX x,
-                       const DbuY y,
-                       const odb::dbOrientType& orient)
-{
-  Rect bbox;
-  cell->getDbInst()->getMaster()->getPlacementBoundary(bbox);
-  odb::dbTransform transform(orient);
-  transform.apply(bbox);
-  Point offset(x.v - bbox.xMin(), y.v - bbox.yMin());
-  transform.setOffset(offset);
-  Rect result(edge_rect);
-  transform.apply(result);
-  return result;
-}
-Rect getQueryRect(const Rect& edge_box, const int spc)
-{
-  Rect query_rect(edge_box);
-  bool is_vertical_edge = edge_box.getDir() == 0;
-  if (is_vertical_edge) {
-    // vertical edge
-    query_rect = query_rect.bloat(spc, odb::Orientation2D::Horizontal);
-  } else {
-    // horizontal edge
-    query_rect = query_rect.bloat(spc, odb::Orientation2D::Vertical);
-  }
-  return query_rect;
-}
-};  // namespace cell_edges
-
-bool Opendp::checkAbuttedPins(const Node* cell,
-                              const GridX x,
-                              const GridY y,
-                              const odb::dbOrientType& orient) const
-{
-  if (!cell->hasConnections()) {
-    return true;
-  }
-  GridX x_end = x + grid_->gridX(cell->getWidth());
-  GridY y_end = y + grid_->gridHeight(cell);
-  const auto& master = db_master_map_.at(cell->getDbInst()->getMaster());
-  DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
-  DbuY y_real = grid_->gridYToDbu(y);
-  std::set<Node*> checked_cells;
-  for (GridX xi : {x - 1, x_end}) {
-    for (GridY yi = y; yi < y_end; yi++) {
-      const Pixel* pixel = grid_->gridPixel(xi, yi);
-      if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
-        // Skip if pixel is empty or occupied only by the current cell.
-        continue;
-      }
-      auto cell2 = static_cast<Node*>(pixel->cell);
-      if (checked_cells.find(cell2) != checked_cells.end()) {
-        // Skip if cell was already checked
-        continue;
-      }
-      checked_cells.insert(cell2);
-      auto master2 = db_master_map_.at(cell2->getDbInst()->getMaster());
-      for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
-        Rect pin1_rect = cell_edges::transformEdgeRect(
-            master.getEdges().at(pin1_idx), cell, x_real, y_real, orient);
-        for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
-          if (net1_idx == net2_idx) {
-            continue;
-          }
-          Rect pin2_rect
-              = cell_edges::transformEdgeRect(master2.getEdges().at(pin2_idx),
-                                              cell2,
-                                              cell2->getLeft(),
-                                              cell2->getBottom(),
-                                              cell2->getOrient());
-          if (pin1_rect.intersects(pin2_rect)) {
-            return false;
-          }
-        }
-      }
-    }
-  }
-  return true;
-}
 
 // Check all pixels are empty.
 bool Opendp::checkPixels(const Node* cell,
@@ -1013,7 +931,7 @@ bool Opendp::checkPixels(const Node* cell,
   }
   const auto& orient = grid_->gridPixel(x, y)->sites.at(
       cell->getDbInst()->getMaster()->getSite());
-  if (!checkAbuttedPins(cell, x, y, orient)) {
+  if (!drc_engine_->checkAbuttedPins(cell, x, y, orient)) {
     return false;
   }
   if (!drc_engine_->checkEdgeSpacing(cell, x, y, orient)) {

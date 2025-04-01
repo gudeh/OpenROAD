@@ -1370,55 +1370,7 @@ int DetailedMgr::checkOverlapInSegments()
 ////////////////////////////////////////////////////////////////////////////////
 bool DetailedMgr::hasAbuttedPinViolation(const Node* cell) const
 {
-  if (cell->getConnections().empty()) {
-    return false;
-  }
-
-  GridX x_begin = grid_->gridX(DbuX(cell->getLeft()));
-  GridY y_begin = grid_->gridRoundY(DbuY(cell->getBottom()));
-  GridX x_end = grid_->gridX(DbuX(cell->getRight()));
-  GridY y_end = grid_->gridRoundY(DbuY(cell->getTop()));
-  const auto& master = cell->getMaster();
-  std::set<Node*> checked_cells;
-  for (GridX xi : {x_begin - 1, x_end}) {
-    for (GridY yi = y_begin; yi < y_end; yi++) {
-      auto pixel = grid_->gridPixel(xi, yi);
-      if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
-        // Skip if pixel is empty or occupied only by the current cell.
-        continue;
-      }
-      auto cell2 = static_cast<Node*>(pixel->cell);
-      if (checked_cells.find(cell2) != checked_cells.end()) {
-        // Skip if cell was already checked
-        continue;
-      }
-      checked_cells.insert(cell2);
-      auto master2 = cell2->getMaster();
-      for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
-        odb::Rect pin1_rect
-            = cell_edges::transformEdgeRect(master->pin_edges_.at(pin1_idx),
-                                            cell,
-                                            cell->getLeft(),
-                                            cell->getBottom(),
-                                            cell->getCurrOrient());
-        for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
-          if (net1_idx == net2_idx) {
-            continue;
-          }
-          odb::Rect pin2_rect
-              = cell_edges::transformEdgeRect(master2->pin_edges_.at(pin2_idx),
-                                              cell2,
-                                              cell2->getLeft(),
-                                              cell2->getBottom(),
-                                              cell2->getCurrOrient());
-          if (pin1_rect.intersects(pin2_rect)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
+  return !drc_engine_->checkAbuttedPins(cell);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

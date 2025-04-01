@@ -92,10 +92,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
     if (checkOverlap(cell)) {
       overlap_failures.push_back(&cell);
     }
-    if (!checkAbuttedPins(&cell,
-                          grid_->gridX(&cell),
-                          grid_->gridSnapDownY(&cell),
-                          cell.getOrient())) {
+    if (!drc_engine_->checkAbuttedPins(&cell)) {
       abutment_conn_failures.push_back(&cell);
     }
     // EdgeSpacing check

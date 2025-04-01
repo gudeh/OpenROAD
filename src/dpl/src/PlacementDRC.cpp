@@ -136,6 +136,62 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
   }
   return true;
 }
+bool PlacementDRC::checkAbuttedPins(const Node* cell) const
+{
+  const GridX x = grid_->gridX(cell);
+  const GridY y = grid_->gridRoundY(cell);
+  return checkAbuttedPins(cell, x, y, cell->getOrient());
+}
+bool PlacementDRC::checkAbuttedPins(const Node* cell,
+                                    const GridX x,
+                                    const GridY y,
+                                    const odb::dbOrientType& orient) const
+{
+  if (cell->getConnections().empty()) {
+    return true;
+  }
+  GridX x_end = x + grid_->gridX(cell->getWidth());
+  GridY y_end = y + grid_->gridHeight(cell);
+  const auto& master = cell->getMaster();
+  DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
+  DbuY y_real = grid_->gridYToDbu(y);
+  std::set<Node*> checked_cells;
+  for (GridX xi : {x - 1, x_end}) {
+    for (GridY yi = y; yi < y_end; yi++) {
+      const Pixel* pixel = grid_->gridPixel(xi, yi);
+      if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
+        // Skip if pixel is empty or occupied only by the current cell.
+        continue;
+      }
+      auto cell2 = static_cast<Node*>(pixel->cell);
+      if (checked_cells.find(cell2) != checked_cells.end()) {
+        // Skip if cell was already checked
+        continue;
+      }
+      checked_cells.insert(cell2);
+      auto master2 = cell2->getMaster();
+      for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
+        Rect pin1_rect = cell_edges::transformEdgeRect(
+            master->getPins().at(pin1_idx), cell, x_real, y_real, orient);
+        for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
+          if (net1_idx == net2_idx) {
+            continue;
+          }
+          Rect pin2_rect
+              = cell_edges::transformEdgeRect(master2->getPins().at(pin2_idx),
+                                              cell2,
+                                              cell2->getLeft(),
+                                              cell2->getBottom(),
+                                              cell2->getOrient());
+          if (pin1_rect.intersects(pin2_rect)) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
 
 // Initialize the edge spacing table from the technology
 void PlacementDRC::makeCellEdgeSpacingTable(odb::dbTech* tech)
