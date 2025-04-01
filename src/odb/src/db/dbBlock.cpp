@@ -1701,6 +1701,12 @@ dbSet<dbModBTerm> dbBlock::getModBTerms()
   return dbSet<dbModBTerm>(block, block->_modbterm_tbl);
 }
 
+dbSet<dbModITerm> dbBlock::getModITerms()
+{
+  _dbBlock* block = (_dbBlock*) this;
+  return dbSet<dbModITerm>(block, block->_moditerm_tbl);
+}
+
 dbSet<dbModNet> dbBlock::getModNets()
 {
   _dbBlock* block = (_dbBlock*) this;
@@ -2746,7 +2752,7 @@ void dbBlock::destroy(dbBlock* block_)
   _dbBlock* block = (_dbBlock*) block_;
   _dbChip* chip = (_dbChip*) block->getOwner();
   // delete the children of this block
-  for (dbId<_dbBlock> child_id : block->_children) {
+  for (const dbId<_dbBlock>& child_id : block->_children) {
     _dbBlock* child = chip->_block_tbl->getPtr(child_id);
     destroy((dbBlock*) child);
   }

@@ -40,6 +40,7 @@
 #include <queue>
 #include <regex>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "bufferTreeDescriptor.h"
@@ -2267,6 +2268,16 @@ Descriptor::Properties DbBlockageDescriptor::getDBProperties(
   return props;
 }
 
+Descriptor::Actions DbBlockageDescriptor::getActions(std::any object) const
+{
+  auto blk = std::any_cast<odb::dbBlockage*>(object);
+  return Actions(
+      {{"Delete", [blk]() {
+          odb::dbBlockage::destroy(blk);
+          return Selected();  // unselect since this object is now gone
+        }}});
+}
+
 Descriptor::Editors DbBlockageDescriptor::getEditors(std::any object) const
 {
   auto blockage = std::any_cast<odb::dbBlockage*>(object);
@@ -2635,7 +2646,8 @@ Descriptor::Properties DbTechLayerDescriptor::getDBProperties(
     }
 
     for (const auto& [cutclass, min_cut] : min_cut_rule->getCutClassCutsMap()) {
-      lef58_minimum_cuts.emplace_back(text + " - " + cutclass, min_cut);
+      lef58_minimum_cuts.emplace_back(fmt::format("{} - {}", text, cutclass),
+                                      min_cut);
     }
   }
   if (!lef58_minimum_cuts.empty()) {
@@ -2815,7 +2827,7 @@ bool DbTermAccessPointDescriptor::getAllObjects(SelectionSet& objects) const
   }
 
   for (auto* iterm : block->getITerms()) {
-    for (auto [mpin, aps] : iterm->getAccessPoints()) {
+    for (const auto& [mpin, aps] : iterm->getAccessPoints()) {
       for (auto* ap : aps) {
         objects.insert(makeSelected(DbTermAccessPoint{ap, iterm}));
       }
