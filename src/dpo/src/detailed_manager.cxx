@@ -1420,22 +1420,22 @@ bool DetailedMgr::hasAbuttedPinViolation(const Node* cell) const
       checked_cells.insert(cell2);
       auto master2 = cell2->getMaster();
       for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
-        odb::Rect pin1_rect = cell_edges::transformEdgeRect(
-            master->pin_edges_.at(pin1_idx),
-            cell,
-            cell->getLeft(),
-            cell->getBottom(),
-            dpoToDbOrient(cell->getCurrOrient()));
+        odb::Rect pin1_rect
+            = cell_edges::transformEdgeRect(master->pin_edges_.at(pin1_idx),
+                                            cell,
+                                            cell->getLeft(),
+                                            cell->getBottom(),
+                                            cell->getCurrOrient());
         for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
           if (net1_idx == net2_idx) {
             continue;
           }
-          odb::Rect pin2_rect = cell_edges::transformEdgeRect(
-              master2->pin_edges_.at(pin2_idx),
-              cell2,
-              cell2->getLeft(),
-              cell2->getBottom(),
-              dpoToDbOrient(cell2->getCurrOrient()));
+          odb::Rect pin2_rect
+              = cell_edges::transformEdgeRect(master2->pin_edges_.at(pin2_idx),
+                                              cell2,
+                                              cell2->getLeft(),
+                                              cell2->getBottom(),
+                                              cell2->getCurrOrient());
           if (pin1_rect.intersects(pin2_rect)) {
             return true;
           }
