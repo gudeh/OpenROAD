@@ -661,12 +661,15 @@ void Optdp::createNetwork()
     // Fill in data.
     ndi->setType(Node::CELL);
     ndi->setDbInst(inst);
-    ndi->setMaster(getMaster(inst->getMaster()));
-    for (auto [idx, _] : ndi->getMaster()->getPins()) {
-      auto iterm = inst->getITerm(idx);
-      auto net = iterm->getNet();
-      if (net != nullptr && !net->getSigType().isSupply()) {
-        ndi->addConnection(idx, net->getId());
+    const auto master = getMaster(inst->getMaster());
+    ndi->setMaster(master);
+    if (master) {
+      for (const auto& [idx, _] : master->getPins()) {
+        auto iterm = inst->getITerm(idx);
+        auto net = iterm->getNet();
+        if (net != nullptr && !net->getSigType().isSupply()) {
+          ndi->addConnection(idx, net->getId());
+        }
       }
     }
     ndi->setId(n);
