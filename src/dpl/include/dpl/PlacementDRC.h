@@ -61,7 +61,8 @@ class PlacementDRC
   Grid* grid_{nullptr};  // Pointer to the grid for placement
   std::unordered_map<std::string, int> edge_types_indices_;
   std::vector<std::vector<EdgeSpacingEntry>>
-      edge_spacing_table_;  // Edge spacing rules
+      edge_spacing_table_;  // LEF58_CELLEDGESPACINGTABLE between edge type
+                            // pairs [from_idx][to_idx]
   std::map<int, std::vector<EolSpacingEntry>> eol_spacing_rules_;
 
   // Helper functions

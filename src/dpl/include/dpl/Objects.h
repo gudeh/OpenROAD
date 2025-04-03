@@ -59,8 +59,8 @@ class Master
 {
  public:
   bool isMultiRow() const;
-  const std::vector<MasterEdge>& getEdges();
-  Rect getBBox();
+  const std::vector<MasterEdge>& getEdges() const;
+  Rect getBBox() const;
   void setMultiRow(bool in);
   void addEdge(const MasterEdge& edge);
   void clearEdges();
@@ -188,7 +188,7 @@ class Group
 {
  public:
   // getters
-  string getName();
+  string getName() const;
   const vector<Rect>& getRects() const;
   vector<Node*> getCells() const;
   const Rect& getBBox() const;
