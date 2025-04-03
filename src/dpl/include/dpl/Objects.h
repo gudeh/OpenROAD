@@ -41,6 +41,7 @@ namespace dpl {
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
+using odb::dbBox;
 
 class MasterEdge
 {
@@ -64,14 +65,14 @@ class Master
   void addEdge(const MasterEdge& edge);
   void clearEdges();
   void setBBox(Rect box);
-  void addPin(uint pin_idx, const Rect& pin_box);
-  const std::map<uint, Rect> getPins() const;
+  void addPin(uint pin_idx, dbBox* pin_box);
+  const std::map<uint, dbBox*> getPins() const;
 
  private:
   Rect boundary_box_;
   bool is_multi_row_ = false;
   std::vector<MasterEdge> edges_;
-  std::map<uint, Rect> pin_edges_;
+  std::map<uint, dbBox*> pin_edges_;
 };
 
 class Pin;

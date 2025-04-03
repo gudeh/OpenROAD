@@ -475,10 +475,18 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
   db_master->getPlacementBoundary(bbox);
   master->setBBox(bbox);
   for (const auto mterm : db_master->getMTerms()) {
-    auto mterm_box = mterm->getBBox();
-    if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
-        || mterm_box.yMin() == bbox.yMin() || mterm_box.yMax() == bbox.yMax()) {
-      master->addPin(mterm->getIndex(), mterm_box);
+    for (const auto pin : mterm->getMPins()) {
+      for (const auto box : pin->getGeometry()) {
+        if (!box->getTechLayer()) {
+          continue;
+        }
+        auto mterm_box = box->getBox();
+        if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+            || mterm_box.yMin() == bbox.yMin()
+            || mterm_box.yMax() == bbox.yMax()) {
+          master->addPin(mterm->getIndex(), box);
+        }
+      }
     }
   }
   master->clearEdges();

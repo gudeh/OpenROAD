@@ -27,7 +27,15 @@ struct EdgeSpacingEntry
   bool is_exact;
   bool except_abutted;
 };
-
+struct EolSpacingEntry
+{
+  EolSpacingEntry(const uint spc_in, const uint eol_width_in)
+      : spc(spc_in), eol_width(eol_width_in)
+  {
+  }
+  uint spc;
+  uint eol_width;
+};
 class PlacementDRC
 {
  public:
@@ -54,10 +62,16 @@ class PlacementDRC
   std::unordered_map<std::string, int> edge_types_indices_;
   std::vector<std::vector<EdgeSpacingEntry>>
       edge_spacing_table_;  // Edge spacing rules
+  std::map<int, std::vector<EolSpacingEntry>> eol_spacing_rules_;
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;
   void makeCellEdgeSpacingTable(odb::dbTech* tech);
+  void makeEolSpacingRules(odb::dbTech* tech);
+  GridRect getEolQueryRect(const Node* node,
+                           DbuX left,
+                           DbuY bottom,
+                           const odb::dbOrientType& orient) const;
 };
 
 }  // namespace dpl

@@ -37,12 +37,39 @@ Rect getQueryRect(const Rect& edge_box, const int spc)
   }
   return query_rect;
 }
+uint64_t squaredDistanceBetweenRects(const Rect& rect1, const Rect& rect2)
+{
+  // Calculate the distance along the x-axis
+  int x_dist = 0;
+  if (rect1.xMax() < rect2.xMin()) {
+    x_dist = rect2.xMin() - rect1.xMax();
+  } else if (rect2.xMax() < rect1.xMin()) {
+    x_dist = rect1.xMin() - rect2.xMax();
+  } else {
+    x_dist = 0;  // rectangles overlap or touch on x-axis
+  }
+
+  // Calculate the distance along the y-axis
+  int y_dist = 0;
+  if (rect1.yMax() < rect2.yMin()) {
+    y_dist = rect2.yMin() - rect1.yMax();
+  } else if (rect2.yMax() < rect1.yMin()) {
+    y_dist = rect1.yMin() - rect2.yMax();
+  } else {
+    y_dist = 0;  // rectangles overlap or touch on y-axis
+  }
+
+  // Return the squared Euclidean distance
+  return x_dist * (int64_t) x_dist + y_dist * (int64_t) y_dist;
+}
+
 };  // namespace cell_edges
 
 // Constructor
 PlacementDRC::PlacementDRC(Grid* grid, odb::dbTech* tech) : grid_(grid)
 {
   makeCellEdgeSpacingTable(tech);
+  makeEolSpacingRules(tech);
 }
 
 bool PlacementDRC::checkEdgeSpacing(const Node* cell) const
@@ -142,6 +169,42 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell) const
   const GridY y = grid_->gridRoundY(cell);
   return checkAbuttedPins(cell, x, y, cell->getOrient());
 }
+GridRect PlacementDRC::getEolQueryRect(const Node* node,
+                                       const DbuX left,
+                                       const DbuY bottom,
+                                       const odb::dbOrientType& orient) const
+{
+  Rect query_rect;
+  query_rect.mergeInit();
+  bool valid = false;
+  const auto& master = node->getMaster();
+  for (auto [pin1_idx, net1_idx] : node->getConnections()) {
+    auto pin1 = master->getPins().at(pin1_idx);
+    Rect pin1_rect = cell_edges::transformEdgeRect(
+        pin1->getBox(), node, left, bottom, orient);
+    if (eol_spacing_rules_.find(pin1->getTechLayer()->getNumber())
+        == eol_spacing_rules_.end()) {
+      continue;
+    }
+    for (auto rule : eol_spacing_rules_.at(pin1->getTechLayer()->getNumber())) {
+      if (pin1_rect.minDXDY() > rule.eol_width) {
+        continue;
+      }
+      Rect bloat_rect(pin1_rect);
+      bloat_rect.bloat(rule.spc, bloat_rect);
+      query_rect.merge(bloat_rect);
+      valid = true;
+    }
+  }
+  if (!valid) {
+    return {GridX{0}, GridY{0}, GridX{-1}, GridY{-1}};
+  }
+  GridX begin_x = grid_->gridX(DbuX(query_rect.xMin()));
+  GridX end_x = grid_->gridX(DbuX(query_rect.xMax()));
+  GridY begin_y = grid_->gridSnapDownY(DbuY(query_rect.yMin()));
+  GridY end_y = grid_->gridSnapDownY(DbuY(query_rect.yMax()));
+  return {begin_x, begin_y, end_x, end_y};
+}
 bool PlacementDRC::checkAbuttedPins(const Node* cell,
                                     const GridX x,
                                     const GridY y,
@@ -150,14 +213,13 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
   if (cell->getConnections().empty()) {
     return true;
   }
-  GridX x_end = x + grid_->gridX(cell->getWidth());
-  GridY y_end = y + grid_->gridHeight(cell);
   const auto& master = cell->getMaster();
   DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
   DbuY y_real = grid_->gridYToDbu(y);
+  GridRect query_rect = getEolQueryRect(cell, x_real, y_real, orient);
   std::set<Node*> checked_cells;
-  for (GridX xi : {x - 1, x_end}) {
-    for (GridY yi = y; yi < y_end; yi++) {
+  for (GridX xi = query_rect.xlo; xi <= query_rect.xhi; xi++) {
+    for (GridY yi = query_rect.ylo; yi <= query_rect.yhi; yi++) {
       const Pixel* pixel = grid_->gridPixel(xi, yi);
       if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
         // Skip if pixel is empty or occupied only by the current cell.
@@ -171,20 +233,39 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
       checked_cells.insert(cell2);
       auto master2 = cell2->getMaster();
       for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
+        auto pin1 = master->getPins().at(pin1_idx);
         Rect pin1_rect = cell_edges::transformEdgeRect(
-            master->getPins().at(pin1_idx), cell, x_real, y_real, orient);
+            pin1->getBox(), cell, x_real, y_real, orient);
         for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
           if (net1_idx == net2_idx) {
             continue;
           }
-          Rect pin2_rect
-              = cell_edges::transformEdgeRect(master2->getPins().at(pin2_idx),
-                                              cell2,
-                                              cell2->getLeft(),
-                                              cell2->getBottom(),
-                                              cell2->getOrient());
-          if (pin1_rect.intersects(pin2_rect)) {
-            return false;
+          auto pin2 = master2->getPins().at(pin2_idx);
+          if (pin2->getTechLayer() != pin1->getTechLayer()) {
+            continue;
+          }
+          Rect pin2_rect = cell_edges::transformEdgeRect(pin2->getBox(),
+                                                         cell2,
+                                                         cell2->getLeft(),
+                                                         cell2->getBottom(),
+                                                         cell2->getOrient());
+          if (eol_spacing_rules_.find(pin1->getTechLayer()->getNumber())
+              == eol_spacing_rules_.end()) {
+            continue;
+          }
+          // check eol spacing
+          const uint64_t dist
+              = cell_edges::squaredDistanceBetweenRects(pin1_rect, pin2_rect);
+          for (const auto& rule :
+               eol_spacing_rules_.at(pin1->getTechLayer()->getNumber())) {
+            if (pin1_rect.minDXDY() > rule.eol_width
+                && pin2_rect.minDXDY() > rule.eol_width) {
+              continue;
+            }
+            uint64_t req_spc = rule.spc * (uint64_t) rule.spc;
+            if (dist < req_spc) {
+              return false;
+            }
           }
         }
       }
@@ -227,6 +308,24 @@ void PlacementDRC::makeCellEdgeSpacingTable(odb::dbTech* tech)
   }
 }
 
+void PlacementDRC::makeEolSpacingRules(odb::dbTech* tech)
+{
+  for (auto layer : tech->getLayers()) {
+    if (layer->getType() != odb::dbTechLayerType::ROUTING) {
+      continue;
+    }
+    if (layer->getTechLayerSpacingEolRules().empty()) {
+      // setting default spacing rule to disallow shorts.
+      eol_spacing_rules_[layer->getNumber()].emplace_back(
+          1, std::numeric_limits<uint>::max());
+      continue;
+    }
+    for (auto rule : layer->getTechLayerSpacingEolRules()) {
+      eol_spacing_rules_[layer->getNumber()].emplace_back(rule->getEolSpace(),
+                                                          rule->getEolWidth());
+    }
+  }
+}
 // Check if the edge spacing table is populated
 bool PlacementDRC::hasCellEdgeSpacingTable() const
 {
