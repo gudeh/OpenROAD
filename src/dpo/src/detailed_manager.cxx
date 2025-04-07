@@ -1328,9 +1328,21 @@ int DetailedMgr::checkOverlapInSegments()
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+bool DetailedMgr::hasAbuttedPinViolation(const Node* cell) const
+{
+  return !drc_engine_->checkAbuttedPins(cell);
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 bool DetailedMgr::hasEdgeSpacingViolation(const Node* node) const
 {
   return !drc_engine_->checkEdgeSpacing(node);
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+bool DetailedMgr::hasViolation(const Node* node) const
+{
+  return hasAbuttedPinViolation(node) || hasEdgeSpacingViolation(node);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1368,7 +1380,7 @@ int DetailedMgr::checkEdgeSpacingInSegments()
       arch_->getCellPadding(ndr, leftPadding, dummyPadding);
       const int padding = leftPadding + rightPadding;
 
-      if (hasEdgeSpacingViolation(ndl)) {
+      if (hasViolation(ndl)) {
         logger_->report("Violation in {}", network_->getNodeName(ndl->getId()));
         ++err_n;
       }
@@ -2543,7 +2555,7 @@ bool DetailedMgr::shiftLeftHelper(Node* ndi, DbuX xj, const int sj, Node* ndl)
 bool DetailedMgr::verifyMove()
 {
   for (const auto& node : journal.getAffectedNodes()) {
-    if (hasEdgeSpacingViolation(node)) {
+    if (hasViolation(node)) {
       rejectMove();
       return false;
     }

@@ -198,6 +198,7 @@ class Opendp
                    GridY y,
                    GridX x_end,
                    GridY y_end) const;
+
   void shiftMove(Node* cell);
   int distChange(const Node* cell, DbuX x, DbuY y) const;
   bool swapCells(Node* cell1, Node* cell2);
@@ -257,7 +258,8 @@ class Opendp
                     const vector<Node*>& site_align_failures,
                     const vector<Node*>& region_placement_failures,
                     const vector<Node*>& placement_failures,
-                    const vector<Node*>& edge_spacing_failures);
+                    const vector<Node*>& edge_spacing_failures,
+                    const vector<Node*>& abutment_conn_failures);
   void writeJsonReport(const string& filename);
 
   void rectDist(const Node* cell,

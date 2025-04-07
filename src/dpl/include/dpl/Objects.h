@@ -11,6 +11,7 @@ namespace dpl {
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
+using odb::dbBox;
 
 class MasterEdge
 {
@@ -34,11 +35,14 @@ class Master
   void addEdge(const MasterEdge& edge);
   void clearEdges();
   void setBBox(Rect box);
+  void addPin(uint pin_idx, dbBox* pin_box);
+  const std::map<uint, dbBox*> getPins() const;
 
  private:
   Rect boundary_box_;
   bool is_multi_row_ = false;
   std::vector<MasterEdge> edges_;
+  std::map<uint, dbBox*> pin_edges_;
 };
 
 class Pin;
@@ -90,6 +94,7 @@ class Node
   int getNumPins() const;
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
+  const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
 
   // setters
   void setId(int id);
@@ -112,6 +117,7 @@ class Node
   void setMaster(Master* in);
   void addPin(Pin* pin);
   void setGroupId(int id);
+  void addConnection(uint pin_id, uint net_id) { pin_to_net_[pin_id] = net_id; }
 
   bool adjustCurrOrient(const dbOrientType& newOrient);
 
@@ -145,6 +151,7 @@ class Node
   int group_id_{0};
   // Pins.
   std::vector<Pin*> pins_;
+  std::map<uint, uint> pin_to_net_;
 };
 
 class Group

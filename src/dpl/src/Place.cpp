@@ -895,7 +895,13 @@ bool Opendp::checkPixels(const Node* cell,
   }
   const auto& orient = grid_->gridPixel(x, y)->sites.at(
       cell->getDbInst()->getMaster()->getSite());
-  return drc_engine_->checkEdgeSpacing(cell, x, y, orient);
+  if (!drc_engine_->checkAbuttedPins(cell, x, y, orient)) {
+    return false;
+  }
+  if (!drc_engine_->checkEdgeSpacing(cell, x, y, orient)) {
+    return false;
+  }
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////

@@ -454,6 +454,21 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
   Rect bbox;
   db_master->getPlacementBoundary(bbox);
   master->setBBox(bbox);
+  for (const auto mterm : db_master->getMTerms()) {
+    for (const auto pin : mterm->getMPins()) {
+      for (const auto box : pin->getGeometry()) {
+        if (!box->getTechLayer()) {
+          continue;
+        }
+        auto mterm_box = box->getBox();
+        if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+            || mterm_box.yMin() == bbox.yMin()
+            || mterm_box.yMax() == bbox.yMax()) {
+          master->addPin(mterm->getIndex(), box);
+        }
+      }
+    }
+  }
   master->clearEdges();
   if (!drc_engine_->hasCellEdgeSpacingTable()) {
     return master;
@@ -462,6 +477,7 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
       == odb::dbMasterType::CORE_SPACER) {  // Skip fillcells
     return nullptr;
   }
+
   std::map<odb::dbMasterEdgeType::EdgeDir, std::vector<Rect>> typed_segs;
   int num_rows = std::lround(db_master->getHeight() / (double) min_row_height);
   for (auto edge : db_master->getEdgeTypes()) {
@@ -625,7 +641,17 @@ void Optdp::createNetwork()
     // Fill in data.
     ndi->setType(Node::CELL);
     ndi->setDbInst(inst);
-    ndi->setMaster(getMaster(inst->getMaster()));
+    const auto master = getMaster(inst->getMaster());
+    ndi->setMaster(master);
+    if (master) {
+      for (const auto& [idx, _] : master->getPins()) {
+        auto iterm = inst->getITerm(idx);
+        auto net = iterm->getNet();
+        if (net != nullptr && !net->getSigType().isSupply()) {
+          ndi->addConnection(idx, net->getId());
+        }
+      }
+    }
     ndi->setId(n);
     ndi->setFixed(inst->isFixed());
     // else...  Account for R90?
