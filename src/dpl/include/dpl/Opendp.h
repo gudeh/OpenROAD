@@ -131,6 +131,13 @@ class Opendp
   // Find a cluster of instances that are touching each other
   std::vector<dbInst*> getAdjacentInstancesCluster(dbInst* inst) const;
 
+  void importDb();
+  bool mapMove(Node* cell);
+  bool mapMove(Node* cell, const GridPt& grid_pt);
+  Grid* getGrid() { return grid_.get(); }
+  void initPlacementDRC();
+  PlacementDRC* getPlacementDRC() { return drc_engine_.get(); }
+
  private:
   using bgPoint
       = boost::geometry::model::d2::point_xy<int,
@@ -157,7 +164,6 @@ class Opendp
   void saveViolations(const std::vector<Node*>& failures,
                       odb::dbMarkerCategory* category,
                       const std::string& violation_type = "") const;
-  void importDb();
   void importClear();
   Rect getBbox(dbInst* inst);
   void makeMacros();
@@ -170,8 +176,6 @@ class Opendp
   void makeMaster(Master* master, dbMaster* db_master);
 
   void initGrid();
-
-  void initPlacementDRC();
 
   std::string printBgBox(const boost::geometry::model::box<bgPoint>& queryBox);
   void detailedPlacement();
@@ -195,8 +199,6 @@ class Opendp
                    GridX x_end,
                    GridY y_end) const;
   void shiftMove(Node* cell);
-  bool mapMove(Node* cell);
-  bool mapMove(Node* cell, const GridPt& grid_pt);
   int distChange(const Node* cell, DbuX x, DbuY y) const;
   bool swapCells(Node* cell1, Node* cell2);
   bool refineMove(Node* cell);
@@ -317,8 +319,8 @@ class Opendp
   map<dbInst*, Node*> db_inst_map_;
 
   bool have_multi_row_cells_ = false;
-  int max_displacement_x_ = 0;  // sites
-  int max_displacement_y_ = 0;  // sites
+  int max_displacement_x_ = 500;  // sites
+  int max_displacement_y_ = 100;  // sites
   bool disallow_one_site_gaps_ = false;
   vector<Node*> placement_failures_;
 

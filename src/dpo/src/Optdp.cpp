@@ -19,6 +19,7 @@
 #include "utl/Logger.h"
 
 // My stuff.
+#include "annealer.h"
 #include "architecture.h"
 #include "detailed.h"
 #include "detailed_manager.h"
@@ -129,6 +130,12 @@ void Optdp::improvePlacement(const int seed,
   // Run the script.
   dpo::Detailed dt(dtParams);
   dt.improve(mgr);
+  {
+    logger_->report("Start Annealing");
+    Annealer annealer(logger_, opendp_);
+    annealer.move(network_->getNode(1));
+    logger_->report("End Annealing");
+  }
 
   // Write solution back.
   updateDbInstLocations();
@@ -162,7 +169,9 @@ void Optdp::import()
   network_ = new Network;
   arch_ = new Architecture;
   routeinfo_ = new RoutingParams;
-  grid_ = new Grid;
+  grid_ = opendp_->getGrid();
+  opendp_->initPlacementDRC();
+  drc_engine_ = opendp_->getPlacementDRC();
 
   // createLayerMap(); // Does nothing right now.
   // createNdrMap(); // Does nothing right now.
