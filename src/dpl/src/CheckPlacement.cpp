@@ -1,40 +1,11 @@
-/////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2020, The Regents of the University of California
-// All rights reserved.
-//
-// BSD 3-Clause License
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// * Redistributions of source code must retain the above copyright notice, this
-//   list of conditions and the following disclaimer.
-//
-// * Redistributions in binary form must reproduce the above copyright notice,
-//   this list of conditions and the following disclaimer in the documentation
-//   and/or other materials provided with the distribution.
-//
-// * Neither the name of the copyright holder nor the names of its
-//   contributors may be used to endorse or promote products derived from
-//   this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-///////////////////////////////////////////////////////////////////////////////
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2020-2025, The OpenROAD Authors
 
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <limits>
+#include <string>
 #include <vector>
 
 #include "dpl/Grid.h"
@@ -52,18 +23,19 @@ using utl::DPL;
 
 using utl::format_as;
 
-void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
+void Opendp::checkPlacement(const bool verbose,
+                            const std::string& report_file_name)
 {
   importDb();
 
-  vector<Node*> placed_failures;
-  vector<Node*> in_rows_failures;
-  vector<Node*> overlap_failures;
-  vector<Node*> one_site_gap_failures;
-  vector<Node*> site_align_failures;
-  vector<Node*> region_placement_failures;
-  vector<Node*> edge_spacing_failures;
-  vector<Node*> abutment_conn_failures;
+  std::vector<Node*> placed_failures;
+  std::vector<Node*> in_rows_failures;
+  std::vector<Node*> overlap_failures;
+  std::vector<Node*> one_site_gap_failures;
+  std::vector<Node*> site_align_failures;
+  std::vector<Node*> region_placement_failures;
+  std::vector<Node*> edge_spacing_failures;
+  std::vector<Node*> abutment_conn_failures;
 
   initGrid();
   groupAssignCellRegions();
@@ -154,7 +126,7 @@ void Opendp::checkPlacement(const bool verbose, const string& report_file_name)
 
 void Opendp::saveViolations(const std::vector<Node*>& failures,
                             odb::dbMarkerCategory* category,
-                            const string& violation_type) const
+                            const std::string& violation_type) const
 {
   const Rect core = grid_->getCore();
   for (auto failure : failures) {
@@ -281,7 +253,7 @@ void Opendp::saveFailures(const vector<Node*>& placed_failures,
   }
 }
 
-void Opendp::writeJsonReport(const string& filename)
+void Opendp::writeJsonReport(const std::string& filename)
 {
   auto* tool_category = block_->findMarkerCategory("DPL");
   if (tool_category) {
@@ -319,7 +291,11 @@ void Opendp::reportFailures(
 void Opendp::reportOverlapFailure(Node* cell) const
 {
   const Node* overlap = checkOverlap(*cell);
-  logger_->report(" {} overlaps {}", cell->name(), overlap->name());
+  logger_->report(" {} ({}) overlaps {} ({})",
+                  cell->name(),
+                  cell->getDbInst()->getMaster()->getName(),
+                  overlap->name(),
+                  overlap->getDbInst()->getMaster()->getName());
 }
 
 /* static */

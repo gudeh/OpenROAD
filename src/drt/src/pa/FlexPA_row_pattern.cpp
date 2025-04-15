@@ -1,39 +1,17 @@
-/* Authors: Lutong Wang, Bangqi Xu*/
-/*
- * Copyright (c) 2019, The Regents of the University of California
- * Copyright (c) 2024, Precision Innovations Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the University nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS BE LIABLE FOR ANY DIRECT,
- * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2019-2025, The OpenROAD Authors
 
 #include <omp.h>
 
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <limits>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "FlexPA.h"
 #include "db/infra/frTime.h"
@@ -57,6 +35,91 @@ static inline void serializeInstRows(
   paUpdate update;
   update.setInstRows(inst_rows);
   paUpdate::serialize(update, file_name);
+}
+
+std::vector<std::vector<frInst*>> FlexPA::computeInstRows()
+{
+  // prep pattern for each row
+  std::vector<std::vector<frInst*>> inst_rows;
+  std::vector<frInst*> row_insts;
+
+  buildInstsSet();
+
+  // gen rows of insts
+  int prev_y_coord = INT_MIN;
+  int prev_x_end_coord = INT_MIN;
+  for (auto inst : insts_set_) {
+    Point origin = inst->getBoundaryBBox().ll();
+    if (origin.y() != prev_y_coord || origin.x() > prev_x_end_coord) {
+      if (!row_insts.empty()) {
+        inst_rows.push_back(row_insts);
+        row_insts.clear();
+      }
+    }
+    row_insts.push_back(inst);
+    prev_y_coord = origin.y();
+    Rect inst_boundary_box = inst->getBoundaryBBox();
+    prev_x_end_coord = inst_boundary_box.xMax();
+  }
+  if (!row_insts.empty()) {
+    inst_rows.push_back(row_insts);
+  }
+  return inst_rows;
+}
+
+bool FlexPA::instancesAreAbuting(frInst* inst_1, frInst* inst_2) const
+{
+  if (inst_1->getOrigin().getY() != inst_2->getOrigin().getY()) {
+    return false;
+  }
+  frInst *left_inst, *right_inst;
+  if (inst_1->getOrigin().getX() < inst_2->getOrigin().getX()) {
+    left_inst = inst_1;
+    right_inst = inst_2;
+  } else {
+    left_inst = inst_2;
+    right_inst = inst_1;
+  }
+
+  if (left_inst->getBoundaryBBox().xMax()
+      != right_inst->getBoundaryBBox().xMin()) {
+    return false;
+  }
+
+  return true;
+}
+
+std::vector<frInst*> FlexPA::getAdjacentInstancesCluster(frInst* inst) const
+{
+  const auto inst_it = insts_set_.find(inst);
+  std::vector<frInst*> adj_inst_cluster;
+
+  adj_inst_cluster.push_back(inst);
+
+  if (inst_it != insts_set_.begin()) {
+    auto current_inst_it = inst_it;
+    auto prev_inst_it = std::prev(inst_it);
+    while (prev_inst_it != insts_set_.begin()
+           && instancesAreAbuting(*current_inst_it, *prev_inst_it)) {
+      adj_inst_cluster.push_back(*prev_inst_it);
+      current_inst_it--;
+      prev_inst_it--;
+    }
+  }
+
+  std::reverse(adj_inst_cluster.begin(), adj_inst_cluster.end());
+  if (inst_it != insts_set_.end()) {
+    auto current_inst_it = inst_it;
+    auto next_inst_it = std::next(inst_it);
+    while (next_inst_it != insts_set_.end()
+           && instancesAreAbuting(*current_inst_it, *next_inst_it)) {
+      adj_inst_cluster.push_back(*next_inst_it);
+      current_inst_it++;
+      next_inst_it++;
+    }
+  }
+
+  return adj_inst_cluster;
 }
 
 void FlexPA::prepPatternInstRows(std::vector<std::vector<frInst*>> inst_rows)
