@@ -1,37 +1,5 @@
-/////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2019, The Regents of the University of California
-// All rights reserved.
-//
-// BSD 3-Clause License
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// * Redistributions of source code must retain the above copyright notice, this
-//   list of conditions and the following disclaimer.
-//
-// * Redistributions in binary form must reproduce the above copyright notice,
-//   this list of conditions and the following disclaimer in the documentation
-//   and/or other materials provided with the distribution.
-//
-// * Neither the name of the copyright holder nor the names of its
-//   contributors may be used to endorse or promote products derived from
-//   this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////////
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2019-2025, The OpenROAD Authors
 
 #include "ord/OpenRoad.hh"
 
@@ -61,8 +29,9 @@
 #include "gpl/MakeReplace.h"
 #include "grt/MakeGlobalRouter.h"
 #include "gui/MakeGui.h"
-#include "ifp//MakeInitFloorplan.hh"
+#include "ifp/MakeInitFloorplan.hh"
 #include "mpl/MakeMacroPlacer.h"
+#include "odb/MakeOdb.h"
 #include "odb/cdl.h"
 #include "odb/db.h"
 #include "odb/defin.h"
@@ -78,26 +47,24 @@
 #include "rcx/MakeOpenRCX.h"
 #include "rmp/MakeRestructure.h"
 #include "rsz/MakeResizer.hh"
-#include "sta/StaMain.hh"
 #include "sta/VerilogReader.hh"
 #include "sta/VerilogWriter.hh"
 #include "stt/MakeSteinerTreeBuilder.h"
 #include "tap/MakeTapcell.h"
 #include "triton_route/MakeTritonRoute.h"
+#include "upf/MakeUpf.h"
 #include "utl/Logger.h"
 #include "utl/MakeLogger.h"
 #include "utl/ScopedTemporaryFile.h"
+#include "utl/decode.h"
 
-namespace sta {
-extern const char* openroad_swig_tcl_inits[];
-extern const char* upf_tcl_inits[];
-}  // namespace sta
+namespace ord {
+extern const char* ord_tcl_inits[];
+}  // namespace ord
 
 // Swig uses C linkage for init functions.
 extern "C" {
-extern int Openroad_swig_Init(Tcl_Interp* interp);
-extern int Odbtcl_Init(Tcl_Interp* interp);
-extern int Upf_Init(Tcl_Interp* interp);
+extern int Ord_Init(Tcl_Interp* interp);
 }
 
 namespace ord {
@@ -107,8 +74,6 @@ using odb::dbChip;
 using odb::dbDatabase;
 using odb::dbLib;
 using odb::dbTech;
-
-using sta::evalTclInit;
 
 using utl::ORD;
 
@@ -215,15 +180,14 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   dft_ = dft::makeDft();
 
   // Init components.
-  Openroad_swig_Init(tcl_interp);
+  Ord_Init(tcl_interp);
   // Import TCL scripts.
-  evalTclInit(tcl_interp, sta::openroad_swig_tcl_inits);
+  utl::evalTclInit(tcl_interp, ord::ord_tcl_inits);
 
   initLogger(logger_, tcl_interp);
   initGui(this);  // first so we can register our sink with the logger
-  Odbtcl_Init(tcl_interp);
-  Upf_Init(tcl_interp);
-  evalTclInit(tcl_interp, sta::upf_tcl_inits);
+  initOdb(tcl_interp);
+  initUpf(this);
   initInitFloorplan(this);
   initDbSta(this);
   initResizer(this);

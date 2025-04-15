@@ -1,38 +1,13 @@
-///////////////////////////////////////////////////////////////////////////////
-// BSD 3-Clause License
-//
-// Copyright (c) 2021, The Regents of the University of California
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// * Redistributions of source code must retain the above copyright notice, this
-//   list of conditions and the following disclaimer.
-//
-// * Redistributions in binary form must reproduce the above copyright notice,
-//   this list of conditions and the following disclaimer in the documentation
-//   and/or other materials provided with the distribution.
-//
-// * Neither the name of the copyright holder nor the names of its
-//   contributors may be used to endorse or promote products derived from
-//   this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE
-// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-///////////////////////////////////////////////////////////////////////////////
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2021-2025, The OpenROAD Authors
 
 #include "SACoreSoftMacro.h"
 
+#include <algorithm>
+#include <boost/random/uniform_int_distribution.hpp>
+#include <cmath>
+#include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -739,15 +714,17 @@ void SACoreSoftMacro::calNotchPenalty()
 
 void SACoreSoftMacro::resizeOneCluster()
 {
-  // TODO: See for explanation
-  // https://github.com/The-OpenROAD-Project/OpenROAD/pull/6649
-  float random_variable_0_1;
-  do {
-    random_variable_0_1 = distribution_(generator_);
-  } while (random_variable_0_1 >= 1.0);
+  if (pos_seq_.empty()) {
+    logger_->error(
+        utl::MPL,
+        51,
+        "Position sequence array is empty, please report this internal error");
+  }
 
-  const int idx
-      = static_cast<int>(std::floor(random_variable_0_1 * pos_seq_.size()));
+  boost::random::uniform_int_distribution<> index_distribution(
+      0, pos_seq_.size() - 1);
+  const int idx = index_distribution(generator_);
+
   macro_id_ = idx;
   SoftMacro& src_macro = macros_[idx];
   if (src_macro.isMacroCluster()) {
@@ -833,6 +810,10 @@ void SACoreSoftMacro::shrink()
 void SACoreSoftMacro::printResults() const
 {
   reportCoreWeights();
+  report({"Boundary",
+          boundary_weight_,
+          boundary_penalty_,
+          norm_boundary_penalty_});
   report({"Macro Blockage",
           macro_blockage_weight_,
           macro_blockage_penalty_,
