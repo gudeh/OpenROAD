@@ -1041,11 +1041,17 @@ class NesterovBase
   float getPhiCoef(float scaledDiffHpwl) const;
   void cutFillerCoordinates();
 
-  void snapshot();
+  enum class SnapshotType {
+    Generic,
+    Routability
+  };
+  // void snapshot();
+  void snapshot(SnapshotType type);
 
   bool checkConvergence();
   bool checkDivergence();
-  bool revertToSnapshot();
+  // bool revertToSnapshot();
+  bool revertToSnapshot(SnapshotType type);
 
   void updateDensityCenterCur();
   void updateDensityCenterCurSLP();
@@ -1172,11 +1178,21 @@ class NesterovBase
   bool reprint_iter_header;
 
   // Snapshot data for routability, parallel vectors
-  std::vector<FloatPoint> snapshotCoordi_;
-  std::vector<FloatPoint> snapshotSLPCoordi_;
-  std::vector<FloatPoint> snapshotSLPSumGrads_;
-  float snapshotDensityPenalty_ = 0;
-  float snapshotStepLength_ = 0;
+  // std::vector<FloatPoint> snapshotCoordi_;
+  // std::vector<FloatPoint> snapshotSLPCoordi_;
+  // std::vector<FloatPoint> snapshotSLPSumGrads_;
+  // float snapshotDensityPenalty_ = 0;
+  // float snapshotStepLength_ = 0;
+  struct Snapshot {
+    std::vector<FloatPoint> coordi;
+    std::vector<FloatPoint> slpCoordi;
+    std::vector<FloatPoint> slpSumGrads;
+    float densityPenalty;
+    float stepLength = 0.0;
+  };
+  Snapshot snapshot_generic_;
+  Snapshot snapshot_routability_;
+
 
   void initFillerGCells();
 

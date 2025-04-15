@@ -302,7 +302,8 @@ int NesterovPlace::doNesterovPlace(int start_iter)
   bool is_routability_snapshot_saved = false;
   float route_snapshotA = 0;
   float route_snapshot_WlCoefX = 0, route_snapshot_WlCoefY = 0;
-  // bool isDivergeTriedRevert = false;
+  bool is_diverge_tried_revert = false;
+  bool is_routability_phase_active_ = false;
 
   // divergence snapshot info
   bool is_diverge_snapshot_saved = false;
@@ -569,7 +570,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         diverge_snapshot_WlCoefX = wireLengthCoefX_;
         diverge_snapshot_WlCoefY = wireLengthCoefY_;
         for (auto& nb : nbVec_) {
-          nb->snapshot();
+          nb->snapshot(NesterovBase::SnapshotType::Generic);
         }
         is_diverge_snapshot_saved = true;
       }
@@ -588,35 +589,8 @@ int NesterovPlace::doNesterovPlace(int start_iter)
     if (numDiverge > 0) {
       log_->report("Divergence occured in {} regions.", numDiverge);
 
-      // TODO: this divergence treatment uses the non-deterministic aspect of
-      // routability inflation to try one more time if a divergence is detected.
-      // This feature lost its consistency since we allow for non-virtual timing
-      // driven iterations. Meaning we would go back to a snapshot without newly
-      // added instances. A way to maintain this feature is to store two
-      // snapshots one for routability revert if diverge and try again, and
-      // another for simply revert if diverge and finish without hitting 0.10
-      // overflow.
-      // // revert back to the original rb solutions
-      // // one more opportunity
-      // if (!isDivergeTriedRevert && rb_->numCall() >= 1) {
-      //   // get back to the working rc size
-      //   rb_->revertGCellSizeToMinRc();
-      //   curA = route_snapshotA;
-      //   wireLengthCoefX_ = route_snapshot_WlCoefX;
-      //   wireLengthCoefY_ = route_snapshot_WlCoefY;
-      //   nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
-      //   for (auto& nb : nbVec_) {
-      //     nb->revertToSnapshot();
-      //   }
 
-      //   isDiverged_ = false;
-      //   divergeCode_ = 0;
-      //   divergeMsg_ = "";
-      //   isDivergeTriedRevert = true;
-      //   // turn off the RD forcely
-      //   is_routability_need_ = false;
-      // } else
-      if (!npVars_.disableRevertIfDiverge && is_diverge_snapshot_saved) {
+      if (!npVars_.disableRevertIfDiverge && is_diverge_snapshot_saved && !is_routability_need_) {
         // In case diverged and not in routability mode, finish with min hpwl
         // stored since overflow below 0.25
         log_->warn(GPL,
@@ -632,13 +606,33 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         wireLengthCoefY_ = diverge_snapshot_WlCoefY;
         nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
         for (auto& nb : nbVec_) {
-          nb->revertToSnapshot();
+          nb->revertToSnapshot(NesterovBase::SnapshotType::Generic);
         }
         isDiverged_ = false;
         break;
+      } else
+      // If divergence happens during routability phase, try one more time using the routability snapshot
+      if (!is_diverge_tried_revert && rb_->numCall() >= 1 && is_routability_phase_active_) {
+        // get back to the working rc size
+        rb_->revertGCellSizeToMinRc();
+        curA = route_snapshotA;
+        wireLengthCoefX_ = route_snapshot_WlCoefX;
+        wireLengthCoefY_ = route_snapshot_WlCoefY;
+        nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
+        for (auto& nb : nbVec_) {
+          nb->revertToSnapshot(NesterovBase::SnapshotType::Routability);
+        }
+
+        isDiverged_ = false;
+        divergeCode_ = 0;
+        divergeMsg_ = "";
+        is_diverge_tried_revert = true;
+        // turn off the RD forcely
+        is_routability_need_ = false;
+        is_routability_phase_active_ = false;
       } else {
-        break;
-      }
+          break;
+        }
     }
 
     if (!is_routability_snapshot_saved && npVars_.routability_driven_mode
@@ -647,9 +641,10 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       route_snapshot_WlCoefY = wireLengthCoefY_;
       route_snapshotA = curA;
       is_routability_snapshot_saved = true;
+      is_routability_phase_active_ = true;
 
       for (auto& nb : nbVec_) {
-        nb->snapshot();
+        nb->snapshot(NesterovBase::SnapshotType::Routability);
       }
 
       log_->info(GPL, 88, "Routability snapshot saved at iter = {}", iter);
@@ -677,12 +672,16 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
 
         for (auto& nb : nbVec_) {
-          nb->revertToSnapshot();
+          nb->revertToSnapshot(NesterovBase::SnapshotType::Routability);
           nb->resetMinSumOverflow();
         }
         log_->info(
             GPL, 89, "Routability end iteration: revert back to snapshot");
       }
+
+      //false, false -> success hit target final rc
+      //false, true  -> failure due to max density or minrc no improve
+      //true, true   -> continue routability
     }
 
     // check each for converge and if all are converged then stop

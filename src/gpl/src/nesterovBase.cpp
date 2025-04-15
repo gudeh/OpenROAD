@@ -2696,18 +2696,36 @@ void NesterovBase::cutFillerCoordinates()
   nextCoordi_.resize(fillerCnt());
 }
 
-void NesterovBase::snapshot()
+// void NesterovBase::snapshot()
+// {
+//   if (isConverged_) {
+//     return;
+//   }
+//   // save snapshots for routability-driven
+//   snapshotCoordi_ = curCoordi_;
+//   snapshotSLPCoordi_ = curSLPCoordi_;
+//   snapshotSLPSumGrads_ = curSLPSumGrads_;
+//   snapshotDensityPenalty_ = densityPenalty_;
+//   snapshotStepLength_ = stepLength_;
+// }
+void NesterovBase::snapshot(SnapshotType type)
 {
   if (isConverged_) {
     return;
   }
-  // save snapshots for routability-driven
-  snapshotCoordi_ = curCoordi_;
-  snapshotSLPCoordi_ = curSLPCoordi_;
-  snapshotSLPSumGrads_ = curSLPSumGrads_;
-  snapshotDensityPenalty_ = densityPenalty_;
-  snapshotStepLength_ = stepLength_;
+
+  Snapshot* snap = (type == SnapshotType::Generic) ? &snapshot_generic_
+                                                   : &snapshot_routability_;
+
+  snap->coordi = curCoordi_;
+  snap->slpCoordi = curSLPCoordi_;
+  snap->slpSumGrads = curSLPSumGrads_;
+  snap->densityPenalty = densityPenalty_;
+  snap->stepLength = stepLength_;
 }
+
+
+
 
 bool NesterovBase::checkConvergence()
 {
@@ -2812,17 +2830,20 @@ bool NesterovBase::checkDivergence()
   return isDiverged_;
 }
 
-bool NesterovBase::revertToSnapshot()
+bool NesterovBase::revertToSnapshot(SnapshotType type)
 {
   if (isConverged_) {
     return true;
   }
-  // revert back the current density penality
-  curCoordi_ = snapshotCoordi_;
-  curSLPCoordi_ = snapshotSLPCoordi_;
-  curSLPSumGrads_ = snapshotSLPSumGrads_;
-  densityPenalty_ = snapshotDensityPenalty_;
-  stepLength_ = snapshotStepLength_;
+
+  const Snapshot* snap = (type == SnapshotType::Generic) ? &snapshot_generic_
+                                                         : &snapshot_routability_;
+
+  curCoordi_ = snap->coordi;
+  curSLPCoordi_ = snap->slpCoordi;
+  curSLPSumGrads_ = snap->slpSumGrads;
+  densityPenalty_ = snap->densityPenalty;
+  stepLength_ = snap->stepLength;
 
   updateGCellDensityCenterLocation(curCoordi_);
   updateDensityForceBin();
@@ -2972,9 +2993,13 @@ void NesterovBase::createGCell(odb::dbInst* db_inst,
     curCoordi_.emplace_back();
     nextCoordi_.emplace_back();
     initCoordi_.emplace_back();
-    snapshotCoordi_.emplace_back();
-    snapshotSLPCoordi_.emplace_back();
-    snapshotSLPSumGrads_.emplace_back();
+    snapshot_routability_.coordi.emplace_back();
+    snapshot_routability_.slpCoordi.emplace_back();
+    snapshot_routability_.slpSumGrads.emplace_back();
+    snapshot_generic_.coordi.emplace_back();
+    snapshot_generic_.slpCoordi.emplace_back();
+    snapshot_generic_.slpSumGrads.emplace_back();
+
 
     rb->pushBackMinRcCellSize(gcell->dx(), gcell->dy());
   } else {
@@ -3134,9 +3159,12 @@ void NesterovBase::swapAndPopParallelVectors(size_t remove_index,
   swapAndPop(curCoordi_, remove_index, last_index);
   swapAndPop(nextCoordi_, remove_index, last_index);
   swapAndPop(initCoordi_, remove_index, last_index);
-  swapAndPop(snapshotCoordi_, remove_index, last_index);
-  swapAndPop(snapshotSLPCoordi_, remove_index, last_index);
-  swapAndPop(snapshotSLPSumGrads_, remove_index, last_index);
+  swapAndPop(snapshot_routability_.coordi, remove_index, last_index);
+  swapAndPop(snapshot_routability_.slpCoordi, remove_index, last_index);
+  swapAndPop(snapshot_routability_.slpSumGrads, remove_index, last_index);
+  swapAndPop(snapshot_generic_.coordi, remove_index, last_index);
+  swapAndPop(snapshot_generic_.slpCoordi, remove_index, last_index);
+  swapAndPop(snapshot_generic_.slpSumGrads, remove_index, last_index);
 }
 
 void NesterovBaseCommon::printGCells()
