@@ -11,10 +11,10 @@
 
 namespace dpl {
 
+using odb::dbBox;
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
-using odb::dbBox;
 
 class MasterEdge
 {
