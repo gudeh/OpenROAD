@@ -121,8 +121,6 @@ class DetailedMgr
   void assignCellsToSegments(const std::vector<Node*>& nodesToConsider);
   int checkOverlapInSegments();
   int checkEdgeSpacingInSegments();
-  bool hasEdgeSpacingViolation(const Node* node) const;
-  bool hasAbuttedPinViolation(const Node* node) const;
   bool hasViolation(const Node* node) const;
   int checkSiteAlignment();
   int checkRowAlignment();
