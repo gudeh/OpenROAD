@@ -2,13 +2,15 @@
 // Copyright (c) 2024-2025, The OpenROAD Authors
 
 #include <algorithm>
+#include <map>
 #include <vector>
 
-#include "DecapObjects.h"
-#include "dpl/Grid.h"
-#include "dpl/Objects.h"
 #include "dpl/Opendp.h"
-#include "dpl/Padding.h"
+#include "infrastructure/DecapObjects.h"
+#include "infrastructure/Grid.h"
+#include "infrastructure/Objects.h"
+#include "infrastructure/Padding.h"
+#include "infrastructure/network.h"
 #include "odb/dbShape.h"
 #include "utl/Logger.h"
 
@@ -29,11 +31,11 @@ void Opendp::addDecapMaster(dbMaster* decap_master, double decap_cap)
 }
 
 // Return list of decap indices to fill gap
-vector<int> Opendp::findDecapCellIndices(const DbuX& gap_width,
-                                         const double& current,
-                                         const double& target)
+std::vector<int> Opendp::findDecapCellIndices(const DbuX& gap_width,
+                                              const double& current,
+                                              const double& target)
 {
-  vector<int> id_masters;
+  std::vector<int> id_masters;
   double cap_acum = 0.0;
   int width_acum = 0;
   const DbuX site_width = grid_->getSiteWidth();
@@ -103,7 +105,7 @@ void Opendp::prepareDecapAndGaps()
 void Opendp::insertDecapCells(const double target, IRDropByPoint& psm_ir_drops)
 {
   // init dpl variables
-  if (cells_.empty()) {
+  if (network_->getNumCells() == 0) {
     importDb();
   }
 
@@ -160,7 +162,7 @@ void Opendp::insertDecapCells(const double target, IRDropByPoint& psm_ir_drops)
                 total_cap);
 }
 
-void Opendp::insertDecapInRow(const vector<GapInfo*>& gaps,
+void Opendp::insertDecapInRow(const std::vector<GapInfo*>& gaps,
                               const DbuY gap_y,
                               const DbuX irdrop_x,
                               const DbuY irdrop_y,
@@ -198,7 +200,7 @@ void Opendp::insertDecapInPos(dbMaster* master,
                               const DbuY& pos_y)
 {
   // insert decap inst
-  string inst_name = "DECAP_" + to_string(decap_count_);
+  std::string inst_name = "DECAP_" + to_string(decap_count_);
   dbInst* inst = dbInst::create(block_,
                                 master,
                                 inst_name.c_str(),
