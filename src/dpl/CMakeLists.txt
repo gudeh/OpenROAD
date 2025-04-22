@@ -41,6 +41,7 @@ add_library(dpl_lib
   src/objective/detailed_abu.cxx
   src/optimization/detailed_random.cxx
   src/optimization/detailed_orient.cxx
+  src/optimization/annealer.cxx
   src/util/journal.cxx
 )
 

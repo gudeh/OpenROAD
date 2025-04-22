@@ -273,6 +273,23 @@ Master* Network::addMaster(odb::dbMaster* db_master,
   master->setTopPowerType(master_pwrs.first);
   master->setBottomPowerType(master_pwrs.second);
   master->clearEdges();
+  // abutting pins
+  for (const auto mterm : db_master->getMTerms()) {
+    for (const auto pin : mterm->getMPins()) {
+      for (const auto box : pin->getGeometry()) {
+        if (!box->getTechLayer()) {
+          continue;
+        }
+        auto mterm_box = box->getBox();
+        if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+            || mterm_box.yMin() == bbox.yMin()
+            || mterm_box.yMax() == bbox.yMax()) {
+          master->addPin(mterm->getIndex(), box);
+        }
+      }
+    }
+  }
+  //
   if (!drc_engine->hasCellEdgeSpacingTable()) {
     return master;
   }
@@ -355,6 +372,13 @@ void Network::addNode(odb::dbInst* inst)
   ndi.setBottom(ndi.getOrigBottom());
   ndi.setBottomPower(master->getBottomPowerType());
   ndi.setTopPower(master->getTopPowerType());
+  for (auto [idx, _] : master->getPins()) {
+    auto iterm = inst->getITerm(idx);
+    auto net = iterm->getNet();
+    if (net != nullptr && !net->getSigType().isSupply()) {
+      ndi.addConnection(idx, net->getId());
+    }
+  }
   nodes_.emplace_back(std::make_unique<Node>(ndi));
   inst_to_node_idx_[inst] = id;
   ++cells_cnt_;

@@ -102,17 +102,16 @@ class Network
   Master* addMaster(odb::dbMaster* db_master,
                     const Grid* grid,
                     const PlacementDRC* drc_engine);
+  Pin* addPin(odb::dbITerm* term);
+  Pin* addPin(odb::dbBTerm* term);
+  void connect(Pin* pin, Node* node);
+  void connect(Pin* pin, Edge* edge);
   void createAndAddBlockage(const odb::Rect& bounds);
 
   void clear();
 
  private:
-  Pin* addPin(odb::dbITerm* term);
-  Pin* addPin(odb::dbBTerm* term);
-  void connect(Pin* pin, Node* node);
-  void connect(Pin* pin, Edge* edge);
-
-  std::vector<std::unique_ptr<Master>> masters_;
+    std::vector<std::unique_ptr<Master>> masters_;
   std::vector<std::unique_ptr<Node>> nodes_;  // The nodes in the netlist...
   std::vector<std::unique_ptr<Edge>> edges_;  // The edges in the netlist...
   std::vector<std::unique_ptr<Pin>> pins_;    // The pins in the network...

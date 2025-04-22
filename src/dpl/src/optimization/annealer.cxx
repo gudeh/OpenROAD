@@ -203,11 +203,11 @@ void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
       }
     }
     if (equivalent) {
-      node_group.emplace_back(node);
+      node_group.push_back({node});
       return;
     }
   }
-  node_groups_.emplace_back(node);
+  node_groups_.push_back({node});
 }
 
 void Annealer::start()
