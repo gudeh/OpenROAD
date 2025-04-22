@@ -57,6 +57,8 @@ class Optdp
   void improvePlacement(int seed,
                         int max_displacement_x,
                         int max_displacement_y);
+  void initInstNode(odb::dbInst* inst, int n);
+  void addEdgePins(odb::dbITerm* iterm, odb::dbNet* net);
 
  private:
   void import();

@@ -132,8 +132,32 @@ void Optdp::improvePlacement(const int seed,
   dt.improve(mgr);
   {
     logger_->report("Start Annealing");
-    Annealer annealer(logger_, opendp_);
-    annealer.move(network_->getNode(1));
+    Annealer annealer(logger_, opendp_, network_, db_, this);
+    // auto big_master = getMaster(
+    //     (*db_->getLibs().begin())->findMaster("shift3mb4_fcrl_sd_d48_1d0000"));
+    {
+      auto big_master
+          = getMaster(db_->findMaster("shift3mb2_fcrl_sd_d48_1d0000"));
+      auto small_master
+          = getMaster(db_->findMaster("shift3_fcrl_sd_s48_1d0000"));
+      Equivalence entry(small_master, big_master, 2);
+      entry.addSwappablePin("ip");
+      entry.addSwappablePin("zp");
+      entry.addSwappablePin("zn");
+      annealer.addEquivalentCells(entry);
+    }
+    {
+      auto big_master
+          = getMaster(db_->findMaster("shift3mb4_fcrl_sd_d48_1d0000"));
+      auto small_master
+          = getMaster(db_->findMaster("shift3mb2_fcrl_sd_d48_1d0000"));
+      Equivalence entry(small_master, big_master, 2);
+      entry.addSwappablePin("ip");
+      entry.addSwappablePin("zp");
+      entry.addSwappablePin("zn");
+      annealer.addEquivalentCells(entry);
+    }
+    // annealer.start();
     logger_->report("End Annealing");
   }
 
@@ -191,6 +215,10 @@ void Optdp::updateDbInstLocations()
 {
   for (dbInst* inst : db_->getChip()->getBlock()->getInsts()) {
     if (!inst->getMaster()->isCoreAutoPlaceable() || inst->isFixed()) {
+      continue;
+    }
+    if (inst->getUserFlag1()) {
+      odb::dbInst::destroy(inst);
       continue;
     }
 
@@ -454,6 +482,7 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
   Rect bbox;
   db_master->getPlacementBoundary(bbox);
   master->setBBox(bbox);
+  master->setDbMaster(db_master);
   for (const auto mterm : db_master->getMTerms()) {
     for (const auto pin : mterm->getMPins()) {
       for (const auto box : pin->getGeometry()) {
@@ -529,6 +558,52 @@ Master* Optdp::getMaster(odb::dbMaster* db_master)
   return master;
 }
 
+void Optdp::initInstNode(odb::dbInst* inst, int n)
+{
+  auto core = db_->getChip()->getBlock()->getCoreArea();
+  Node* ndi = network_->getNode(n);
+  instMap_[inst] = ndi;
+
+  // Name of inst.
+  network_->setNodeName(n, inst->getName().c_str());
+
+  // Fill in data.
+  ndi->setType(Node::CELL);
+  ndi->setDbInst(inst);
+  ndi->setPlaced(true);
+  const auto master = getMaster(inst->getMaster());
+  ndi->setMaster(master);
+  if (master) {
+    for (const auto& [idx, _] : master->getPins()) {
+      auto iterm = inst->getITerm(idx);
+      auto net = iterm->getNet();
+      if (net != nullptr && !net->getSigType().isSupply()) {
+        ndi->addConnection(idx, net->getId());
+      }
+    }
+  }
+  ndi->setId(n);
+  ndi->setFixed(inst->isFixed());
+  // else...  Account for R90?
+  ndi->setOrient(odb::dbOrientType::R0);
+  ndi->setHeight(DbuY{(int) inst->getMaster()->getHeight()});
+  ndi->setWidth(DbuX{(int) inst->getMaster()->getWidth()});
+
+  ndi->setOrigLeft(DbuX{inst->getBBox()->xMin() - core.xMin()});
+  ndi->setOrigBottom(DbuY{inst->getBBox()->yMin() - core.yMin()});
+  ndi->setLeft(ndi->getOrigLeft());
+  ndi->setBottom(ndi->getOrigBottom());
+
+  // Set the top and bottom power.
+  auto it_m = masterPwrs_.find(inst->getMaster());
+  if (masterPwrs_.end() == it_m) {
+    ndi->setBottomPower(Architecture::Row::Power_UNK);
+    ndi->setTopPower(Architecture::Row::Power_UNK);
+  } else {
+    ndi->setBottomPower(it_m->second.second);
+    ndi->setTopPower(it_m->second.first);
+  }
+}
 ////////////////////////////////////////////////////////////////
 void Optdp::createNetwork()
 {
@@ -631,48 +706,7 @@ void Optdp::createNetwork()
     if (!inst->getMaster()->isCoreAutoPlaceable()) {
       continue;
     }
-
-    Node* ndi = network_->getNode(n);
-    instMap_[inst] = ndi;
-
-    // Name of inst.
-    network_->setNodeName(n, inst->getName().c_str());
-
-    // Fill in data.
-    ndi->setType(Node::CELL);
-    ndi->setDbInst(inst);
-    const auto master = getMaster(inst->getMaster());
-    ndi->setMaster(master);
-    if (master) {
-      for (const auto& [idx, _] : master->getPins()) {
-        auto iterm = inst->getITerm(idx);
-        auto net = iterm->getNet();
-        if (net != nullptr && !net->getSigType().isSupply()) {
-          ndi->addConnection(idx, net->getId());
-        }
-      }
-    }
-    ndi->setId(n);
-    ndi->setFixed(inst->isFixed());
-    // else...  Account for R90?
-    ndi->setOrient(odb::dbOrientType::R0);
-    ndi->setHeight(DbuY{(int) inst->getMaster()->getHeight()});
-    ndi->setWidth(DbuX{(int) inst->getMaster()->getWidth()});
-
-    ndi->setOrigLeft(DbuX{inst->getBBox()->xMin() - core.xMin()});
-    ndi->setOrigBottom(DbuY{inst->getBBox()->yMin() - core.yMin()});
-    ndi->setLeft(ndi->getOrigLeft());
-    ndi->setBottom(ndi->getOrigBottom());
-
-    // Set the top and bottom power.
-    auto it_m = masterPwrs_.find(inst->getMaster());
-    if (masterPwrs_.end() == it_m) {
-      ndi->setBottomPower(Architecture::Row::Power_UNK);
-      ndi->setTopPower(Architecture::Row::Power_UNK);
-    } else {
-      ndi->setBottomPower(it_m->second.second);
-      ndi->setTopPower(it_m->second.first);
-    }
+    initInstNode(inst, n);
 
     ++n;  // Next node.
   }
@@ -735,49 +769,8 @@ void Optdp::createNetwork()
     network_->setEdgeName(e, net->getName().c_str());
 
     for (dbITerm* iTerm : net->getITerms()) {
-      if (!iTerm->getInst()->getMaster()->isCoreAutoPlaceable()) {
-        continue;
-      }
-
-      auto it_n = instMap_.find(iTerm->getInst());
-      if (instMap_.end() != it_n) {
-        n = it_n->second->getId();  // The node id.
-
-        if (network_->getNode(n)->getId() != n
-            || network_->getEdge(e)->getId() != e) {
-          logger_->error(
-              DPO, 102, "Improper node indexing while connecting pins.");
-        }
-
-        Pin* ptr = network_->createAndAddPin(network_->getNode(n),
-                                             network_->getEdge(e));
-
-        // Pin offset.
-        dbMTerm* mTerm = iTerm->getMTerm();
-        dbMaster* master = mTerm->getMaster();
-        // Due to old bookshelf, my offsets are from the
-        // center of the cell whereas in DEF, it's from
-        // the bottom corner.
-        auto ww = mTerm->getBBox().dx();
-        auto hh = mTerm->getBBox().dy();
-        auto xx = mTerm->getBBox().xCenter();
-        auto yy = mTerm->getBBox().yCenter();
-        auto dx = xx - ((int) master->getWidth() / 2);
-        auto dy = yy - ((int) master->getHeight() / 2);
-
-        ptr->setOffsetX(DbuX{dx});
-        ptr->setOffsetY(DbuY{dy});
-        ptr->setPinHeight(DbuY{hh});
-        ptr->setPinWidth(DbuX{ww});
-        ptr->setPinLayer(0);  // Set to zero since not currently used.
-
-        ++p;  // next pin.
-      } else {
-        logger_->error(
-            DPO,
-            103,
-            "Could not find node for instance while connecting pins.");
-      }
+      addEdgePins(iTerm, net);
+      ++p;  // next pin.
     }
     for (dbBTerm* bTerm : net->getBTerms()) {
       auto it_p = termMap_.find(bTerm);
@@ -832,6 +825,43 @@ void Optdp::createNetwork()
                 network_->getNumNodes(),
                 network_->getNumEdges(),
                 network_->getNumPins());
+}
+void Optdp::addEdgePins(odb::dbITerm* iterm, odb::dbNet* net)
+{
+  if (!iterm->getInst()->getMaster()->isCoreAutoPlaceable()) {
+    return;
+  }
+  if (netMap_.find(net) == netMap_.end()) {
+    return;
+  }
+  auto edi = netMap_[net];
+  auto it_n = instMap_.find(iterm->getInst());
+  if (instMap_.end() != it_n) {
+    auto n = it_n->second->getId();  // The node id.
+    Pin* ptr = network_->createAndAddPin(network_->getNode(n), edi);
+
+    // Pin offset.
+    dbMTerm* mTerm = iterm->getMTerm();
+    dbMaster* master = mTerm->getMaster();
+    // Due to old bookshelf, my offsets are from the
+    // center of the cell whereas in DEF, it's from
+    // the bottom corner.
+    auto ww = mTerm->getBBox().dx();
+    auto hh = mTerm->getBBox().dy();
+    auto xx = mTerm->getBBox().xCenter();
+    auto yy = mTerm->getBBox().yCenter();
+    auto dx = xx - ((int) master->getWidth() / 2);
+    auto dy = yy - ((int) master->getHeight() / 2);
+
+    ptr->setOffsetX(DbuX{dx});
+    ptr->setOffsetY(DbuY{dy});
+    ptr->setPinHeight(DbuY{hh});
+    ptr->setPinWidth(DbuX{ww});
+    ptr->setPinLayer(0);  // Set to zero since not currently used.
+  } else {
+    logger_->error(
+        DPO, 103, "Could not find node for instance while connecting pins.");
+  }
 }
 ////////////////////////////////////////////////////////////////
 void Optdp::createArchitecture()

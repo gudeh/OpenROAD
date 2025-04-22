@@ -47,7 +47,7 @@ class JournalAction
   const std::vector<int>& getNewSegs() const { return new_segs_; }
   TYPE getType() const { return type_; }
 
- private:
+ protected:
   TYPE type_;
   Node* node_{nullptr};
   DbuX orig_x_{0};

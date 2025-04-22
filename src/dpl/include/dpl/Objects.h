@@ -8,10 +8,10 @@
 
 namespace dpl {
 
+using odb::dbBox;
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
-using odb::dbBox;
 
 class MasterEdge
 {
@@ -37,8 +37,11 @@ class Master
   void setBBox(Rect box);
   void addPin(uint pin_idx, dbBox* pin_box);
   const std::map<uint, dbBox*> getPins() const;
+  void setDbMaster(odb::dbMaster* db_master) { db_master_ = db_master; }
+  odb::dbMaster* getDbMaster() const { return db_master_; }
 
  private:
+  odb::dbMaster* db_master_;
   Rect boundary_box_;
   bool is_multi_row_ = false;
   std::vector<MasterEdge> edges_;
@@ -95,6 +98,10 @@ class Node
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
+  Rect getBBox() const
+  {
+    return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
+  }
 
   // setters
   void setId(int id);
@@ -189,6 +196,7 @@ class Edge
   int getNumPins() const;
   const std::vector<Pin*>& getPins() const;
   void addPin(Pin* pin);
+  void removePin(Pin* pin);
 
  private:
   int id_ = 0;
