@@ -33,6 +33,16 @@ Node* Network::getNode(odb::dbBTerm* term)
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+Edge* Network::getEdge(odb::dbNet* net) const
+{
+  auto it = net_to_edge_idx_.find(net);
+  if (it == net_to_edge_idx_.end()) {
+    return nullptr;
+  }
+  return edges_[it->second].get();
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 Master* Network::getMaster(odb::dbMaster* db_master)
 {
   auto it = master_to_idx_.find(db_master);
@@ -265,6 +275,7 @@ Master* Network::addMaster(odb::dbMaster* db_master,
   const int id = masters_.size();
   masters_.emplace_back(std::move(umaster));
   master_to_idx_[db_master] = id;
+  master->setDbMaster(db_master);
   Rect bbox;
   db_master->getPlacementBoundary(bbox);
   master->setBBox(bbox);
@@ -272,6 +283,21 @@ Master* Network::addMaster(odb::dbMaster* db_master,
   auto master_pwrs = getMasterPwrs(db_master);
   master->setTopPowerType(master_pwrs.first);
   master->setBottomPowerType(master_pwrs.second);
+  for (const auto mterm : db_master->getMTerms()) {
+    for (const auto pin : mterm->getMPins()) {
+      for (const auto box : pin->getGeometry()) {
+        if (!box->getTechLayer()) {
+          continue;
+        }
+        auto mterm_box = box->getBox();
+        if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+            || mterm_box.yMin() == bbox.yMin()
+            || mterm_box.yMax() == bbox.yMax()) {
+          master->addPin(mterm->getIndex(), box);
+        }
+      }
+    }
+  }
   master->clearEdges();
   // abutting pins
   for (const auto mterm : db_master->getMTerms()) {
@@ -353,10 +379,8 @@ void Network::addNode(odb::dbInst* inst)
   Node ndi;
   const int id = nodes_.size();
   ndi.setId(id);
-  setNodeName(ndi.getId(), inst->getName().c_str());
   ndi.setDbInst(inst);
   ndi.setType(Node::CELL);
-  ndi.setDbInst(inst);
   auto master = getMaster(inst->getMaster());
   ndi.setMaster(master);
   ndi.setFixed(inst->isFixed());
@@ -365,9 +389,8 @@ void Network::addNode(odb::dbInst* inst)
   ndi.setOrient(odb::dbOrientType::R0);
   ndi.setHeight(DbuY{(int) inst->getMaster()->getHeight()});
   ndi.setWidth(DbuX{(int) inst->getMaster()->getWidth()});
-  auto core = inst->getBlock()->getCoreArea();
-  ndi.setOrigLeft(DbuX{inst->getBBox()->xMin() - core.xMin()});
-  ndi.setOrigBottom(DbuY{inst->getBBox()->yMin() - core.yMin()});
+  ndi.setOrigLeft(DbuX{inst->getBBox()->xMin() - core_.xMin()});
+  ndi.setOrigBottom(DbuY{inst->getBBox()->yMin() - core_.yMin()});
   ndi.setLeft(ndi.getOrigLeft());
   ndi.setBottom(ndi.getOrigBottom());
   ndi.setBottomPower(master->getBottomPowerType());
@@ -392,8 +415,7 @@ void Network::addNode(odb::dbBTerm* bterm)
   Node ndi;
   const int id = nodes_.size();
   ndi.setId(id);
-  setNodeName(ndi.getId(), bterm->getName().c_str());
-
+  ndi.setBTerm(bterm);
   // Fill in data.
   ndi.setType(Node::TERMINAL);
   ndi.setFixed(true);
@@ -404,9 +426,8 @@ void Network::addNode(odb::dbBTerm* bterm)
 
   ndi.setHeight(hh);
   ndi.setWidth(ww);
-  auto core = bterm->getBlock()->getCoreArea();
-  ndi.setOrigLeft(DbuX{bterm->getBBox().xMin() - core.xMin()});
-  ndi.setOrigBottom(DbuY{bterm->getBBox().yMin() - core.yMin()});
+  ndi.setOrigLeft(DbuX{bterm->getBBox().xMin() - core_.xMin()});
+  ndi.setOrigBottom(DbuY{bterm->getBBox().yMin() - core_.yMin()});
   ndi.setLeft(ndi.getOrigLeft());
   ndi.setBottom(ndi.getOrigBottom());
 
@@ -440,7 +461,7 @@ void Network::addFillerNode(const DbuX left,
   ndi.setBottom(bottom);
   ndi.setLeft(left);
   nodes_.emplace_back(std::make_unique<Node>(ndi));
-  setNodeName(id, "FILLER_" + std::to_string(filler_cnt_++));
+  // setNodeName(id, "FILLER_" + std::to_string(filler_cnt_++));
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -452,7 +473,6 @@ void Network::clear()
   pins_.clear();
   blockages_.clear();
   edgeNames_.clear();
-  nodeNames_.clear();
   inst_to_node_idx_.clear();
   term_to_node_idx_.clear();
   master_to_idx_.clear();

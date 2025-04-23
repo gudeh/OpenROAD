@@ -60,7 +60,7 @@ class Grid
 {
  public:
   void init(Logger* logger) { logger_ = logger; }
-  void initBlock(dbBlock* block) { core_ = block->getCoreArea(); }
+  void setCore(const Rect& core) { core_ = core; }
   void initGrid(dbDatabase* db,
                 dbBlock* block,
                 std::shared_ptr<Padding> padding,
@@ -102,6 +102,7 @@ class Grid
   DbuY rowHeight(GridY index);
 
   void paintPixel(Node* cell, GridX grid_x, GridY grid_y);
+  void paintPixel(Node* cell);
   void erasePixel(Node* cell);
   void visitCellPixels(Node& cell,
                        bool padded,

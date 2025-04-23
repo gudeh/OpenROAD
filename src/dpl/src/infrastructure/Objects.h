@@ -9,9 +9,20 @@
 #include "Coordinates.h"
 #include "dpl/Opendp.h"
 
+namespace odb {
+class dbBox;
+class dbBTerm;
+class dbInst;
+class dbMaster;
+class dbOrientType;
+class dbSite;
+}  // namespace odb
 namespace dpl {
 
 using odb::dbBox;
+using odb::dbBTerm;
+using odb::dbInst;
+using odb::dbMaster;
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
@@ -42,13 +53,13 @@ class Master
   void setBBox(Rect box);
   void addPin(uint pin_idx, dbBox* pin_box);
   const std::map<uint, dbBox*> getPins() const;
-  void setDbMaster(odb::dbMaster* db_master) { db_master_ = db_master; }
-  odb::dbMaster* getDbMaster() const { return db_master_; }
   void setBottomPowerType(int bottom_pwr);
   void setTopPowerType(int top_pwr);
+  void setDbMaster(dbMaster* db_master);
+  dbMaster* getDbMaster() const;
 
  private:
-  odb::dbMaster* db_master_;
+  dbMaster* db_master_{nullptr};
   Rect boundary_box_;
   bool is_multi_row_ = false;
   std::vector<MasterEdge> edges_;
@@ -109,15 +120,14 @@ class Node
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
-  Rect getBBox() const
-  {
-    return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
-  }
+  Rect getBBox() const;
+  dbBTerm* getBTerm() const;
 
   // setters
   void setId(int id);
   void setFixed(bool in);
   void setDbInst(dbInst* inst);
+  void setBTerm(dbBTerm* term);
   void setLeft(DbuX x);
   void setBottom(DbuY y);
   void setOrient(const dbOrientType& in);
@@ -141,7 +151,7 @@ class Node
 
  protected:
   int id_ = 0;
-  odb::dbInst* db_inst_{nullptr};
+  void* db_owner_{nullptr};
   // Current position; bottom corner.
   DbuX left_{0};
   DbuY bottom_{0};

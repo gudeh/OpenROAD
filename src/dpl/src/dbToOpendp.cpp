@@ -35,7 +35,8 @@ using odb::Rect;
 void Opendp::importDb()
 {
   block_ = db_->getChip()->getBlock();
-  grid_->initBlock(block_);
+  core_ = block_->getCoreArea();
+  grid_->setCore(core_);
   have_fillers_ = false;
   disallow_one_site_gaps_ = !odb::hasOneSiteMaster(db_);
   importClear();
@@ -84,8 +85,8 @@ Rect Opendp::getBbox(dbInst* inst)
   int loc_x, loc_y;
   inst->getLocation(loc_x, loc_y);
   // Shift by core lower left.
-  loc_x -= grid_->getCore().xMin();
-  loc_y -= grid_->getCore().yMin();
+  loc_x -= core_.xMin();
+  loc_y -= core_.yMin();
 
   int width = master->getWidth();
   int height = master->getHeight();
@@ -98,8 +99,7 @@ Rect Opendp::getBbox(dbInst* inst)
 void Opendp::createNetwork()
 {
   dbBlock* block = db_->getChip()->getBlock();
-  auto core = block->getCoreArea();
-
+  network_->setCore(core_);
   ///////////////////////////////////
   auto min_row_height = std::numeric_limits<int>::max();
   for (odb::dbRow* row : db_->getChip()->getBlock()->getRows()) {
@@ -148,24 +148,15 @@ void Opendp::createNetwork()
   for (odb::dbBlockage* blockage : block->getBlockages()) {
     if (!blockage->isSoft()) {
       auto box = blockage->getBBox()->getBox();
-      box.moveDelta(-core.xMin(), -core.yMin());
+      box.moveDelta(-core_.xMin(), -core_.yMin());
       network_->createAndAddBlockage(box);
     }
-  }
-  // Adjust orientation back
-  for (auto& node : network_->getNodes()) {
-    if (node->getType() != Node::CELL) {
-      continue;
-    }
-    auto inst = node->getDbInst();
-    node->adjustCurrOrient(inst->getOrient());
   }
 }
 ////////////////////////////////////////////////////////////////
 void Opendp::createArchitecture()
 {
   dbBlock* block = db_->getChip()->getBlock();
-  auto core = block->getCoreArea();
 
   auto min_row_height = std::numeric_limits<int>::max();
   for (odb::dbRow* row : block->getRows()) {
@@ -191,8 +182,8 @@ void Opendp::createArchitecture()
 
     Architecture::Row* archRow = arch_->createAndAddRow();
 
-    archRow->setSubRowOrigin(DbuX{origin.x() - core.xMin()});
-    archRow->setBottom(DbuY{origin.y() - core.yMin()});
+    archRow->setSubRowOrigin(DbuX{origin.x() - core_.xMin()});
+    archRow->setBottom(DbuY{origin.y() - core_.yMin()});
     archRow->setSiteSpacing(DbuX{row->getSpacing()});
     archRow->setNumSites(row->getSiteCount());
     archRow->setSiteWidth(DbuX{site->getWidth()});
@@ -269,7 +260,6 @@ void Opendp::setUpPlacementGroups()
 {
   regions_rtree_.clear();
   dbBlock* block = db_->getChip()->getBlock();
-  auto core = block->getCoreArea();
   int count = 0;
   auto db_groups = block->getGroups();
   for (auto db_group : db_groups) {
@@ -281,8 +271,8 @@ void Opendp::setUpPlacementGroups()
       bbox.mergeInit();
       for (dbBox* boundary : region->getBoundaries()) {
         Rect box = boundary->getBox();
-        box = box.intersect(core);
-        box.moveDelta(-core.xMin(), -core.yMin());
+        box = box.intersect(core_);
+        box.moveDelta(-core_.xMin(), -core_.yMin());
 
         bgBox bgbox(
             bgPoint(box.xMin(), box.yMin()),
@@ -308,6 +298,16 @@ void Opendp::setUpPlacementGroups()
         }
       }
     }
+  }
+}
+void Opendp::adjustNodesOrient()
+{
+  for (auto& node : network_->getNodes()) {
+    if (node->getType() != Node::CELL) {
+      continue;
+    }
+    auto inst = node->getDbInst();
+    node->adjustCurrOrient(inst->getOrient());
   }
 }
 }  // namespace dpl

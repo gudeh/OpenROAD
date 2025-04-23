@@ -1250,7 +1250,7 @@ int DetailedMgr::checkEdgeSpacingInSegments()
       const int padding = leftPadding + rightPadding;
 
       if (hasViolation(ndl)) {
-        logger_->report("Violation in {}", network_->getNodeName(ndl->getId()));
+        logger_->report("Violation in {}", ndl->name());
         ++err_n;
       }
       if (gap < padding) {
@@ -3117,8 +3117,7 @@ bool DetailedMgr::addToMoveList(Node* ndi,
     addCellToSegment(ndi, newSeg);
   }
 
-  JournalAction action;
-  action.setType(JournalAction::MOVE_CELL);
+  MoveCellAction action;
   action.setNode(ndi);
   action.setOrigLocation(curLeft, curBottom);
   action.setOrigSegs({curSeg});
@@ -3153,8 +3152,7 @@ bool DetailedMgr::addToMoveList(Node* ndi,
   for (const auto& newSeg : newSegs) {
     addCellToSegment(ndi, newSeg);
   }
-  JournalAction action;
-  action.setType(JournalAction::MOVE_CELL);
+  MoveCellAction action;
   action.setNode(ndi);
   action.setOrigLocation(curLeft, curBottom);
   action.setOrigSegs(curSegs);
