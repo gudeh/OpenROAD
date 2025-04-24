@@ -1201,7 +1201,7 @@ void Opendp::placeCell(Node* cell, const GridX x, const GridY y)
   if (journal_) {
     MoveCellAction action;
     action.setNode(cell);
-    action.setOrigLocation(cell->getLeft(), cell->getBottom());
+    action.setOrigLocation(original_x, original_y);
     action.setNewLocation(cell->getLeft(), cell->getBottom());
     journal_->addAction(action);
   }
