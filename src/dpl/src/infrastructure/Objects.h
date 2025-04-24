@@ -119,6 +119,7 @@ class Node
   int getNumPins() const;
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
+  bool isToBeRemoved() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
   Rect getBBox() const;
   dbBTerm* getBTerm() const;
@@ -145,6 +146,7 @@ class Node
   void setMaster(Master* in);
   void addPin(Pin* pin);
   void setGroupId(int id);
+  void setToBeRemoved(bool in);
   void addConnection(uint pin_id, uint net_id) { pin_to_net_[pin_id] = net_id; }
 
   bool adjustCurrOrient(const dbOrientType& newOrient);
@@ -168,6 +170,7 @@ class Node
   bool fixed_{false};
   bool placed_{false};
   bool hold_{false};
+  bool to_be_removed_{false};
   // For power.
   int powerTop_{0};
   int powerBot_{0};

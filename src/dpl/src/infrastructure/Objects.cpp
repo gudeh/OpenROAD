@@ -273,6 +273,10 @@ Rect Node::getBBox() const
 {
   return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
 }
+bool Node::isToBeRemoved() const
+{
+  return to_be_removed_;
+}
 void Node::setId(int id)
 {
   id_ = id;
@@ -356,6 +360,10 @@ void Node::addPin(Pin* pin)
 void Node::setGroupId(int id)
 {
   group_id_ = id;
+}
+void Node::setToBeRemoved(bool in)
+{
+  to_be_removed_ = in;
 }
 bool Node::adjustCurrOrient(const dbOrientType& newOri)
 {

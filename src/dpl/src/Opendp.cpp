@@ -130,10 +130,6 @@ void Opendp::updateDbInstLocations()
   for (auto& cell : network_->getNodes()) {
     if (cell->isStdCell() && cell->getDbInst() != nullptr) {
       dbInst* db_inst_ = cell->getDbInst();
-      if (db_inst_->getUserFlag1()) {
-        odb::dbInst::destroy(db_inst_);
-        continue;
-      }
       if (cell->isFixed()) {
         continue;
       }

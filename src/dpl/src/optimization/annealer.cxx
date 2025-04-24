@@ -33,7 +33,11 @@ Annealer::Annealer(utl::Logger* logger,
                    dpl::Opendp* opendp,
                    Network* network,
                    odb::dbDatabase* db)
-    : logger_(logger), opendp_(opendp), network_(network), db_(db)
+    : logger_(logger),
+      opendp_(opendp),
+      network_(network),
+      db_(db),
+      journal(opendp_->getGrid(), nullptr)
 {
 }
 void Annealer::addEquivalentCells(Equivalence entry)
@@ -88,24 +92,19 @@ int findBestPair(const Node* small_node,
 
 void Annealer::dismantleNode(Node* node)
 {
+  node->setPlaced(true);
+  node->setFixed(false);
   opendp_->getGrid()->erasePixel(node);
   for (auto pin : node->getPins()) {
     auto edge = pin->getEdge();
     edge->removePin(pin);
   }
-  node->setFixed(true);
-  auto db_inst = node->getDbInst();
-  db_inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
-  for (auto iterm : db_inst->getITerms()) {
-    iterm->disconnect();
-  }
-  db_inst->setUserFlag1();
+  node->setToBeRemoved(true);
 }
 
 bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
 {
   auto block = db_->getChip()->getBlock();
-  auto core = block->getCoreArea();
   auto big_inst
       = odb::dbInst::create(block,
                             entry.getBigMaster()->getDbMaster(),
@@ -129,10 +128,6 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
         std::string big_iterm_name = pin_name + std::to_string(idx * n);
         auto big_iterm = big_inst->findITerm(big_iterm_name.c_str());
         big_iterm->connect(iterm->getNet());
-        logger_->report("Connecting {} to net {} instead of {}",
-                        big_iterm->getName(),
-                        big_iterm->getNet()->getName(),
-                        iterm->getName());
         swappable = true;
         break;
       }
@@ -150,21 +145,32 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
   big_inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
   network_->addNode(big_inst);
   auto big_node = network_->getNode(big_inst);
-  big_node->setLeft(left / DbuX{small_nodes.size()});
-  big_node->setBottom(bottom / DbuY{small_nodes.size()});
+  {
+    SwapCellsAction action;
+    action.setRemovedCells(small_nodes);
+    action.setAddedCell(big_node);
+    journal.addAction(action);
+  }
+  big_node->setLeft(left / small_nodes.size());
+  big_node->setBottom(bottom / small_nodes.size());
   big_inst->setLocation(
       big_node->getLeft().v + opendp_->getGrid()->getCore().xMin(),
       big_node->getBottom().v + opendp_->getGrid()->getCore().yMin());
   big_node->setGroupId(small_nodes[0]->getGroupId());
   big_node->setGroup(small_nodes[0]->getGroup());
-  // big_node->setRegion(&(small_nodes[0]->getGroup()->getBBox())); // removed
+  big_node->setRegion(small_nodes[0]->getRegion());  // removed
   // because of checkRegionOverLap
   for (auto iterm : big_inst->getITerms()) {
-    logger_->report("Handling pin {} with net {}",
-                    iterm->getName(),
-                    iterm->getNet()->getName());
+    if (iterm->getNet() == nullptr) {
+      continue;
+    }
+    auto edge = network_->getEdge(iterm->getNet());
+    if (edge == nullptr) {
+      continue;
+    }
     auto pin = network_->addPin(iterm);
     network_->connect(pin, big_node);
+    network_->connect(pin, edge);
   }
   for (auto node : small_nodes) {
     dismantleNode(node);
@@ -212,11 +218,13 @@ void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
 
 void Annealer::start()
 {
+  int iter = 0;
   for (auto entry : equivalence_list_) {
     node_groups_.clear();
     for (size_t i = 0; i < network_->getNumNodes(); i++) {
       auto node = network_->getNode(i);
-      if (node->getMaster() == entry.getSmallMaster()) {
+      if (!node->isToBeRemoved()
+          && node->getMaster() == entry.getSmallMaster()) {
         assignToNodeGroup(node, entry);
       }
     }
@@ -225,15 +233,27 @@ void Annealer::start()
         const auto best_pair_idx
             = findBestPair(group[i], entry.getBigMaster()->getBBox(), group);
         if (best_pair_idx >= 0) {
-          swapNodes({group[i], group[best_pair_idx]}, entry);
-          group.erase(group.begin() + best_pair_idx);
-          group.erase(group.begin() + i);
+          if (!swapNodes({group[i], group[best_pair_idx]}, entry)) {
+            journal.undo(journal.getLastAction(), true);
+            journal.removeLastAction();
+            ++i;
+          } else {
+            group.erase(group.begin() + best_pair_idx);
+            group.erase(group.begin() + i);
+          }
+          iter++;
+          if (iter > 1000) {
+            logger_->report("Max iterations reached");
+            return;
+          }
+          if (iter % 100 == 0) {
+            logger_->report("Iteration {}", iter);
+          }
         } else {
           ++i;
         }
       }
     }
-    break;
   }
 }
 

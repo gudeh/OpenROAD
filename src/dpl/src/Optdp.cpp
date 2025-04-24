@@ -7,6 +7,7 @@
 
 // My stuff.
 #include "legalize_shift.h"
+#include "optimization/annealer.h"
 #include "optimization/detailed.h"
 #include "optimization/detailed_manager.h"
 
@@ -78,6 +79,49 @@ void Opendp::improvePlacement(const int seed,
   // Run the script.
   Detailed dt(dtParams);
   dt.improve(mgr);
+  if (true) {
+    logger_->report("Start Annealing");
+    Annealer annealer(logger_, this, network_.get(), db_);
+    {
+      auto big_master
+          = network_->addMaster(db_->findMaster("shift3mb2_fcrl_sd_d48_1d0000"),
+                                grid_.get(),
+                                drc_engine_.get());
+      auto small_master
+          = network_->addMaster(db_->findMaster("shift3_fcrl_sd_s48_1d0000"),
+                                grid_.get(),
+                                drc_engine_.get());
+      if (big_master == nullptr || small_master == nullptr) {
+        logger_->error(utl::DPL, 900, "null");
+      }
+      Equivalence entry(small_master, big_master, 2);
+      entry.addSwappablePin("ip");
+      entry.addSwappablePin("zp");
+      entry.addSwappablePin("zn");
+      annealer.addEquivalentCells(entry);
+    }
+    {
+      auto big_master
+          = network_->addMaster(db_->findMaster("shift3mb4_fcrl_sd_d48_1d0000"),
+                                grid_.get(),
+                                drc_engine_.get());
+      auto small_master
+          = network_->addMaster(db_->findMaster("shift3mb2_fcrl_sd_d48_1d0000"),
+                                grid_.get(),
+                                drc_engine_.get());
+      if (big_master == nullptr || small_master == nullptr) {
+        logger_->error(utl::DPL, 901, "null");
+      }
+      Equivalence entry(small_master, big_master, 2);
+      entry.addSwappablePin("ip");
+      entry.addSwappablePin("zp");
+      entry.addSwappablePin("zn");
+      annealer.addEquivalentCells(entry);
+    }
+    annealer.start();
+    network_->removeMarkedNodes();
+    logger_->report("End Annealing");
+  }
 
   // Write solution back.
   updateDbInstLocations();

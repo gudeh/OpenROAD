@@ -3,6 +3,8 @@
 #pragma once
 #include <string>
 #include <vector>
+
+#include "util/journal.h"
 namespace utl {
 class Logger;
 }  // namespace utl
@@ -54,6 +56,7 @@ class Annealer
   odb::dbDatabase* db_{nullptr};
   std::vector<Equivalence> equivalence_list_;
   std::vector<std::vector<Node*>> node_groups_;
+  Journal journal;
   int last_id_{0};
 };
 }  // namespace dpl

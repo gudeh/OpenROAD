@@ -14,7 +14,8 @@ class Grid;
 class DetailedMgr;
 enum JournalActionTypeEnum
 {
-  MOVE_CELL
+  MOVE_CELL,
+  SWAP_CELLS
 };
 class JournalAction
 {
@@ -62,6 +63,26 @@ class MoveCellAction : public JournalAction
   std::vector<int> orig_segs_;
   std::vector<int> new_segs_;
 };
+class SwapCellsAction : public JournalAction
+{
+ public:
+  SwapCellsAction() = default;
+  void setRemovedCells(const std::vector<Node*>& cells)
+  {
+    removed_cells_ = cells;
+  }
+  void setAddedCell(Node* cell) { added_cell_ = cell; }
+  JournalActionTypeEnum typeId() const override
+  {
+    return JournalActionTypeEnum::SWAP_CELLS;
+  }
+  const std::vector<Node*>& getRemovedCells() const { return removed_cells_; }
+  Node* getAddedCell() const { return added_cell_; }
+
+ private:
+  std::vector<Node*> removed_cells_;
+  Node* added_cell_;
+};
 class Journal
 {
  public:
@@ -71,6 +92,10 @@ class Journal
   {
     affected_nodes_.insert(action.getNode());
     actions_.push_back(std::make_unique<MoveCellAction>(action));
+  }
+  void addAction(const SwapCellsAction& action)
+  {
+    actions_.push_back(std::make_unique<SwapCellsAction>(action));
   }
   // getters
   JournalAction* getLastAction() const { return actions_.back().get(); }

@@ -106,6 +106,7 @@ class Network
   void createAndAddBlockage(const odb::Rect& bounds);
 
   void clear();
+  void removeMarkedNodes();
 
   // setting and getting core area
   void setCore(const odb::Rect& core) { core_ = core; }

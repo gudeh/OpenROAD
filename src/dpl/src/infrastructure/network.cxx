@@ -483,5 +483,33 @@ void Network::clear()
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
+void Network::removeMarkedNodes()
+{
+  for (auto it = pins_.begin(); it != pins_.end();) {
+    if ((*it)->getNode()->isToBeRemoved()) {
+      it = pins_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  for (auto it = nodes_.begin(); it != nodes_.end();) {
+    if ((*it)->isToBeRemoved()) {
+      odb::dbInst::destroy((*it)->getDbInst());
+      it = nodes_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  inst_to_node_idx_.clear();
+  term_to_node_idx_.clear();
+  for (int i = 0; i < nodes_.size(); i++) {
+    auto node = nodes_[i].get();
+    node->setId(i);
+    if (node->getType() == Node::CELL) {
+      inst_to_node_idx_[node->getDbInst()] = i;
+    } else if (node->getType() == Node::TERMINAL) {
+      term_to_node_idx_[node->getBTerm()] = i;
+    }
+  }
+}
 }  // namespace dpl
