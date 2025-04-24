@@ -15,6 +15,7 @@ class DetailedMgr;
 enum JournalActionTypeEnum
 {
   MOVE_CELL,
+  UNPLACE_CELL,
   SWAP_CELLS
 };
 class JournalAction
@@ -63,6 +64,23 @@ class MoveCellAction : public JournalAction
   std::vector<int> orig_segs_;
   std::vector<int> new_segs_;
 };
+class UnplaceCellAction : public JournalAction
+{
+ public:
+  UnplaceCellAction() = default;
+  void setNode(Node* node) { node_ = node; }
+  Node* getNode() const { return node_; }
+  void setWasHold(bool was_hold) { was_hold_ = was_hold; }
+  bool wasHold() const { return was_hold_; }
+  JournalActionTypeEnum typeId() const override
+  {
+    return JournalActionTypeEnum::UNPLACE_CELL;
+  }
+
+ private:
+  Node* node_{nullptr};
+  bool was_hold_{false};
+};
 class SwapCellsAction : public JournalAction
 {
  public:
@@ -93,6 +111,11 @@ class Journal
     affected_nodes_.insert(action.getNode());
     actions_.push_back(std::make_unique<MoveCellAction>(action));
   }
+  void addAction(const UnplaceCellAction& action)
+  {
+    affected_nodes_.insert(action.getNode());
+    actions_.push_back(std::make_unique<UnplaceCellAction>(action));
+  }
   void addAction(const SwapCellsAction& action)
   {
     actions_.push_back(std::make_unique<SwapCellsAction>(action));
@@ -111,6 +134,7 @@ class Journal
   void clearJournal();
   void undo(const JournalAction* action, bool positions_only = false) const;
   void redo(const JournalAction* action, bool positions_only = false) const;
+  void undoAll();
 
  private:
   Grid* grid_{nullptr};

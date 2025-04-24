@@ -52,6 +52,14 @@ void Journal::undo(const JournalAction* action, const bool positions_only) const
       }
       break;
     }
+    case JournalActionTypeEnum::UNPLACE_CELL: {
+      auto unplace_action = static_cast<const UnplaceCellAction*>(action);
+      auto node = unplace_action->getNode();
+      grid_->paintPixel(node);
+      node->setPlaced(true);
+      node->setHold(unplace_action->wasHold());
+      break;
+    }
     case JournalActionTypeEnum::SWAP_CELLS: {
       auto swap_action = static_cast<const SwapCellsAction*>(action);
 
@@ -76,6 +84,15 @@ void Journal::undo(const JournalAction* action, const bool positions_only) const
       break;
     }
   }
+}
+////////////////////////////////////////////////////////////////////////////////
+void Journal::undoAll()
+{
+  for (auto it = actions_.rbegin(); it != actions_.rend(); ++it) {
+    auto action = (*it).get();
+    undo(action, false);
+  }
+  clearJournal();
 }
 ////////////////////////////////////////////////////////////////////////////////
 void Journal::redo(const JournalAction* action, const bool positions_only) const
@@ -104,6 +121,14 @@ void Journal::redo(const JournalAction* action, const bool positions_only) const
           mgr_->addCellToSegment(node, seg);
         }
       }
+      break;
+    }
+    case JournalActionTypeEnum::UNPLACE_CELL: {
+      auto unplace_action = static_cast<const UnplaceCellAction*>(action);
+      auto node = unplace_action->getNode();
+      grid_->erasePixel(node);
+      node->setPlaced(false);
+      node->setHold(false);
       break;
     }
     default:
