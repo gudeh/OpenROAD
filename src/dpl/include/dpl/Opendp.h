@@ -141,7 +141,7 @@ class Opendp
   void importDb();
   bool mapMove(Node* cell);
   bool mapMove(Node* cell, const GridPt& grid_pt);
-  void shiftMove(Node* cell);
+  bool shiftMove(Node* cell);
   Grid* getGrid() { return grid_.get(); }
   void initPlacementDRC();
   PlacementDRC* getPlacementDRC() { return drc_engine_.get(); }
