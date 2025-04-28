@@ -296,6 +296,8 @@ int NesterovPlace::doNesterovPlace(int start_iter)
     nb->resetMinSumOverflow();
   }
 
+  log_->report("nbc_->getNumThreads(): {}",nbc_->getNumThreads());
+  
   // Core Nesterov Loop
   int iter = start_iter;
   for (; iter < npVars_.maxNesterovIter; iter++) {
