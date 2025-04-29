@@ -143,6 +143,9 @@ void dfs_helper(const Node* seed,
     const Node* node = group[i];
     if (node == seed)
       continue;
+    if (node->isToBeRemoved()) {
+      continue;
+    }
 
     const auto& r = node->getBBox();
     int x0 = std::min(ux_min, r.xMin());
@@ -386,11 +389,6 @@ void Annealer::start()
         if (current_cost_ < best_cost_) {
           best_cost_ = current_cost_;
         }
-        // update the node groups
-        auto& group = node_groups_[group_idx];
-        for (int j = sub_group.size() - 1; j >= 0; --j) {
-          group.erase(group.begin() + sub_group[j]);
-        }
         auto node
             = network_->getNode(network_->getNumNodes()
                                 - 1);  // the last added node is the new node
@@ -400,7 +398,19 @@ void Annealer::start()
               node,
               equivalence_list_[master_to_equivalence_[node->getMaster()][0]]);
         }
-        if (group.size() == 0) {
+        // update the node groups
+        auto& group = node_groups_[group_idx];
+        // find if group is full of removed nodes
+        bool all_removed = true;
+        for (const auto& node : group) {
+          if (node->isToBeRemoved()) {
+            continue;
+          }
+          all_removed = false;
+          break;
+        }
+
+        if (all_removed) {
           node_groups_.erase(node_groups_.begin() + group_idx);
         }
       } else {
@@ -420,8 +430,12 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
   group_idx = idx_range(0, node_groups_.size() - 1)(generator_);
   // TODO: implement neighbor generation (e.g., swap cells or move cell)
   auto group = node_groups_[group_idx];
-  auto node_idx = idx_range(0, group.size() - 1)(generator_);
-  auto node = group[node_idx];
+  int node_idx;
+  Node* node;
+  do {
+    node_idx = idx_range(0, group.size() - 1)(generator_);
+    node = group[node_idx];
+  } while (node->isToBeRemoved());
   auto eq_list = master_to_equivalence_[node->getMaster()];
   auto entry_idx = idx_range(0, eq_list.size() - 1)(generator_);
   auto entry = equivalence_list_[eq_list[entry_idx]];

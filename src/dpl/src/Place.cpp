@@ -1199,7 +1199,7 @@ void Opendp::placeCell(Node* cell, const GridX x, const GridY y)
   grid_->paintPixel(cell, x, y);
   setGridPaddedLoc(cell, x, y);
   cell->setPlaced(true);
-  cell->setOrient(grid_->gridPixel(x, y)->sites.at(
+  cell->adjustCurrOrient(grid_->gridPixel(x, y)->sites.at(
       cell->getDbInst()->getMaster()->getSite()));
   if (journal_) {
     MoveCellAction action;
