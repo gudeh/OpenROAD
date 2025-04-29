@@ -145,6 +145,10 @@ class Opendp
   Grid* getGrid() { return grid_.get(); }
   void initPlacementDRC();
   PlacementDRC* getPlacementDRC() { return drc_engine_.get(); }
+  void runSimulatedAnnealing(int max_iterations,
+                             double initial_temperature,
+                             float alpha,
+                             int seed);
 
  private:
   using bgPoint

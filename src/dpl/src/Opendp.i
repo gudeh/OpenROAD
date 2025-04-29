@@ -156,6 +156,18 @@ void improve_placement_cmd(int seed,
   opendp->improvePlacement(seed, max_displacement_x, max_displacement_y);
 }
 
+void anneal(int max_iterations,
+            double initial_temperature,
+            float alpha,
+            int seed)
+{
+  dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->runSimulatedAnnealing(max_iterations,
+                                initial_temperature,
+                                alpha,
+                                seed);
+}
+
 } // namespace
 
 %} // inline

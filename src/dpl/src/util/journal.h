@@ -127,6 +127,11 @@ class Journal
   }
   void addAction(const SwapCellsAction& action)
   {
+    for (auto pin : action.getAddedCell()->getPins()) {
+      if (pin->getEdge() != nullptr) {
+        affected_edges_.insert(pin->getEdge());
+      }
+    }
     actions_.push_back(std::make_unique<SwapCellsAction>(action));
   }
   // getters
