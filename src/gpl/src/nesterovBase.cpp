@@ -2533,7 +2533,8 @@ void NesterovBase::updateNextIter(const int iter)
                              / npVars_->referenceHpwl);
 
   float percentageChange = 0.0;
-  if (iter == 0 || (iter + 1) % 10 == 0) {
+  // if (iter == 0 || (iter + 1) % 10 == 0) 
+  {
     if (prevReportedHpwl_ != 0) {
       percentageChange = (static_cast<double>(hpwl - prevReportedHpwl_)
                           / static_cast<double>(prevReportedHpwl_))

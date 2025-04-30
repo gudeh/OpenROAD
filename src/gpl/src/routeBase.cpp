@@ -393,6 +393,89 @@ void RouteBase::updateRudyRoute()
   }
 
   if (log_->debugCheck(GPL, "updateInflationRatio", 1)) {
+    std::vector<float> inflation_ratios;
+    std::vector<float> inflation_ratios_above_1;
+    float max_inflation_ratio = 0.0;
+    float min_inflation_ratio = std::numeric_limits<float>::max();
+    int max_ratio_count = 0;
+    float inflation_ratio_sum = 0.0;
+    float inflation_ratio_sum_above_1 = 0.0;
+  
+    for (const auto& tile : tg_->tiles()) {
+      float ratio = tile->inflationRatio();
+      if (ratio > 0.0) {
+        inflation_ratios.push_back(ratio);
+        inflation_ratio_sum += ratio;
+  
+        if (ratio > max_inflation_ratio) {
+          max_inflation_ratio = ratio;
+        }
+  
+        if (ratio < min_inflation_ratio) {
+          min_inflation_ratio = ratio;
+        }
+  
+        if (ratio == rbVars_.maxInflationRatio) {
+          ++max_ratio_count;
+        }
+  
+        if (ratio > 1.0) {
+          inflation_ratios_above_1.push_back(ratio);
+          inflation_ratio_sum_above_1 += ratio;
+        }
+      }
+    }
+  
+    auto computeMedian = [](std::vector<float>& values) -> float {
+      if (values.empty()) {
+        return 0.0;
+      }
+      std::sort(values.begin(), values.end());
+      size_t mid = values.size() / 2;
+      if (values.size() % 2 == 0) {
+        return (values[mid - 1] + values[mid]) / 2.0;
+      } else {
+        return values[mid];
+      }
+    };
+  
+    float avg_inflation_ratio = inflation_ratios.empty()
+                                     ? 0.0
+                                     : inflation_ratio_sum / inflation_ratios.size();
+    float median_inflation_ratio = computeMedian(inflation_ratios);
+  
+    float avg_inflation_ratio_above_1 = inflation_ratios_above_1.empty()
+                                            ? 0.0
+                                            : inflation_ratio_sum_above_1 /
+                                                  inflation_ratios_above_1.size();
+    float median_inflation_ratio_above_1 = computeMedian(inflation_ratios_above_1);
+  
+    // Handle edge case where no ratio > 0 was found
+    if (min_inflation_ratio == std::numeric_limits<float>::max()) {
+      min_inflation_ratio = 0.0;
+    }
+  
+    debugPrint(log_,
+               GPL,
+               "updateInflationRatio",
+               1,
+               "min = {:.2f}, max = {:.2f}, avg = {:.2f}, median = {:.2f}, "
+               "tiles at max ratio ({:.2f}) = {}, "
+               "avg > 1.0 = {:.2f}, median > 1.0 = {:.2f}",
+               min_inflation_ratio,
+               max_inflation_ratio,
+               avg_inflation_ratio,
+               median_inflation_ratio,
+               rbVars_.maxInflationRatio,
+               max_ratio_count,
+               avg_inflation_ratio_above_1,
+               median_inflation_ratio_above_1);
+  }
+  
+  
+  
+
+  if (log_->debugCheck(GPL, "updateInflationRatio", 2)) {
     auto log = [this](auto... param) {
       log_->debug(GPL, "updateInflationRatio", param...);
     };
@@ -565,14 +648,14 @@ std::pair<bool, bool> RouteBase::routability()
     minRcViolatedCnt_ = 0;
 
     // save cell size info
-    for (auto& gCell : nbc_->gCells()) {
+    for (int i = 0; i < nbc_->gCells().size(); ++i) {
+      auto& gCell = nbc_->gCells()[i];
       if (!gCell->isStdInstance()) {
         continue;
       }
-
-      minRcCellSize_[&gCell - nbc_->gCells().data()]
-          = std::make_pair(gCell->dx(), gCell->dy());
-    }
+    
+      minRcCellSize_[i] = std::make_pair(gCell->dx(), gCell->dy());
+    }    
   } else {
     minRcViolatedCnt_++;
     log_->info(GPL,
@@ -809,15 +892,15 @@ std::pair<bool, bool> RouteBase::routability()
 void RouteBase::revertGCellSizeToMinRc()
 {
   // revert back the gcell sizes
-  for (auto& gCell : nbc_->gCells()) {
+  for (int i = 0; i < nbc_->gCells().size(); ++i) {
+    auto& gCell = nbc_->gCells()[i];
     if (!gCell->isStdInstance()) {
       continue;
     }
-
-    int idx = &gCell - nbc_->gCells().data();
-
-    gCell->setSize(minRcCellSize_[idx].first, minRcCellSize_[idx].second);
+  
+    gCell->setSize(minRcCellSize_[i].first, minRcCellSize_[i].second);
   }
+  
 }
 
 float RouteBase::getRudyRC() const
