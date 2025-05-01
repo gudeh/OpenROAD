@@ -54,13 +54,13 @@ class PlacementDRC
                         const GridY y,
                         const odb::dbOrientType& orient) const;
   bool checkColoring(const Node* cell,
-                     const GridX x,
-                     const GridY y,
+                     GridX x,
+                     GridY y,
                      const odb::dbOrientType& orient) const;
   bool checkColoring(const Node* cell) const;
   bool check(const Node* cell,
-             const GridX x,
-             const GridY y,
+             GridX x,
+             GridY y,
              const odb::dbOrientType& orient) const;
   bool check(const Node* cell) const;
   int getEdgeTypeIdx(const std::string& edge_type) const;
