@@ -69,8 +69,8 @@ void Opendp::checkPlacement(const bool verbose,
     if (checkOverlap(*cell)) {
       overlap_failures.push_back(cell.get());
     }
-    if (!drc_engine_->checkAbuttedPins(&cell)) {
-      abutment_conn_failures.push_back(&cell);
+    if (!drc_engine_->checkAbuttedPins(cell.get())) {
+      abutment_conn_failures.push_back(cell.get());
     }
     // EdgeSpacing check
     if (!drc_engine_->checkEdgeSpacing(cell.get())) {
