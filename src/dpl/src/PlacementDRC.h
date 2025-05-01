@@ -53,6 +53,16 @@ class PlacementDRC
                         const GridX x,
                         const GridY y,
                         const odb::dbOrientType& orient) const;
+  bool checkColoring(const Node* cell,
+                     GridX x,
+                     GridY y,
+                     const odb::dbOrientType& orient) const;
+  bool checkColoring(const Node* cell) const;
+  bool check(const Node* cell,
+             GridX x,
+             GridY y,
+             const odb::dbOrientType& orient) const;
+  bool check(const Node* cell) const;
   int getEdgeTypeIdx(const std::string& edge_type) const;
   bool hasCellEdgeSpacingTable() const;
   int getMaxSpacing(int edge_type_idx) const;
