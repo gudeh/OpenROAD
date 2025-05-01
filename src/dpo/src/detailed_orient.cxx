@@ -362,7 +362,7 @@ int DetailedOrient::flipCells()
           break;
       }
       ndi->adjustCurrOrient(flipped_orient);
-      if (mgrPtr_->hasEdgeSpacingViolation(ndi)) {
+      if (mgrPtr_->hasViolation(ndi)) {
         ndi->adjustCurrOrient(orig_orient);
         continue;
       }

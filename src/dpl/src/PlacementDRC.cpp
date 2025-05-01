@@ -277,6 +277,37 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
   return true;
 }
 
+bool PlacementDRC::checkColoring(const Node* cell) const
+{
+  const GridX x = grid_->gridX(cell);
+  const GridY y = grid_->gridRoundY(cell);
+  return checkColoring(cell, x, y, cell->getOrient());
+}
+
+bool PlacementDRC::checkColoring(const Node* cell,
+                                 const GridX x,
+                                 const GridY y,
+                                 const odb::dbOrientType& orient) const
+{
+  // Do not allow placing the cell on an oldd site.
+  return x.v % 2 == 0;
+}
+
+bool PlacementDRC::check(const Node* cell,
+                         const GridX x,
+                         const GridY y,
+                         const odb::dbOrientType& orient) const
+{
+  return checkEdgeSpacing(cell, x, y, orient)
+         && checkAbuttedPins(cell, x, y, orient)
+         && checkColoring(cell, x, y, orient);
+}
+bool PlacementDRC::check(const Node* cell) const
+{
+  return checkEdgeSpacing(cell) && checkAbuttedPins(cell)
+         && checkColoring(cell);
+}
+
 // Initialize the edge spacing table from the technology
 void PlacementDRC::makeCellEdgeSpacingTable(odb::dbTech* tech)
 {
