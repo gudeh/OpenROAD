@@ -137,6 +137,8 @@ class Opendp
   // Journalling
   Journal* getJournal() const;
   void setJournal(Journal* journal);
+  // TODO: remove this
+  void disallowOddSites() { disallow_odd_sites_ = true; }
 
   void importDb();
   bool mapMove(Node* cell);
@@ -333,6 +335,8 @@ class Opendp
   int max_displacement_x_ = 500;  // sites
   int max_displacement_y_ = 100;  // sites
   bool disallow_one_site_gaps_ = false;
+  // TODO: remove this
+  bool disallow_odd_sites_ = false;
   std::vector<Node*> placement_failures_;
 
   // 2D pixel grid

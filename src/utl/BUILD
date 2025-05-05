@@ -10,7 +10,7 @@ package(
 )
 
 # TODO: the prometheus target should be broken out, and possibly logger.
-# However, there are cyclic dependencies currently between all thse, which
+# However, there are cyclic dependencies currently between all these, which
 # need to be taken care of first
 cc_library(
     name = "utl",
@@ -28,6 +28,7 @@ cc_library(
         "src/decode.cpp",
         "src/prometheus/metrics_server.cpp",
         "src/timer.cpp",
+        "src/histogram.cpp",
     ],
     hdrs = [
         "include/utl/CFileUtils.h",
@@ -62,6 +63,7 @@ cc_library(
         "include/utl/scope.h",
         "include/utl/timer.h",
         "include/utl/validation.h",
+        "include/utl/histogram.h",
     ],
     includes = ["include"],
     deps = [

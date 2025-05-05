@@ -331,4 +331,17 @@ proc format_grid { x w } {
 proc get_row_site { } {
   return [[lindex [[ord::get_db_block] getRows] 0] getSite]
 }
+# TODO: remove this command
+sta::define_cmd_args "disallow_odd_sites" {}
+
+proc disallow_odd_sites { args } {
+  sta::parse_key_args "disallow_odd_sites" args keys {} flags {}
+  sta::check_argc_eq0 "disallow_odd_sites" $args
+
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 106 "No design block found."
+  }
+
+  dpl::disallow_odd_sites_cmd
+}
 }
