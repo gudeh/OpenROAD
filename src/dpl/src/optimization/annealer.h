@@ -26,14 +26,8 @@ class Equivalence
   Master* getSmallMaster() const;
   Master* getBigMaster() const;
   int getRatio() const;
-  void addSwappablePin(std::string pin_name)
-  {
-    swapable_pins_.emplace_back(pin_name);
-  }
-  void setSwappablePins(const std::vector<std::string>& pins)
-  {
-    swapable_pins_ = pins;
-  }
+  int getPinRatio() const;
+  void setSwappablePins(const std::vector<std::string>& pins);
   const std::vector<std::string>& getSwappablePins() { return swapable_pins_; }
 
  private:
@@ -41,6 +35,7 @@ class Equivalence
   Master* big_master_{nullptr};
   std::vector<std::string> swapable_pins_;
   int ratio_{0};
+  int pin_ratio_{0};
 };
 class Annealer
 {

@@ -13,89 +13,6 @@
 #include "util/journal.h"
 #include "utl/Logger.h"
 namespace dpl {
-Equivalence::Equivalence(Master* small_master, Master* big_master, int ratio)
-    : small_master_(small_master), big_master_(big_master), ratio_(ratio)
-{
-}
-
-Master* Equivalence::getBigMaster() const
-{
-  return big_master_;
-}
-
-Master* Equivalence::getSmallMaster() const
-{
-  return small_master_;
-}
-
-int Equivalence::getRatio() const
-{
-  return ratio_;
-}
-
-Annealer::Annealer(utl::Logger* logger,
-                   dpl::Opendp* opendp,
-                   Network* network,
-                   odb::dbDatabase* db)
-    : logger_(logger), opendp_(opendp), network_(network), db_(db)
-{
-  generator_ = std::mt19937(19);
-  std::uniform_real_distribution<float> distribution(0.0, 1.0);
-  distribution_ = distribution;
-  hpwl_evaluator_ = new DetailedHPWL(network);
-  hpwl_evaluator_->init();
-  current_cost_ = hpwl_evaluator_->curr();
-  best_cost_ = current_cost_;
-}
-void Annealer::set_sa_parameters(double initial_temp,
-                                 float alpha,
-                                 int max_iterations,
-                                 int seed)
-{
-  temperature_ = initial_temp;
-  alpha_ = alpha;
-  max_iterations_ = max_iterations;
-  generator_ = std::mt19937(seed);
-}
-void Annealer::addEquivalentCells(Equivalence entry)
-{
-  const size_t idx = equivalence_list_.size();
-  equivalence_list_.emplace_back(entry);
-  master_to_equivalence_[entry.getSmallMaster()].emplace_back(idx);
-  // figure if there is other equivalence that can be calculated from the given
-  // one and the list of already added equivalences
-  const size_t size = equivalence_list_.size();
-  for (size_t i = 0; i < size - 1; ++i) {
-    auto& eq = equivalence_list_[i];
-    if (eq.getBigMaster() == entry.getSmallMaster()) {
-      Equivalence new_entry(eq.getSmallMaster(),
-                            entry.getBigMaster(),
-                            eq.getRatio() * entry.getRatio());
-      new_entry.setSwappablePins(entry.getSwappablePins());
-      master_to_equivalence_[eq.getSmallMaster()].emplace_back(
-          equivalence_list_.size());
-      equivalence_list_.emplace_back(new_entry);
-    } else if (eq.getSmallMaster() == entry.getSmallMaster()) {
-      if (eq.getRatio() > entry.getRatio()) {
-        Equivalence new_entry(entry.getBigMaster(),
-                              eq.getBigMaster(),
-                              eq.getRatio() / entry.getRatio());
-        new_entry.setSwappablePins(entry.getSwappablePins());
-        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
-            equivalence_list_.size());
-        equivalence_list_.emplace_back(new_entry);
-      } else if (eq.getRatio() < entry.getRatio()) {
-        Equivalence new_entry(eq.getBigMaster(),
-                              entry.getBigMaster(),
-                              entry.getRatio() / eq.getRatio());
-        new_entry.setSwappablePins(entry.getSwappablePins());
-        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
-            equivalence_list_.size());
-        equivalence_list_.emplace_back(new_entry);
-      }
-    }
-  }
-}
 namespace {
 bool startsWith(const std::string& str, const std::string& prefix)
 {
@@ -212,6 +129,109 @@ std::vector<int> findBestGroup(const Node* seed,
 }
 }  // namespace
 
+Equivalence::Equivalence(Master* small_master, Master* big_master, int ratio)
+    : small_master_(small_master), big_master_(big_master), ratio_(ratio)
+{
+}
+
+Master* Equivalence::getBigMaster() const
+{
+  return big_master_;
+}
+
+Master* Equivalence::getSmallMaster() const
+{
+  return small_master_;
+}
+
+int Equivalence::getRatio() const
+{
+  return ratio_;
+}
+
+void Equivalence::setSwappablePins(const std::vector<std::string>& pins)
+{
+  swapable_pins_ = pins;
+  // calculate pin ratio
+  auto test_pin = pins[0];
+  size_t cnt = 0;
+  for (auto mterm : small_master_->getDbMaster()->getMTerms()) {
+    if (startsWith(mterm->getName(), test_pin)) {
+      cnt++;
+    }
+  }
+  pin_ratio_ = cnt;
+}
+
+int Equivalence::getPinRatio() const
+{
+  return pin_ratio_;
+}
+
+Annealer::Annealer(utl::Logger* logger,
+                   dpl::Opendp* opendp,
+                   Network* network,
+                   odb::dbDatabase* db)
+    : logger_(logger), opendp_(opendp), network_(network), db_(db)
+{
+  generator_ = std::mt19937(19);
+  std::uniform_real_distribution<float> distribution(0.0, 1.0);
+  distribution_ = distribution;
+  hpwl_evaluator_ = new DetailedHPWL(network);
+  hpwl_evaluator_->init();
+  current_cost_ = hpwl_evaluator_->curr();
+  best_cost_ = current_cost_;
+}
+void Annealer::set_sa_parameters(double initial_temp,
+                                 float alpha,
+                                 int max_iterations,
+                                 int seed)
+{
+  temperature_ = initial_temp;
+  alpha_ = alpha;
+  max_iterations_ = max_iterations;
+  generator_ = std::mt19937(seed);
+}
+void Annealer::addEquivalentCells(Equivalence entry)
+{
+  const size_t idx = equivalence_list_.size();
+  equivalence_list_.emplace_back(entry);
+  master_to_equivalence_[entry.getSmallMaster()].emplace_back(idx);
+  // figure if there is other equivalence that can be calculated from the given
+  // one and the list of already added equivalences
+  const size_t size = equivalence_list_.size();
+  for (size_t i = 0; i < size - 1; ++i) {
+    auto& eq = equivalence_list_[i];
+    if (eq.getBigMaster() == entry.getSmallMaster()) {
+      Equivalence new_entry(eq.getSmallMaster(),
+                            entry.getBigMaster(),
+                            eq.getRatio() * entry.getRatio());
+      new_entry.setSwappablePins(entry.getSwappablePins());
+      master_to_equivalence_[eq.getSmallMaster()].emplace_back(
+          equivalence_list_.size());
+      equivalence_list_.emplace_back(new_entry);
+    } else if (eq.getSmallMaster() == entry.getSmallMaster()) {
+      if (eq.getRatio() > entry.getRatio()) {
+        Equivalence new_entry(entry.getBigMaster(),
+                              eq.getBigMaster(),
+                              eq.getRatio() / entry.getRatio());
+        new_entry.setSwappablePins(entry.getSwappablePins());
+        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
+            equivalence_list_.size());
+        equivalence_list_.emplace_back(new_entry);
+      } else if (eq.getRatio() < entry.getRatio()) {
+        Equivalence new_entry(eq.getBigMaster(),
+                              entry.getBigMaster(),
+                              entry.getRatio() / eq.getRatio());
+        new_entry.setSwappablePins(entry.getSwappablePins());
+        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
+            equivalence_list_.size());
+        equivalence_list_.emplace_back(new_entry);
+      }
+    }
+  }
+}
+
 void Annealer::dismantleNode(Node* node)
 {
   node->setPlaced(true);
@@ -236,7 +256,7 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
                                       entry.getBigMaster()->getDbMaster(),
                                       new_name.c_str(),
                                       small_nodes[0]->getDbInst()->getRegion());
-  int n = 1;
+  int n = 0;
   DbuX left = std::numeric_limits<DbuX>::max();
   DbuY bottom = std::numeric_limits<DbuY>::max();
   for (auto node : small_nodes) {
@@ -251,7 +271,8 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
           continue;
         }
         auto idx = extractPinIdx(name, pin_name);
-        std::string big_iterm_name = pin_name + std::to_string(idx * n);
+        std::string big_iterm_name
+            = pin_name + std::to_string(idx + n * entry.getPinRatio());
         auto big_iterm = big_inst->findITerm(big_iterm_name.c_str());
         big_iterm->connect(iterm->getNet());
         swappable = true;
@@ -312,15 +333,16 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
 void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
 {
   auto db_inst = node->getDbInst();
-  int group_idx = -1;
   for (auto& node_group : node_groups_) {
-    ++group_idx;
     auto group_head = node_group[0];
     auto group_inst = group_head->getDbInst();
     if (group_inst->getGroup() != db_inst->getGroup()) {
       continue;
     }
     if (group_head->getRegion() != node->getRegion()) {
+      continue;
+    }
+    if (group_head->getMaster() != node->getMaster()) {
       continue;
     }
     bool equivalent = true;
