@@ -290,7 +290,10 @@ bool PlacementDRC::checkColoring(const Node* cell,
                                  const odb::dbOrientType& orient) const
 {
   // Do not allow placing the cell on an oldd site.
-  return x.v % 2 == 0;
+  if (disallow_odd_sites_) {
+    return x.v % 2 == 0;
+  }
+  return true;
 }
 
 bool PlacementDRC::check(const Node* cell,
