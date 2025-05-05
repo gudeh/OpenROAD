@@ -112,6 +112,12 @@ class Network
   void setCore(const odb::Rect& core) { core_ = core; }
   const odb::Rect& getCore() const { return core_; }
 
+  // master functions...
+  MasterFunction* addMasterFunction(
+      const std::string& name,
+      const std::vector<std::string>& function_pins);
+  MasterFunction* getMasterFunction(const std::string& name) const;
+
  private:
   odb::Rect core_;  // Core area of the design.
   std::vector<std::unique_ptr<Master>> masters_;
@@ -129,6 +135,10 @@ class Network
   uint cells_cnt_{0};
   uint terminals_cnt_{0};
   uint filler_cnt_{0};
+
+  // Master functions...
+  std::vector<std::unique_ptr<MasterFunction>> functions_;
+  std::unordered_map<std::string, int> function_to_idx_;
 };
 
 }  // namespace dpl

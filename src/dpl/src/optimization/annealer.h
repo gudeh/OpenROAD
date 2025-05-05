@@ -19,24 +19,6 @@ class Master;
 class Network;
 class Optdp;
 class DetailedHPWL;
-class Equivalence
-{
- public:
-  Equivalence(Master* small_master, Master* big_master, int ratio);
-  Master* getSmallMaster() const;
-  Master* getBigMaster() const;
-  int getRatio() const;
-  int getPinRatio() const;
-  void setSwappablePins(const std::vector<std::string>& pins);
-  const std::vector<std::string>& getSwappablePins() { return swapable_pins_; }
-
- private:
-  Master* small_master_{nullptr};
-  Master* big_master_{nullptr};
-  std::vector<std::string> swapable_pins_;
-  int ratio_{0};
-  int pin_ratio_{0};
-};
 class Annealer
 {
  public:
@@ -49,13 +31,12 @@ class Annealer
                          float alpha,
                          int max_iterations,
                          int seed);
-  void addEquivalentCells(Equivalence entry);
   void start();
 
  private:
-  bool swapNodes(std::vector<Node*> small_nodes, Equivalence entry);
+  bool swapNodes(std::vector<Node*> small_nodes, Master* target_master);
   void dismantleNode(Node* node);
-  void assignToNodeGroup(Node* node, Equivalence entry);
+  void assignToNodeGroup(Node* node);
   // Generate a neighboring placement by perturbing the current solution
   bool generate_neighbor(int& group_idx, std::vector<int>& sub_group);
   // Acceptance criterion (Metropolis rule)
@@ -66,9 +47,6 @@ class Annealer
   Network* network_{nullptr};
   odb::dbDatabase* db_{nullptr};
   DetailedHPWL* hpwl_evaluator_{nullptr};
-  std::vector<Equivalence> equivalence_list_;
-  std::map<Master*, std::vector<int>>
-      master_to_equivalence_;  // map of master to equivalence indices
   std::vector<std::vector<Node*>> node_groups_;
   Journal* journal_;
   int last_id_{0};

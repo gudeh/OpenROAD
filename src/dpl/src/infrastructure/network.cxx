@@ -483,6 +483,32 @@ void Network::clear()
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+MasterFunction* Network::addMasterFunction(
+    const std::string& name,
+    const std::vector<std::string>& function_pins)
+{
+  auto master_function = getMasterFunction(name);
+  if (master_function != nullptr) {
+    return master_function;
+  }
+  auto umaster_function = std::make_unique<MasterFunction>(name, function_pins);
+  master_function = umaster_function.get();
+  functions_.emplace_back(std::move(umaster_function));
+  function_to_idx_[name] = (int) functions_.size() - 1;
+  return master_function;
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+MasterFunction* Network::getMasterFunction(const std::string& name) const
+{
+  auto it = function_to_idx_.find(name);
+  if (it == function_to_idx_.end()) {
+    return nullptr;
+  }
+  return functions_[it->second].get();
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 void Network::removeMarkedNodes()
 {
   for (auto it = pins_.begin(); it != pins_.end();) {

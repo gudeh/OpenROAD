@@ -33,40 +33,23 @@ void Opendp::runSimulatedAnnealing(int max_iterations,
   lg.legalize(mgr);
   Annealer annealer(logger_, this, network_.get(), db_);
   {
-    auto big_master = network_->addMaster(
+    MasterFunction* function
+        = network_->addMasterFunction("shift", {"ip", "zp", "zn"});
+    Master* temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
         db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
-    auto small_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    Equivalence entry(small_master, big_master, 2);
-    entry.setSwappablePins({"ip", "zp", "zn"});
-    annealer.addEquivalentCells(entry);
-  }
-  {
-    auto big_master = network_->addMaster(
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
         db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
-    auto small_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    Equivalence entry(small_master, big_master, 4);
-    entry.setSwappablePins({"ip", "zp", "zn"});
-    annealer.addEquivalentCells(entry);
-  }
-  {
-    auto big_master = network_->addMaster(
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
         db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
-    auto small_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    Equivalence entry(small_master, big_master, 8);
-    entry.setSwappablePins({"ip", "zp", "zn"});
-    annealer.addEquivalentCells(entry);
-  }
-  {
-    auto big_master = network_->addMaster(
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
         db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
-    auto small_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    Equivalence entry(small_master, big_master, 16);
-    entry.setSwappablePins({"ip", "zp", "zn"});
-    annealer.addEquivalentCells(entry);
+    temp_master->setFunction(function);
   }
   annealer.set_sa_parameters(initial_temperature, alpha, max_iterations, seed);
   annealer.start();

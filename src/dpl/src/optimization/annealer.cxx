@@ -16,9 +16,7 @@ namespace dpl {
 namespace {
 bool startsWith(const std::string& str, const std::string& prefix)
 {
-  if (prefix.size() > str.size())
-    return false;
-  return str.substr(0, prefix.size()) == prefix;
+  return str.find(prefix, 0) == 0;
 }
 int extractPinIdx(const std::string& str, const std::string& prefix)
 {
@@ -63,6 +61,9 @@ void dfs_helper(const Node* seed,
     if (node->isToBeRemoved()) {
       continue;
     }
+    if (node->getMaster()->getFunctionBits() > remain) {
+      continue;
+    }
 
     const auto& r = node->getBBox();
     int x0 = std::min(ux_min, r.xMin());
@@ -83,7 +84,7 @@ void dfs_helper(const Node* seed,
                tgt_h,
                group,
                i + 1,
-               remain - 1,
+               remain - node->getMaster()->getFunctionBits(),
                x0,
                y0,
                x1,
@@ -105,7 +106,7 @@ std::vector<int> findBestGroup(const Node* seed,
   const auto& s = seed->getBBox();
   int tgt_w = target_rect.dx();
   int tgt_h = target_rect.dy();
-  int need = k_total - 1;
+  int need = k_total - seed->getMaster()->getFunctionBits();
 
   std::vector<int> best;
   std::vector<int> current;
@@ -128,45 +129,6 @@ std::vector<int> findBestGroup(const Node* seed,
   return best;
 }
 }  // namespace
-
-Equivalence::Equivalence(Master* small_master, Master* big_master, int ratio)
-    : small_master_(small_master), big_master_(big_master), ratio_(ratio)
-{
-}
-
-Master* Equivalence::getBigMaster() const
-{
-  return big_master_;
-}
-
-Master* Equivalence::getSmallMaster() const
-{
-  return small_master_;
-}
-
-int Equivalence::getRatio() const
-{
-  return ratio_;
-}
-
-void Equivalence::setSwappablePins(const std::vector<std::string>& pins)
-{
-  swapable_pins_ = pins;
-  // calculate pin ratio
-  auto test_pin = pins[0];
-  size_t cnt = 0;
-  for (auto mterm : small_master_->getDbMaster()->getMTerms()) {
-    if (startsWith(mterm->getName(), test_pin)) {
-      cnt++;
-    }
-  }
-  pin_ratio_ = cnt;
-}
-
-int Equivalence::getPinRatio() const
-{
-  return pin_ratio_;
-}
 
 Annealer::Annealer(utl::Logger* logger,
                    dpl::Opendp* opendp,
@@ -192,45 +154,6 @@ void Annealer::set_sa_parameters(double initial_temp,
   max_iterations_ = max_iterations;
   generator_ = std::mt19937(seed);
 }
-void Annealer::addEquivalentCells(Equivalence entry)
-{
-  const size_t idx = equivalence_list_.size();
-  equivalence_list_.emplace_back(entry);
-  master_to_equivalence_[entry.getSmallMaster()].emplace_back(idx);
-  // figure if there is other equivalence that can be calculated from the given
-  // one and the list of already added equivalences
-  const size_t size = equivalence_list_.size();
-  for (size_t i = 0; i < size - 1; ++i) {
-    auto& eq = equivalence_list_[i];
-    if (eq.getBigMaster() == entry.getSmallMaster()) {
-      Equivalence new_entry(eq.getSmallMaster(),
-                            entry.getBigMaster(),
-                            eq.getRatio() * entry.getRatio());
-      new_entry.setSwappablePins(entry.getSwappablePins());
-      master_to_equivalence_[eq.getSmallMaster()].emplace_back(
-          equivalence_list_.size());
-      equivalence_list_.emplace_back(new_entry);
-    } else if (eq.getSmallMaster() == entry.getSmallMaster()) {
-      if (eq.getRatio() > entry.getRatio()) {
-        Equivalence new_entry(entry.getBigMaster(),
-                              eq.getBigMaster(),
-                              eq.getRatio() / entry.getRatio());
-        new_entry.setSwappablePins(entry.getSwappablePins());
-        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
-            equivalence_list_.size());
-        equivalence_list_.emplace_back(new_entry);
-      } else if (eq.getRatio() < entry.getRatio()) {
-        Equivalence new_entry(eq.getBigMaster(),
-                              entry.getBigMaster(),
-                              entry.getRatio() / eq.getRatio());
-        new_entry.setSwappablePins(entry.getSwappablePins());
-        master_to_equivalence_[new_entry.getSmallMaster()].emplace_back(
-            equivalence_list_.size());
-        equivalence_list_.emplace_back(new_entry);
-      }
-    }
-  }
-}
 
 void Annealer::dismantleNode(Node* node)
 {
@@ -244,7 +167,7 @@ void Annealer::dismantleNode(Node* node)
   node->setToBeRemoved(true);
 }
 
-bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
+bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
 {
   std::shuffle(small_nodes.begin(), small_nodes.end(), generator_);
   auto block = db_->getChip()->getBlock();
@@ -252,11 +175,12 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
   while (block->findInst(new_name.c_str()) != nullptr) {
     new_name = fmt::format("osama_{}", last_id_++);
   }
+  auto function = target_master->getFunction();
   auto big_inst = odb::dbInst::create(block,
-                                      entry.getBigMaster()->getDbMaster(),
+                                      target_master->getDbMaster(),
                                       new_name.c_str(),
                                       small_nodes[0]->getDbInst()->getRegion());
-  int n = 0;
+  int added_bits = 0;
   DbuX left = std::numeric_limits<DbuX>::max();
   DbuY bottom = std::numeric_limits<DbuY>::max();
   for (auto node : small_nodes) {
@@ -266,13 +190,13 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
     for (auto iterm : inst->getITerms()) {
       auto name = iterm->getMTerm()->getName();
       bool swappable = false;
-      for (auto pin_name : entry.getSwappablePins()) {
+      for (auto pin_name : function->getFunctionPins()) {
         if (!startsWith(name, pin_name)) {
           continue;
         }
         auto idx = extractPinIdx(name, pin_name);
         std::string big_iterm_name
-            = pin_name + std::to_string(idx + n * entry.getPinRatio());
+            = pin_name + std::to_string(idx + added_bits);
         auto big_iterm = big_inst->findITerm(big_iterm_name.c_str());
         big_iterm->connect(iterm->getNet());
         swappable = true;
@@ -287,7 +211,7 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
       }
       big_iterm->connect(iterm->getNet());
     }
-    ++n;
+    added_bits += node->getMaster()->getFunctionBits();
   }
   big_inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
   network_->addNode(big_inst);
@@ -330,8 +254,19 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Equivalence entry)
   return success;
 }
 
-void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
+void Annealer::assignToNodeGroup(Node* node)
 {
+  if (node->isFixed() || !node->isPlaced() || node->isToBeRemoved()) {
+    return;
+  }
+  if (node->getMaster()->getFunction() == nullptr) {
+    return;
+  }
+  auto node_master = node->getMaster();
+  auto function = node_master->getFunction();
+  if (node_master->getFunctionBits() == function->getMaxBits()) {
+    return;
+  }
   auto db_inst = node->getDbInst();
   for (auto& node_group : node_groups_) {
     auto group_head = node_group[0];
@@ -342,16 +277,14 @@ void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
     if (group_head->getRegion() != node->getRegion()) {
       continue;
     }
-    if (group_head->getMaster() != node->getMaster()) {
+    if (group_head->getMaster()->getFunction() != function) {
       continue;
     }
     bool equivalent = true;
-    for (int iterm_idx = 0; iterm_idx < db_inst->getITerms().size();
-         iterm_idx++) {
-      auto iterm = db_inst->getITerm(iterm_idx);
-      auto head_iterm = group_inst->getITerm(iterm_idx);
+
+    for (auto iterm : db_inst->getITerms()) {
       bool skip_iterm = false;
-      for (auto pin_name : entry.getSwappablePins()) {
+      for (auto pin_name : function->getFunctionPins()) {
         if (startsWith(iterm->getMTerm()->getName(), pin_name)) {
           skip_iterm = true;
           break;
@@ -359,6 +292,12 @@ void Annealer::assignToNodeGroup(Node* node, Equivalence entry)
       }
       if (skip_iterm) {
         continue;
+      }
+      auto head_iterm
+          = group_inst->findITerm(iterm->getMTerm()->getName().c_str());
+      if (head_iterm == nullptr) {
+        equivalent = false;
+        break;
       }
       if (iterm->getNet() != head_iterm->getNet()) {
         equivalent = false;
@@ -380,15 +319,7 @@ void Annealer::start()
   node_groups_.clear();
   for (size_t i = 0; i < network_->getNumNodes(); i++) {
     auto node = network_->getNode(i);
-    if (node->isFixed() || !node->isPlaced() || node->isToBeRemoved()) {
-      continue;
-    }
-    auto master = node->getMaster();
-    if (master_to_equivalence_.find(master) == master_to_equivalence_.end()) {
-      continue;
-    }
-    assignToNodeGroup(node,
-                      equivalence_list_[master_to_equivalence_[master][0]]);
+    assignToNodeGroup(node);
   }
   for (int iter = 0; iter < max_iterations_; ++iter) {
     if (iter % 100 == 0) {
@@ -414,12 +345,8 @@ void Annealer::start()
         auto node
             = network_->getNode(network_->getNumNodes()
                                 - 1);  // the last added node is the new node
-        if (master_to_equivalence_.find(node->getMaster())
-            != master_to_equivalence_.end()) {
-          assignToNodeGroup(
-              node,
-              equivalence_list_[master_to_equivalence_[node->getMaster()][0]]);
-        }
+
+        assignToNodeGroup(node);
         // update the node groups
         auto& group = node_groups_[group_idx];
         // find if group is full of removed nodes
@@ -458,16 +385,30 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
     node_idx = idx_range(0, group.size() - 1)(generator_);
     node = group[node_idx];
   } while (node->isToBeRemoved());
-  auto eq_list = master_to_equivalence_[node->getMaster()];
-  auto entry_idx = idx_range(0, eq_list.size() - 1)(generator_);
-  auto entry = equivalence_list_[eq_list[entry_idx]];
+  auto node_master = node->getMaster();
+  auto function = node_master->getFunction();
+  auto node_bits = node_master->getFunctionBits();
+  auto max_bits = function->getMaxBits();
+  // node_bits and max_bits are in base 2, get their log2 distance
+  int dist = std::log2(max_bits) - std::log2(node_bits);
+  auto bits_to_master = function->getMasters();
+  auto upper_size_idx = idx_range(1, dist)(generator_);
+  auto masters = function->getMasters();
+  auto it = bits_to_master.find(node_bits);
+  std::advance(it, upper_size_idx);
+  auto target_master = it->second;
   sub_group = findBestGroup(group[node_idx],
-                            entry.getBigMaster()->getBBox(),
+                            target_master->getBBox(),
                             group,
-                            entry.getRatio());
+                            target_master->getFunctionBits());
   sub_group.push_back(node_idx);
   std::stable_sort(sub_group.begin(), sub_group.end());
-  if (sub_group.size() != entry.getRatio()) {
+  // count total number of bits
+  int total_bits = 0;
+  for (auto idx : sub_group) {
+    total_bits += group[idx]->getMaster()->getFunctionBits();
+  }
+  if (total_bits != target_master->getFunctionBits()) {
     // not enough cells to swap
     return false;
   }
@@ -475,7 +416,7 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
   for (int idx : sub_group) {
     nodes_to_swap.push_back(group[idx]);
   }
-  return swapNodes(nodes_to_swap, entry);
+  return swapNodes(nodes_to_swap, target_master);
 }
 
 bool Annealer::accept(double delta_cost)

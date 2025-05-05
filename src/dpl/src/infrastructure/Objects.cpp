@@ -24,6 +24,45 @@ const Rect& MasterEdge::getBBox() const
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+MasterFunction::MasterFunction(const std::string& name,
+                               const std::vector<std::string>& function_pins)
+    : name_(name), function_pins_(function_pins)
+{
+}
+const std::string& MasterFunction::getName() const
+{
+  return name_;
+}
+const std::vector<std::string>& MasterFunction::getFunctionPins() const
+{
+  return function_pins_;
+}
+void MasterFunction::setMaxBits(int max_bits)
+{
+  max_bits_ = max_bits;
+}
+int MasterFunction::getMaxBits() const
+{
+  return max_bits_;
+}
+void MasterFunction::addMaster(Master* master)
+{
+  bits_to_master_[master->getFunctionBits()] = master;
+}
+const std::map<int, Master*>& MasterFunction::getMasters() const
+{
+  return bits_to_master_;
+}
+Master* MasterFunction::getMaster(int bits) const
+{
+  auto it = bits_to_master_.find(bits);
+  if (it != bits_to_master_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 bool Master::isMultiRow() const
 {
@@ -85,7 +124,29 @@ dbMaster* Master::getDbMaster() const
 {
   return db_master_;
 }
-
+void Master::setFunction(MasterFunction* function)
+{
+  function_ = function;
+  auto test_pin = function->getFunctionPins().at(0);
+  function_bits_ = 0;
+  for (auto mterm : getDbMaster()->getMTerms()) {
+    if (mterm->getName().find(test_pin, 0) == 0) {
+      ++function_bits_;
+    }
+  }
+  if (function_->getMaxBits() < function_bits_) {
+    function_->setMaxBits(function_bits_);
+  }
+  function_->addMaster(this);
+}
+MasterFunction* Master::getFunction() const
+{
+  return function_;
+}
+int Master::getFunctionBits() const
+{
+  return function_bits_;
+}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
