@@ -9,9 +9,20 @@
 #include "Coordinates.h"
 #include "dpl/Opendp.h"
 
+namespace odb {
+class dbBox;
+class dbBTerm;
+class dbInst;
+class dbMaster;
+class dbOrientType;
+class dbSite;
+}  // namespace odb
 namespace dpl {
 
 using odb::dbBox;
+using odb::dbBTerm;
+using odb::dbInst;
+using odb::dbMaster;
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
@@ -44,8 +55,11 @@ class Master
   const std::map<uint, dbBox*> getPins() const;
   void setBottomPowerType(int bottom_pwr);
   void setTopPowerType(int top_pwr);
+  void setDbMaster(dbMaster* db_master);
+  dbMaster* getDbMaster() const;
 
  private:
+  dbMaster* db_master_{nullptr};
   Rect boundary_box_;
   bool is_multi_row_ = false;
   std::vector<MasterEdge> edges_;
@@ -106,11 +120,14 @@ class Node
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
+  Rect getBBox() const;
+  dbBTerm* getBTerm() const;
 
   // setters
   void setId(int id);
   void setFixed(bool in);
   void setDbInst(dbInst* inst);
+  void setBTerm(dbBTerm* term);
   void setLeft(DbuX x);
   void setBottom(DbuY y);
   void setOrient(const dbOrientType& in);
@@ -134,7 +151,7 @@ class Node
 
  protected:
   int id_ = 0;
-  odb::dbInst* db_inst_{nullptr};
+  void* db_owner_{nullptr};
   // Current position; bottom corner.
   DbuX left_{0};
   DbuY bottom_{0};
@@ -200,6 +217,7 @@ class Edge
   int getNumPins() const;
   const std::vector<Pin*>& getPins() const;
   void addPin(Pin* pin);
+  void removePin(Pin* pin);
   uint64_t hpwl() const;
 
  private:

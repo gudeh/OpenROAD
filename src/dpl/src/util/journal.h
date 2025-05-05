@@ -12,15 +12,22 @@ namespace dpl {
 class Grid;
 
 class DetailedMgr;
-
+enum JournalActionTypeEnum
+{
+  MOVE_CELL,
+  UNPLACE_CELL
+};
 class JournalAction
 {
  public:
-  enum TYPE
-  {
-    MOVE_CELL
-  };
-  JournalAction() = default;
+  virtual JournalActionTypeEnum typeId() const = 0;
+
+ protected:
+};
+class MoveCellAction : public JournalAction
+{
+ public:
+  MoveCellAction() = default;
   void setOrigLocation(const DbuX x, const DbuY y)
   {
     orig_x_ = x;
@@ -34,7 +41,7 @@ class JournalAction
   void setOrigSegs(const std::vector<int>& segs) { orig_segs_ = segs; }
   void setNewSegs(const std::vector<int>& segs) { new_segs_ = segs; }
   void setNode(Node* node) { node_ = node; }
-  void setType(TYPE type) { type_ = type; }
+  void setWasPlaced(bool was_placed) { was_placed_ = was_placed; }
   // getters
   Node* getNode() const { return node_; }
   DbuX getOrigLeft() const { return orig_x_; }
@@ -43,10 +50,13 @@ class JournalAction
   DbuY getNewBottom() const { return new_y_; }
   const std::vector<int>& getOrigSegs() const { return orig_segs_; }
   const std::vector<int>& getNewSegs() const { return new_segs_; }
-  TYPE getType() const { return type_; }
+  bool wasPlaced() const { return was_placed_; }
+  JournalActionTypeEnum typeId() const override
+  {
+    return JournalActionTypeEnum::MOVE_CELL;
+  }
 
  private:
-  TYPE type_;
   Node* node_{nullptr};
   DbuX orig_x_{0};
   DbuY orig_y_{0};
@@ -54,34 +64,69 @@ class JournalAction
   DbuY new_y_{0};
   std::vector<int> orig_segs_;
   std::vector<int> new_segs_;
+  bool was_placed_{true};
+};
+class UnplaceCellAction : public JournalAction
+{
+ public:
+  UnplaceCellAction() = default;
+  void setNode(Node* node) { node_ = node; }
+  Node* getNode() const { return node_; }
+  void setWasHold(bool was_hold) { was_hold_ = was_hold; }
+  bool wasHold() const { return was_hold_; }
+  JournalActionTypeEnum typeId() const override
+  {
+    return JournalActionTypeEnum::UNPLACE_CELL;
+  }
+
+ private:
+  Node* node_{nullptr};
+  bool was_hold_{false};
 };
 class Journal
 {
  public:
   Journal(Grid* grid, DetailedMgr* mgr) : grid_(grid), mgr_(mgr) {}
   // setters
-  void addAction(const JournalAction& action)
+  void addAction(const MoveCellAction& action)
   {
-    actions_.push_back(action);
     affected_nodes_.insert(action.getNode());
+    for (auto pin : action.getNode()->getPins()) {
+      affected_edges_.insert(pin->getEdge());
+    }
+    actions_.push_back(std::make_unique<MoveCellAction>(action));
+  }
+  void addAction(const UnplaceCellAction& action)
+  {
+    affected_nodes_.insert(action.getNode());
+    for (auto pin : action.getNode()->getPins()) {
+      affected_edges_.insert(pin->getEdge());
+    }
+    actions_.push_back(std::make_unique<UnplaceCellAction>(action));
   }
   // getters
-  const JournalAction& getLastAction() const { return actions_.back(); }
+  JournalAction* getLastAction() const { return actions_.back().get(); }
   bool isEmpty() const { return actions_.empty(); }
   size_t size() const { return actions_.size(); }
   const std::set<Node*>& getAffectedNodes() const { return affected_nodes_; }
-  const std::vector<JournalAction>& getActions() const { return actions_; }
+  const std::set<Edge*>& getAffectedEdges() const { return affected_edges_; }
+  const std::vector<std::unique_ptr<JournalAction>>& getActions() const
+  {
+    return actions_;
+  }
   // other
   void removeLastAction() { actions_.pop_back(); }
   void clearJournal();
-  void undo(const JournalAction& action, bool positions_only = false) const;
-  void redo(const JournalAction& action, bool positions_only = false) const;
+  void undo(const JournalAction* action, bool positions_only = false) const;
+  void redo(const JournalAction* action, bool positions_only = false) const;
+  void undoAll();
 
  private:
   Grid* grid_{nullptr};
   DetailedMgr* mgr_{nullptr};
-  std::vector<JournalAction> actions_;
+  std::vector<std::unique_ptr<JournalAction>> actions_;
   std::set<Node*> affected_nodes_;
+  std::set<Edge*> affected_edges_;
 };
 
 }  // namespace dpl
