@@ -156,6 +156,12 @@ void improve_placement_cmd(int seed,
   opendp->improvePlacement(seed, max_displacement_x, max_displacement_y);
 }
 
+void disallow_odd_sites_cmd()
+{
+  dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->disallowOddSites();
+}
+
 } // namespace
 
 %} // inline

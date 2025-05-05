@@ -137,6 +137,8 @@ class Opendp
   // Journalling
   Journal* getJournal() const;
   void setJournal(Journal* journal);
+  // TODO: remove this
+  void disallowOddSites() { disallow_odd_sites_ = true; }
 
  private:
   using bgPoint
@@ -326,6 +328,8 @@ class Opendp
   int max_displacement_x_ = 0;  // sites
   int max_displacement_y_ = 0;  // sites
   bool disallow_one_site_gaps_ = false;
+  // TODO: remove this
+  bool disallow_odd_sites_ = false;
   std::vector<Node*> placement_failures_;
 
   // 2D pixel grid

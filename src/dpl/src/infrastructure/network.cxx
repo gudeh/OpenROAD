@@ -386,6 +386,13 @@ void Network::addNode(odb::dbInst* inst)
     }
   }
   nodes_.emplace_back(std::make_unique<Node>(ndi));
+  for (auto [idx, _] : master->getPins()) {
+    auto iterm = inst->getITerm(idx);
+    auto net = iterm->getNet();
+    if (net != nullptr && !net->getSigType().isSupply()) {
+      ndi.addConnection(idx, net->getId());
+    }
+  }
   inst_to_node_idx_[inst] = id;
   ++cells_cnt_;
 }
