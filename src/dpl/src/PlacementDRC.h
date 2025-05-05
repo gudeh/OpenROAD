@@ -66,6 +66,8 @@ class PlacementDRC
   int getEdgeTypeIdx(const std::string& edge_type) const;
   bool hasCellEdgeSpacingTable() const;
   int getMaxSpacing(int edge_type_idx) const;
+  // TODO: remove this
+  void disallowOddSites() { disallow_odd_sites_ = true; }
 
  private:
   // Member variables
@@ -75,6 +77,8 @@ class PlacementDRC
       edge_spacing_table_;  // LEF58_CELLEDGESPACINGTABLE between edge type
                             // pairs [from_idx][to_idx]
   std::map<int, std::vector<EolSpacingEntry>> eol_spacing_rules_;
+  // TODO: remove this
+  bool disallow_odd_sites_ = false;
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;
