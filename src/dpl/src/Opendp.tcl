@@ -205,13 +205,12 @@ sta::define_cmd_args "swap_cells_anneal" {\
   [-initial_temperature temperature]\
   [-alpha alpha_value]\
   [-seed seed]\
-  [-max_displacement_x disp_x]\
-  [-max_displacement_y disp_y]
+  [-max_displacement disp|{disp_x disp_y}]
 }
 
 proc swap_cells_anneal { args } {
   sta::parse_key_args "swap_cells_anneal" args \
-  keys {-max_iterations -initial_temperature -alpha -seed} flags {}
+  keys {-max_iterations -initial_temperature -alpha -seed -max_displacement} flags {}
 
   set max_iterations 1000
   if { [info exists keys(-max_iterations)] } {
@@ -236,16 +235,22 @@ proc swap_cells_anneal { args } {
     set seed $keys(-seed)
     sta::check_positive_integer "-seed" $seed
   }
-  if { [info exists keys(-max_displacement_x)] } {
-    set max_displacement_x $keys(-max_displacement_x)
-    sta::check_positive_integer "-max_displacement_x" $max_displacement_x
+  if { [info exists keys(-max_displacement)] } {
+    set max_displacement $keys(-max_displacement)
+    if { [llength $max_displacement] == 1 } {
+      sta::check_positive_integer "-max_displacement" $max_displacement
+      set max_displacement_x $max_displacement
+      set max_displacement_y $max_displacement
+    } elseif { [llength $max_displacement] == 2 } {
+      lassign $max_displacement max_displacement_x max_displacement_y
+      sta::check_positive_integer "-max_displacement" $max_displacement_x
+      sta::check_positive_integer "-max_displacement" $max_displacement_y
+    } else {
+      sta::error DPL 345 "-max_displacement disp|{disp_x disp_y}"
+    }
   } else {
+    # use default displacement
     set max_displacement_x 0
-  }
-  if { [info exists keys(-max_displacement_y)] } {
-    set max_displacement_y $keys(-max_displacement_y)
-    sta::check_positive_integer "-max_displacement_y" $max_displacement_y
-  } else {
     set max_displacement_y 0
   }
 
