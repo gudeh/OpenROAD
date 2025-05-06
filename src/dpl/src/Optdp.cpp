@@ -17,8 +17,11 @@ namespace dpl {
 void Opendp::runSimulatedAnnealing(int max_iterations,
                                    double initial_temperature,
                                    float alpha,
-                                   int seed)
+                                   int seed,
+                                   int max_displacement_x,
+                                   int max_displacement_y)
 {
+  setMaxDisplacement(max_displacement_x, max_displacement_y);
   odb::WireLengthEvaluator eval(db_->getChip()->getBlock());
   const int64_t hpwlBefore = eval.hpwl();
   importDb();

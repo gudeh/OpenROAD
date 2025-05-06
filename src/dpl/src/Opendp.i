@@ -165,13 +165,17 @@ void disallow_odd_sites_cmd()
 void anneal(int max_iterations,
             double initial_temperature,
             float alpha,
-            int seed)
+            int seed,
+            int max_displacement_x,
+            int max_displacement_y)
 {
   dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
   opendp->runSimulatedAnnealing(max_iterations,
                                 initial_temperature,
                                 alpha,
-                                seed);
+                                seed,
+                                max_displacement_x,
+                                max_displacement_y);
 }
 
 } // namespace

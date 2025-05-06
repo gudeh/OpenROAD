@@ -150,7 +150,9 @@ class Opendp
   void runSimulatedAnnealing(int max_iterations,
                              double initial_temperature,
                              float alpha,
-                             int seed);
+                             int seed,
+                             int max_displacement_x,
+                             int max_displacement_y);
 
  private:
   using bgPoint
@@ -319,6 +321,7 @@ class Opendp
   void placeCell(Node* cell, GridX x, GridY y);
   void unplaceCell(Node* cell);
   void setGridPaddedLoc(Node* cell, GridX x, GridY y);
+  void setMaxDisplacement(int max_displacement_x, int max_displacement_y);
 
   Logger* logger_ = nullptr;
   dbDatabase* db_ = nullptr;

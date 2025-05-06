@@ -205,6 +205,8 @@ sta::define_cmd_args "swap_cells_anneal" {\
   [-initial_temperature temperature]\
   [-alpha alpha_value]\
   [-seed seed]\
+  [-max_displacement_x disp_x]\
+  [-max_displacement_y disp_y]
 }
 
 proc swap_cells_anneal { args } {
@@ -234,9 +236,22 @@ proc swap_cells_anneal { args } {
     set seed $keys(-seed)
     sta::check_positive_integer "-seed" $seed
   }
+  if { [info exists keys(-max_displacement_x)] } {
+    set max_displacement_x $keys(-max_displacement_x)
+    sta::check_positive_integer "-max_displacement_x" $max_displacement_x
+  } else {
+    set max_displacement_x 0
+  }
+  if { [info exists keys(-max_displacement_y)] } {
+    set max_displacement_y $keys(-max_displacement_y)
+    sta::check_positive_integer "-max_displacement_y" $max_displacement_y
+  } else {
+    set max_displacement_y 0
+  }
 
   sta::check_argc_eq0 "swap_cells_anneal" $args
-  dpl::anneal $max_iterations $initial_temperature $alpha $seed
+  dpl::anneal $max_iterations $initial_temperature $alpha $seed \
+    $max_displacement_x $max_displacement_y
 }
 
 namespace eval dpl {
