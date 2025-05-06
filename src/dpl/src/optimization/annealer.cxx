@@ -21,7 +21,7 @@ bool startsWith(const std::string& str, const std::string& prefix)
 int extractPinIdx(const std::string& str, const std::string& prefix)
 {
   auto idx = str.substr(prefix.size());
-  if (idx.size() == 0) {
+  if (idx.empty()) {
     return 1;
   }
   return std::stoi(idx);
@@ -56,8 +56,9 @@ void dfs_helper(const Node* seed,
   int n = group.size();
   for (int i = start; i <= n - remain; ++i) {
     const Node* node = group[i];
-    if (node == seed)
+    if (node == seed) {
       continue;
+    }
     if (node->isToBeRemoved()) {
       continue;
     }
@@ -75,8 +76,9 @@ void dfs_helper(const Node* seed,
     int w = x1 - x0;
     int h = y1 - y0;
     int partial = std::abs(w - tgt_w) + std::abs(h - tgt_h);
-    if (partial >= best_score)
+    if (partial >= best_score) {
       continue;
+    }
 
     current.push_back(i);
     dfs_helper(seed,
@@ -190,7 +192,7 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
     for (auto iterm : inst->getITerms()) {
       auto name = iterm->getMTerm()->getName();
       bool swappable = false;
-      for (auto pin_name : function->getFunctionPins()) {
+      for (const auto& pin_name : function->getFunctionPins()) {
         if (!startsWith(name, pin_name)) {
           continue;
         }
@@ -284,7 +286,7 @@ void Annealer::assignToNodeGroup(Node* node)
 
     for (auto iterm : db_inst->getITerms()) {
       bool skip_iterm = false;
-      for (auto pin_name : function->getFunctionPins()) {
+      for (const auto& pin_name : function->getFunctionPins()) {
         if (startsWith(iterm->getMTerm()->getName(), pin_name)) {
           skip_iterm = true;
           break;
@@ -413,8 +415,9 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
     return false;
   }
   std::vector<Node*> nodes_to_swap;
+  nodes_to_swap.reserve(sub_group.size());
   for (int idx : sub_group) {
-    nodes_to_swap.push_back(group[idx]);
+    nodes_to_swap.emplace_back(group[idx]);
   }
   return swapNodes(nodes_to_swap, target_master);
 }
