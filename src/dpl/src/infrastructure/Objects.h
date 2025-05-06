@@ -39,6 +39,26 @@ class MasterEdge
   Rect bbox_;
 };
 
+class MasterFunction
+{
+ public:
+  MasterFunction(const std::string& name,
+                 const std::vector<std::string>& function_pins);
+  const std::string& getName() const;
+  const std::vector<std::string>& getFunctionPins() const;
+  void setMaxBits(int max_bits);
+  int getMaxBits() const;
+  void addMaster(Master* master);
+  const std::map<int, Master*>& getMasters() const;
+  Master* getMaster(int bits) const;
+
+ private:
+  std::string name_;
+  std::vector<std::string> function_pins_;
+  int max_bits_{0};
+  std::map<int, Master*> bits_to_master_;
+};
+
 class Master
 {
  public:
@@ -57,6 +77,9 @@ class Master
   void setTopPowerType(int top_pwr);
   void setDbMaster(dbMaster* db_master);
   dbMaster* getDbMaster() const;
+  void setFunction(MasterFunction* function);
+  MasterFunction* getFunction() const;
+  int getFunctionBits() const;
 
  private:
   dbMaster* db_master_{nullptr};
@@ -66,6 +89,8 @@ class Master
   std::map<uint, dbBox*> pin_edges_;
   int bottom_pwr_{0};
   int top_pwr_{0};
+  MasterFunction* function_{nullptr};
+  int function_bits_{-1};
 };
 
 class Pin;
@@ -119,6 +144,7 @@ class Node
   int getNumPins() const;
   const std::vector<Pin*>& getPins() const;
   int getGroupId() const;
+  bool isToBeRemoved() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
   Rect getBBox() const;
   dbBTerm* getBTerm() const;
@@ -145,6 +171,7 @@ class Node
   void setMaster(Master* in);
   void addPin(Pin* pin);
   void setGroupId(int id);
+  void setToBeRemoved(bool in);
   void addConnection(uint pin_id, uint net_id) { pin_to_net_[pin_id] = net_id; }
 
   bool adjustCurrOrient(const dbOrientType& newOrient);
@@ -168,6 +195,7 @@ class Node
   bool fixed_{false};
   bool placed_{false};
   bool hold_{false};
+  bool to_be_removed_{false};
   // For power.
   int powerTop_{0};
   int powerBot_{0};

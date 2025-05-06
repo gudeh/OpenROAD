@@ -7,11 +7,69 @@
 
 // My stuff.
 #include "legalize_shift.h"
+#include "optimization/annealer.h"
 #include "optimization/detailed.h"
 #include "optimization/detailed_manager.h"
 
 namespace dpl {
 
+////////////////////////////////////////////////////////////////
+void Opendp::runSimulatedAnnealing(int max_iterations,
+                                   double initial_temperature,
+                                   float alpha,
+                                   int seed,
+                                   int max_displacement_x,
+                                   int max_displacement_y)
+{
+  setMaxDisplacement(max_displacement_x, max_displacement_y);
+  odb::WireLengthEvaluator eval(db_->getChip()->getBlock());
+  const int64_t hpwlBefore = eval.hpwl();
+  importDb();
+  adjustNodesOrient();
+  initGrid();
+  DetailedMgr mgr(arch_.get(), network_.get(), grid_.get(), drc_engine_.get());
+  mgr.setLogger(logger_);
+  mgr.setSeed(0);
+  mgr.setMaxDisplacement(0, 0);
+  mgr.setDisallowOneSiteGaps(false);
+  ShiftLegalizer lg;
+  lg.legalize(mgr);
+  Annealer annealer(logger_, this, network_.get(), db_);
+  {
+    MasterFunction* function
+        = network_->addMasterFunction("shift", {"ip", "zp", "zn"});
+    Master* temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+    temp_master = network_->addMaster(
+        db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
+    temp_master->setFunction(function);
+  }
+  annealer.set_sa_parameters(initial_temperature, alpha, max_iterations, seed);
+  annealer.start();
+  network_->removeMarkedNodes();
+
+  updateDbInstLocations();
+  const int64_t hpwlAfter = eval.hpwl();
+  const double dbu_micron = db_->getTech()->getDbUnitsPerMicron();
+  // Statistics.
+  logger_->report("Detailed Improvement Results");
+  logger_->report("------------------------------------------");
+  logger_->report("Original HPWL         {:10.1f} u", hpwlBefore / dbu_micron);
+  logger_->report("Final HPWL            {:10.1f} u", hpwlAfter / dbu_micron);
+  const double hpwl_delta = (hpwlAfter - hpwlBefore) / (double) hpwlBefore;
+  logger_->report("Delta HPWL            {:10.1f} %", hpwl_delta * 100);
+  logger_->report("");
+}
 ////////////////////////////////////////////////////////////////
 void Opendp::improvePlacement(const int seed,
                               const int max_displacement_x,

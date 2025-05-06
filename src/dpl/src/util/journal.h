@@ -15,7 +15,8 @@ class DetailedMgr;
 enum JournalActionTypeEnum
 {
   MOVE_CELL,
-  UNPLACE_CELL
+  UNPLACE_CELL,
+  SWAP_CELLS
 };
 class JournalAction
 {
@@ -83,6 +84,26 @@ class UnplaceCellAction : public JournalAction
   Node* node_{nullptr};
   bool was_hold_{false};
 };
+class SwapCellsAction : public JournalAction
+{
+ public:
+  SwapCellsAction() = default;
+  void setRemovedCells(const std::vector<Node*>& cells)
+  {
+    removed_cells_ = cells;
+  }
+  void setAddedCell(Node* cell) { added_cell_ = cell; }
+  JournalActionTypeEnum typeId() const override
+  {
+    return JournalActionTypeEnum::SWAP_CELLS;
+  }
+  const std::vector<Node*>& getRemovedCells() const { return removed_cells_; }
+  Node* getAddedCell() const { return added_cell_; }
+
+ private:
+  std::vector<Node*> removed_cells_;
+  Node* added_cell_;
+};
 class Journal
 {
  public:
@@ -103,6 +124,15 @@ class Journal
       affected_edges_.insert(pin->getEdge());
     }
     actions_.push_back(std::make_unique<UnplaceCellAction>(action));
+  }
+  void addAction(const SwapCellsAction& action)
+  {
+    for (auto pin : action.getAddedCell()->getPins()) {
+      if (pin->getEdge() != nullptr) {
+        affected_edges_.insert(pin->getEdge());
+      }
+    }
+    actions_.push_back(std::make_unique<SwapCellsAction>(action));
   }
   // getters
   JournalAction* getLastAction() const { return actions_.back().get(); }

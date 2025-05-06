@@ -140,6 +140,20 @@ class Opendp
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
 
+  void importDb();
+  bool mapMove(Node* cell);
+  bool mapMove(Node* cell, const GridPt& grid_pt);
+  bool shiftMove(Node* cell);
+  Grid* getGrid() { return grid_.get(); }
+  void initPlacementDRC();
+  PlacementDRC* getPlacementDRC() { return drc_engine_.get(); }
+  void runSimulatedAnnealing(int max_iterations,
+                             double initial_temperature,
+                             float alpha,
+                             int seed,
+                             int max_displacement_x,
+                             int max_displacement_y);
+
  private:
   using bgPoint
       = boost::geometry::model::d2::point_xy<int,
@@ -166,7 +180,6 @@ class Opendp
   void saveViolations(const std::vector<Node*>& failures,
                       odb::dbMarkerCategory* category,
                       const std::string& violation_type = "") const;
-  void importDb();
   void importClear();
   Rect getBbox(dbInst* inst);
   void createNetwork();
@@ -177,8 +190,6 @@ class Opendp
   void updateDbInstLocations();
 
   void initGrid();
-
-  void initPlacementDRC();
 
   std::string printBgBox(const boost::geometry::model::box<bgPoint>& queryBox);
   void detailedPlacement();
@@ -201,9 +212,7 @@ class Opendp
                    GridY y,
                    GridX x_end,
                    GridY y_end) const;
-  bool shiftMove(Node* cell);
-  bool mapMove(Node* cell);
-  bool mapMove(Node* cell, const GridPt& grid_pt);
+
   int distChange(const Node* cell, DbuX x, DbuY y) const;
   bool swapCells(Node* cell1, Node* cell2);
   bool refineMove(Node* cell);
@@ -312,6 +321,7 @@ class Opendp
   void placeCell(Node* cell, GridX x, GridY y);
   void unplaceCell(Node* cell);
   void setGridPaddedLoc(Node* cell, GridX x, GridY y);
+  void setMaxDisplacement(int max_displacement_x, int max_displacement_y);
 
   Logger* logger_ = nullptr;
   dbDatabase* db_ = nullptr;
@@ -325,8 +335,8 @@ class Opendp
   Journal* journal_ = nullptr;
 
   bool have_multi_row_cells_ = false;
-  int max_displacement_x_ = 0;  // sites
-  int max_displacement_y_ = 0;  // sites
+  int max_displacement_x_ = 500;  // sites
+  int max_displacement_y_ = 100;  // sites
   bool disallow_one_site_gaps_ = false;
   // TODO: remove this
   bool disallow_odd_sites_ = false;

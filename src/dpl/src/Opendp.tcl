@@ -199,6 +199,61 @@ proc improve_placement { args } {
   sta::check_argc_eq0 "improve_placement" $args
   dpl::improve_placement_cmd $seed $max_displacement_x $max_displacement_y
 }
+
+sta::define_cmd_args "swap_cells_anneal" {\
+  [-max_iterations iterations]\
+  [-initial_temperature temperature]\
+  [-alpha alpha_value]\
+  [-seed seed]\
+  [-max_displacement_x disp_x]\
+  [-max_displacement_y disp_y]
+}
+
+proc swap_cells_anneal { args } {
+  sta::parse_key_args "swap_cells_anneal" args \
+  keys {-max_iterations -initial_temperature -alpha -seed} flags {}
+
+  set max_iterations 1000
+  if { [info exists keys(-max_iterations)] } {
+    set max_iterations $keys(-max_iterations)
+    sta::check_positive_integer "-max_iterations" $max_iterations
+  }
+
+  set initial_temperature 100.0
+  if { [info exists keys(-initial_temperature)] } {
+    set initial_temperature $keys(-initial_temperature)
+    sta::check_positive_float "-initial_temperature" $initial_temperature
+  }
+
+  set alpha 0.95
+  if { [info exists keys(-alpha)] } {
+    set alpha $keys(-alpha)
+    sta::check_positive_float "-alpha" $alpha
+  }
+
+  set seed 1
+  if { [info exists keys(-seed)] } {
+    set seed $keys(-seed)
+    sta::check_positive_integer "-seed" $seed
+  }
+  if { [info exists keys(-max_displacement_x)] } {
+    set max_displacement_x $keys(-max_displacement_x)
+    sta::check_positive_integer "-max_displacement_x" $max_displacement_x
+  } else {
+    set max_displacement_x 0
+  }
+  if { [info exists keys(-max_displacement_y)] } {
+    set max_displacement_y $keys(-max_displacement_y)
+    sta::check_positive_integer "-max_displacement_y" $max_displacement_y
+  } else {
+    set max_displacement_y 0
+  }
+
+  sta::check_argc_eq0 "swap_cells_anneal" $args
+  dpl::anneal $max_iterations $initial_temperature $alpha $seed \
+    $max_displacement_x $max_displacement_y
+}
+
 namespace eval dpl {
 # min_displacement is the smallest displacement to draw
 # measured as a multiple of row_height.

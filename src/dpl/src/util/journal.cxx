@@ -65,6 +65,29 @@ void Journal::undo(const JournalAction* action, const bool positions_only) const
       node->setHold(unplace_action->wasHold());
       break;
     }
+    case JournalActionTypeEnum::SWAP_CELLS: {
+      auto swap_action = static_cast<const SwapCellsAction*>(action);
+
+      const auto added_node = swap_action->getAddedCell();
+      grid_->erasePixel(added_node);
+      for (auto pin : added_node->getPins()) {
+        if (pin->getEdge() == nullptr) {
+          continue;
+        }
+        pin->getEdge()->removePin(pin);
+      }
+      added_node->setToBeRemoved(true);
+
+      for (const auto& node : swap_action->getRemovedCells()) {
+        for (auto pin : node->getPins()) {
+          pin->getEdge()->addPin(pin);
+        }
+        grid_->paintPixel(node);
+        node->setToBeRemoved(false);
+      }
+
+      break;
+    }
   }
 }
 ////////////////////////////////////////////////////////////////////////////////

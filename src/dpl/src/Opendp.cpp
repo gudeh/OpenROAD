@@ -88,6 +88,18 @@ Journal* Opendp::getJournal() const
   return journal_;
 }
 
+void Opendp::setMaxDisplacement(int max_displacement_x, int max_displacement_y)
+{
+  if (max_displacement_x == 0 || max_displacement_y == 0) {
+    // defaults
+    max_displacement_x_ = 500;
+    max_displacement_y_ = 100;
+  } else {
+    max_displacement_x_ = max_displacement_x;
+    max_displacement_y_ = max_displacement_y;
+  }
+}
+
 void Opendp::detailedPlacement(const int max_displacement_x,
                                const int max_displacement_y,
                                const std::string& report_file_name)
@@ -103,16 +115,7 @@ void Opendp::detailedPlacement(const int max_displacement_x,
   if (have_fillers_) {
     logger_->warn(DPL, 37, "Use remove_fillers before detailed placement.");
   }
-
-  if (max_displacement_x == 0 || max_displacement_y == 0) {
-    // defaults
-    max_displacement_x_ = 500;
-    max_displacement_y_ = 100;
-  } else {
-    max_displacement_x_ = max_displacement_x;
-    max_displacement_y_ = max_displacement_y;
-  }
-
+  setMaxDisplacement(max_displacement_x, max_displacement_y);
   odb::WireLengthEvaluator eval(block_);
   hpwl_before_ = eval.hpwl();
   detailedPlacement();

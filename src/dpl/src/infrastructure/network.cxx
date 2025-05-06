@@ -299,6 +299,23 @@ Master* Network::addMaster(odb::dbMaster* db_master,
     }
   }
   master->clearEdges();
+  // abutting pins
+  for (const auto mterm : db_master->getMTerms()) {
+    for (const auto pin : mterm->getMPins()) {
+      for (const auto box : pin->getGeometry()) {
+        if (!box->getTechLayer()) {
+          continue;
+        }
+        auto mterm_box = box->getBox();
+        if (mterm_box.xMin() == bbox.xMin() || mterm_box.xMax() == bbox.xMax()
+            || mterm_box.yMin() == bbox.yMin()
+            || mterm_box.yMax() == bbox.yMax()) {
+          master->addPin(mterm->getIndex(), box);
+        }
+      }
+    }
+  }
+  //
   if (!drc_engine->hasCellEdgeSpacingTable()) {
     return master;
   }
@@ -466,5 +483,59 @@ void Network::clear()
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
+MasterFunction* Network::addMasterFunction(
+    const std::string& name,
+    const std::vector<std::string>& function_pins)
+{
+  auto master_function = getMasterFunction(name);
+  if (master_function != nullptr) {
+    return master_function;
+  }
+  auto umaster_function = std::make_unique<MasterFunction>(name, function_pins);
+  master_function = umaster_function.get();
+  functions_.emplace_back(std::move(umaster_function));
+  function_to_idx_[name] = (int) functions_.size() - 1;
+  return master_function;
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+MasterFunction* Network::getMasterFunction(const std::string& name) const
+{
+  auto it = function_to_idx_.find(name);
+  if (it == function_to_idx_.end()) {
+    return nullptr;
+  }
+  return functions_[it->second].get();
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void Network::removeMarkedNodes()
+{
+  for (auto it = pins_.begin(); it != pins_.end();) {
+    if ((*it)->getNode()->isToBeRemoved()) {
+      it = pins_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  for (auto it = nodes_.begin(); it != nodes_.end();) {
+    if ((*it)->isToBeRemoved()) {
+      odb::dbInst::destroy((*it)->getDbInst());
+      it = nodes_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  inst_to_node_idx_.clear();
+  term_to_node_idx_.clear();
+  for (int i = 0; i < nodes_.size(); i++) {
+    auto node = nodes_[i].get();
+    node->setId(i);
+    if (node->getType() == Node::CELL) {
+      inst_to_node_idx_[node->getDbInst()] = i;
+    } else if (node->getType() == Node::TERMINAL) {
+      term_to_node_idx_[node->getBTerm()] = i;
+    }
+  }
+}
 }  // namespace dpl
