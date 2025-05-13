@@ -23,7 +23,19 @@ void paintInGrid(Grid* grid, Node* node)
   node->adjustCurrOrient(
       pixel->sites.at(node->getDbInst()->getMaster()->getSite()));
 }
-
+void doSwapAction(const SwapPinsAction* swap_action)
+{
+  auto pin1 = swap_action->getPin1();
+  auto pin2 = swap_action->getPin2();
+  auto edge1 = pin1->getEdge();
+  auto edge2 = pin2->getEdge();
+  edge1->removePin(pin1);
+  edge2->removePin(pin2);
+  pin1->setEdge(edge2);
+  pin2->setEdge(edge1);
+  edge1->addPin(pin2);
+  edge2->addPin(pin1);
+}
 };  // namespace
 void Journal::undo(const JournalAction* action, const bool positions_only) const
 {
@@ -88,6 +100,10 @@ void Journal::undo(const JournalAction* action, const bool positions_only) const
 
       break;
     }
+    case JournalActionTypeEnum::SWAP_PINS: {
+      doSwapAction(static_cast<const SwapPinsAction*>(action));
+      break;
+    }
   }
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,6 +150,10 @@ void Journal::redo(const JournalAction* action, const bool positions_only) const
       grid_->erasePixel(node);
       node->setPlaced(false);
       node->setHold(false);
+      break;
+    }
+    case JournalActionTypeEnum::SWAP_PINS: {
+      doSwapAction(static_cast<const SwapPinsAction*>(action));
       break;
     }
     default:

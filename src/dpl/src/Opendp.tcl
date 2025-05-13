@@ -364,4 +364,9 @@ proc disallow_odd_sites { args } {
 
   dpl::disallow_odd_sites_cmd
 }
+
+
+proc optimize_pin_placement {} {
+  dpl::optimize_pin_placement_cmd
+}
 }

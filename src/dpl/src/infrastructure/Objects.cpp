@@ -693,5 +693,22 @@ DbuY Pin::getPinHeight() const
 {
   return pinHeight_;
 }
+void Pin::setDbITerm(odb::dbITerm* term)
+{
+  db_owner_ = term;
+}
+odb::dbITerm* Pin::getDbITerm() const
+{
+  return static_cast<odb::dbITerm*>(db_owner_);
+}
+void Pin::setDbBTerm(odb::dbBTerm* term)
+{
+  db_owner_ = term;
+}
+
+odb::dbBTerm* Pin::getDbBTerm() const
+{
+  return static_cast<odb::dbBTerm*>(db_owner_);
+}
 
 }  // namespace dpl

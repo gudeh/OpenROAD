@@ -178,6 +178,12 @@ void anneal(int max_iterations,
                                 max_displacement_y);
 }
 
+void optimize_pin_placement_cmd()
+{
+  dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->optimizePinPlacement();
+}
+
 } // namespace
 
 %} // inline

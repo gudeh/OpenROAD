@@ -73,7 +73,8 @@ Pin* Network::addPin(odb::dbITerm* term)
   upin->setOffsetY(DbuY{dy});
   upin->setPinHeight(DbuY{hh});
   upin->setPinWidth(DbuX{ww});
-  upin->setPinLayer(0);  // Set to zero since not currently used.
+  upin->setPinLayer(0);    // Set to zero since not currently used.
+  upin->setDbITerm(term);  // Set the database ITerm owner
   pins_.emplace_back(std::move(upin));
   return ptr;
 }
@@ -81,6 +82,7 @@ Pin* Network::addPin(odb::dbBTerm* term)
 {
   auto upin = std::make_unique<Pin>();
   Pin* ptr = upin.get();
+  upin->setDbBTerm(term);  // Set the database BTerm owner
   pins_.emplace_back(std::move(upin));
   return ptr;
 }
