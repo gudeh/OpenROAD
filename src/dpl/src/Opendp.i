@@ -162,6 +162,12 @@ void disallow_odd_sites_cmd()
   opendp->disallowOddSites();
 }
 
+void set_phi_cut_cell_cmd(odb::dbMaster* master)
+{
+  dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setPhiCutCell(master);
+}
+
 void anneal(int max_iterations,
             double initial_temperature,
             float alpha,

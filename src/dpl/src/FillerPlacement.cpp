@@ -285,4 +285,210 @@ bool Opendp::isOneSiteCell(odb::dbMaster* db_master) const
          && db_master->getWidth() == grid_->getSiteWidth();
 }
 
+// Helper function to check if a cell is connected to phi nets
+static bool isPhiCell(const Node* cell)
+{
+  if (!cell || cell->getType() != Node::CELL) {
+    return false;
+  }
+  return !cell->getConnections().empty();
+}
+
+// Helper function to get the phi net ID for a cell
+static int getPhiNetId(const Node* cell)
+{
+  if (!cell || cell->getType() != Node::CELL) {
+    return -1;
+  }
+
+  // Return the first net ID found
+  const auto& connections = cell->getConnections();
+  if (!connections.empty()) {
+    return connections.begin()->second;  // Return the net ID
+  }
+  return -1;
+}
+
+// Helper function to find a valid position for phi cut cell
+static std::optional<std::pair<GridX, GridY>> findPhiCutPosition(
+    Grid* grid,
+    GridX gap_start_x,
+    GridX gap_end_x,
+    GridY gap_start_y,
+    GridY gap_end_y,
+    GridX phi_cut_width,
+    GridY phi_cut_height)
+{
+  // Try each possible position in the gap, prioritizing lower y values
+  for (GridY y = gap_start_y; y <= gap_end_y - phi_cut_height; y++) {
+    for (GridX x = gap_start_x; x <= gap_end_x - phi_cut_width; x++) {
+      // Check if this position is valid (no overlapping cells)
+      bool position_valid = true;
+      for (GridX check_x = x; check_x < x + phi_cut_width && position_valid;
+           check_x++) {
+        for (GridY check_y = y; check_y < y + phi_cut_height && position_valid;
+             check_y++) {
+          Pixel* pixel = grid->gridPixel(check_x, check_y);
+          if (!pixel->is_valid || pixel->cell) {
+            position_valid = false;
+            break;
+          }
+        }
+      }
+      if (position_valid) {
+        return std::make_pair(x, y);
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
+{
+  if (!phi_cut_cell_) {
+    return;
+  }
+
+  const DbuX site_width = grid_->getSiteWidth();
+  GridX row_site_count = grid_->getRowSiteCount();
+  GridX j{0};
+
+  while (j < row_site_count) {
+    Pixel* pixel = grid_->gridPixel(j, row);
+    if (!pixel->is_valid) {
+      ++j;
+      continue;
+    }
+
+    // Find next valid cell
+    Node* curr_cell = pixel->cell;
+
+    if (!curr_cell || !isPhiCell(curr_cell)) {
+      ++j;
+      continue;
+    }
+    if (curr_cell->getBottom() != grid_->gridYToDbu(row)) {
+      ++j;
+      continue;
+    }
+
+    // Find next phi cell
+    Node* next_cell = nullptr;
+    while (++j < row_site_count) {
+      Pixel* next_pixel = grid_->gridPixel(j, row);
+      if (next_pixel->cell) {
+        next_cell = next_pixel->cell;
+        break;
+      }
+    }
+
+    if (!next_cell) {
+      break;  // No more phi cells in this row
+    }
+    if (!isPhiCell(next_cell)) {
+      continue;
+    }
+
+    // Check if cells are on different phi nets
+    int curr_phi_net = getPhiNetId(curr_cell);
+    int next_phi_net = getPhiNetId(next_cell);
+    if (curr_phi_net == -1 || next_phi_net == -1
+        || curr_phi_net == next_phi_net) {
+      continue;
+    }
+    // Calculate gap between cells
+    GridX gap_start_x = grid_->gridEndX(curr_cell);
+    GridX gap_end_x{j};
+    GridX gap_x = gap_end_x - gap_start_x;
+    GridY gap_start_y = std::min(grid_->gridSnapDownY(curr_cell),
+                                 grid_->gridSnapDownY(next_cell));
+    GridY gap_end_y
+        = std::max(grid_->gridEndY(curr_cell), grid_->gridEndY(next_cell));
+
+    // Check if there's enough space for phi cut cell
+    GridX phi_cut_width{phi_cut_cell_->getWidth() / site_width.v};
+    GridY phi_cut_height{grid_->gridHeight(phi_cut_cell_)};
+    if (gap_x < phi_cut_width) {
+      continue;
+    }
+    // Check if there's already a phi cut cell in this gap
+    bool has_phi_cut = false;
+    for (GridX x = gap_start_x; x < gap_end_x; x++) {
+      Pixel* gap_pixel = grid_->gridPixel(x, row);
+      if (gap_pixel->cell && gap_pixel->cell->getMaster()
+          && gap_pixel->cell->getMaster()->getDbMaster() == phi_cut_cell_) {
+        has_phi_cut = true;
+        break;
+      }
+    }
+    if (has_phi_cut) {
+      continue;
+    }
+    // Find a valid position for the phi cut cell
+    auto position = findPhiCutPosition(grid_.get(),
+                                       gap_start_x,
+                                       gap_end_x,
+                                       gap_start_y,
+                                       gap_end_y,
+                                       phi_cut_width,
+                                       phi_cut_height);
+
+    if (position) {
+      auto [best_x, best_y] = *position;
+      // Get site and orientation
+      auto [site, orient] = fillSite(grid_->gridPixel(best_x, best_y));
+
+      // Create and place phi cut cell
+      std::string inst_name = "PHI_CUT_" + std::to_string(phi_cut_count++);
+      dbInst* inst = dbInst::create(block_,
+                                    phi_cut_cell_,
+                                    inst_name.c_str(),
+                                    /* physical_only */ true);
+
+      DbuX x{core_.xMin() + gridToDbu(best_x, site_width)};
+      DbuY y{core_.yMin() + grid_->gridYToDbu(best_y)};
+      inst->setOrient(orient);
+      inst->setLocation(x.v, y.v);
+      inst->setPlacementStatus(dbPlacementStatus::PLACED);
+      inst->setSourceType(odb::dbSourceType::DIST);
+
+      // Update grid
+      network_->addNode(inst);
+      auto& node = network_->getNodes().back();
+      grid_->paintPixel(node.get());
+    } else {
+      logger_->error(
+          DPL,
+          53,
+          "No valid position found for phi cut cell between {} and {}",
+          curr_cell->name(),
+          next_cell->name());
+    }
+  }
+}
+
+void Opendp::placePhiCutCells()
+{
+  if (!phi_cut_cell_) {
+    return;
+  }
+
+  if (network_->getNumCells() == 0) {
+    importDb();
+    adjustNodesOrient();
+  }
+
+  initGrid();
+  setGridCells();
+
+  network_->addMaster(phi_cut_cell_, grid_.get(), drc_engine_.get());
+  int phi_cut_count = 0;
+  for (GridY row{0}; row < grid_->getRowCount(); row++) {
+    placeRowPhiCutCells(row, phi_cut_count);
+  }
+
+  if (phi_cut_count > 0) {
+    logger_->info(DPL, 52, "Placed {} phi cut cells.", phi_cut_count);
+  }
+}
 }  // namespace dpl

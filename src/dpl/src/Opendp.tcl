@@ -364,4 +364,20 @@ proc disallow_odd_sites { args } {
 
   dpl::disallow_odd_sites_cmd
 }
+
+sta::define_cmd_args "set_phi_cut_cell" { cell_name }
+
+proc set_phi_cut_cell { args } {
+  sta::parse_key_args "set_phi_cut_cell" args keys {} flags {}
+  sta::check_argc_eq1 "set_phi_cut_cell" $args
+
+  set cell_name [lindex $args 0]
+  set db [ord::get_db]
+  set master [$db findMaster $cell_name]
+  if { $master == "NULL" } {
+    utl::error DPL 107 "Cell $cell_name not found."
+  }
+
+  dpl::set_phi_cut_cell_cmd $master
+}
 }
