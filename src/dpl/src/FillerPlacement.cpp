@@ -504,6 +504,33 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
       inst->setPlacementStatus(dbPlacementStatus::PLACED);
       inst->setSourceType(odb::dbSourceType::DIST);
 
+      auto left_phi_net = odb::dbNet::getNet(block_, curr_phi_net);
+      auto right_phi_net = odb::dbNet::getNet(block_, next_phi_net);
+      if (left_phi_net && right_phi_net) {
+        auto left_phi_iterm = inst->findITerm("phil");
+        auto right_phi_iterm = inst->findITerm("phir");
+        if (left_phi_iterm && right_phi_iterm) {
+          left_phi_iterm->connect(left_phi_net);
+          right_phi_iterm->connect(right_phi_net);
+        } else {
+          logger_->warn(DPL,
+                        57,
+                        "Phi cut cell {} has no phil or phir iterms.",
+                        inst->getName());
+        }
+      }
+      for (auto iterm : inst->getITerms()) {
+        const std::string iterm_name = iterm->getMTerm()->getName();
+        if (iterm_name.find("phi", 0) == 0) {
+          // skip phi pins
+          continue;
+        }
+        auto net = block_->findNet(iterm_name.c_str());
+        if (net) {
+          iterm->connect(net);
+        }
+      }
+
       // Update grid
       network_->addNode(inst);
       auto& node = network_->getNodes().back();
