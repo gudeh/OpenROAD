@@ -62,6 +62,9 @@ void Opendp::initPlacementDRC()
   if (disallow_odd_sites_) {
     drc_engine_->disallowOddSites();
   }
+  if (phi_cut_cell_) {
+    drc_engine_->setPhiSpacing(DbuX{(int) phi_cut_cell_->getWidth()});
+  }
 }
 
 static bool swapWidthHeight(const dbOrientType& orient)

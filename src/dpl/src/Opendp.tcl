@@ -369,4 +369,45 @@ proc disallow_odd_sites { args } {
 proc optimize_pin_placement { } {
   dpl::optimize_pin_placement_cmd
 }
+
+sta::define_cmd_args "set_phi_cut_cell" { cell_name }
+
+proc set_phi_cut_cell { args } {
+  sta::parse_key_args "set_phi_cut_cell" args keys {} flags {}
+  sta::check_argc_eq1 "set_phi_cut_cell" $args
+
+  set cell_name [lindex $args 0]
+  set db [ord::get_db]
+  set master [$db findMaster $cell_name]
+  if { $master == "NULL" } {
+    utl::error DPL 107 "Cell $cell_name not found."
+  }
+
+  dpl::set_phi_cut_cell_cmd $master
+}
+
+sta::define_cmd_args "place_cut_phi_cells" {}
+
+proc place_cut_phi_cells { args } {
+  sta::parse_key_args "place_cut_phi_cells" args keys {} flags {}
+  sta::check_argc_eq0 "place_cut_phi_cells" $args
+
+  dpl::place_cut_phi_cells_cmd
+}
+
+sta::define_cmd_args "set_tap_phi_cell" { cell_name }
+
+proc set_tap_phi_cell { args } {
+  sta::parse_key_args "set_tap_phi_cell" args keys {} flags {}
+  sta::check_argc_eq1 "set_tap_phi_cell" $args
+
+  set cell_name [lindex $args 0]
+  set db [ord::get_db]
+  set master [$db findMaster $cell_name]
+  if { $master == "NULL" } {
+    utl::error DPL 108 "Cell $cell_name not found."
+  }
+
+  dpl::set_tap_phi_cell_cmd $master
+}
 }

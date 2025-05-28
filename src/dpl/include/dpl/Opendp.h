@@ -139,6 +139,8 @@ class Opendp
   void setJournal(Journal* journal);
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
+  void setPhiCutCell(dbMaster* master) { phi_cut_cell_ = master; }
+  void setTapPhiCell(dbMaster* master) { tap_phi_cell_ = master; }
 
   void importDb();
   bool mapMove(Node* cell);
@@ -153,6 +155,7 @@ class Opendp
                              int seed,
                              int max_displacement_x,
                              int max_displacement_y);
+  void placePhiCutCells();
 
   void optimizePinPlacement();
 
@@ -299,6 +302,7 @@ class Opendp
   void placeRowFillers(GridY row,
                        const std::string& prefix,
                        const MasterByImplant& filler_masters);
+  void placeRowPhiCutCells(GridY row, int& phi_cut_count);
   std::pair<odb::dbSite*, odb::dbOrientType> fillSite(Pixel* pixel);
   static bool isFiller(odb::dbInst* db_inst);
   bool isOneSiteCell(odb::dbMaster* db_master) const;
@@ -372,6 +376,9 @@ class Opendp
   static constexpr double group_refine_percent_ = .05;
   static constexpr double refine_percent_ = .02;
   static constexpr int rand_seed_ = 777;
+
+  dbMaster* phi_cut_cell_{nullptr};
+  dbMaster* tap_phi_cell_{nullptr};
 };
 
 int divRound(int dividend, int divisor);

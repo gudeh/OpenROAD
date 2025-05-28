@@ -53,6 +53,11 @@ class PlacementDRC
                         const GridX x,
                         const GridY y,
                         const odb::dbOrientType& orient) const;
+  bool checkPhiSpacing(const Node* cell) const;
+  bool checkPhiSpacing(const Node* cell,
+                       GridX x,
+                       GridY y,
+                       const odb::dbOrientType& orient) const;
   bool checkColoring(const Node* cell,
                      GridX x,
                      GridY y,
@@ -68,6 +73,11 @@ class PlacementDRC
   int getMaxSpacing(int edge_type_idx) const;
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
+  void setPhiSpacing(DbuX phi_spacing) { phi_spacing_ = phi_spacing; }
+  DbuX getPhiSpacing() const { return phi_spacing_; }
+
+  // Set phi cut cell and update phi spacing
+  void setPhiCutCell(const std::string& cell_name);
 
  private:
   // Member variables
@@ -79,6 +89,7 @@ class PlacementDRC
   std::map<int, std::vector<EolSpacingEntry>> eol_spacing_rules_;
   // TODO: remove this
   bool disallow_odd_sites_ = false;
+  DbuX phi_spacing_{0};
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;
