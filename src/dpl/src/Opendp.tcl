@@ -210,7 +210,7 @@ sta::define_cmd_args "swap_cells_anneal" {\
 
 proc swap_cells_anneal { args } {
   sta::parse_key_args "swap_cells_anneal" args \
-  keys {-max_iterations -initial_temperature -alpha -seed -max_displacement} flags {}
+    keys {-max_iterations -initial_temperature -alpha -seed -max_displacement} flags {}
 
   set max_iterations 1000
   if { [info exists keys(-max_iterations)] } {
@@ -366,7 +366,7 @@ proc disallow_odd_sites { args } {
 }
 
 
-proc optimize_pin_placement {} {
+proc optimize_pin_placement { } {
   dpl::optimize_pin_placement_cmd
 }
 }
