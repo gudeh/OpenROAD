@@ -281,6 +281,10 @@ class Pin
   DbuX getPinWidth() const;
   void setPinHeight(DbuY height);
   DbuY getPinHeight() const;
+  void setDbITerm(odb::dbITerm* iterm);
+  odb::dbITerm* getDbITerm() const;
+  void setDbBTerm(odb::dbBTerm* bterm);
+  odb::dbBTerm* getDbBTerm() const;
 
  private:
   // Pin width and height.
@@ -296,6 +300,7 @@ class Pin
   // Offsets from cell center.
   DbuX offsetX_{0};
   DbuY offsetY_{0};
+  void* db_owner_{nullptr};
 };
 
 }  // namespace dpl
