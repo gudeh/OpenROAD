@@ -337,7 +337,7 @@ void Annealer::start()
     std::vector<int> sub_group;
     if (generate_neighbor(group_idx, sub_group)) {
       auto delta_cost = hpwl_evaluator_->delta(*journal_);
-      if (accept(-delta_cost)) {  // accept the new configuration
+      if (accept(-delta_cost)) {
         hpwl_evaluator_->accept();
         // accept the new configuration
         current_cost_ -= delta_cost;
@@ -424,6 +424,7 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
 
 bool Annealer::accept(double delta_cost)
 {
+  // delta_cost = new_wl - old_wl
   const float num = distribution_(generator_);
   const float prob
       = (delta_cost > 0.0) ? std::exp((-1) * delta_cost / temperature_) : 1;

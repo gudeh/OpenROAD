@@ -157,6 +157,8 @@ class Opendp
                              int max_displacement_y);
   void placePhiCutCells();
 
+  void optimizePinPlacement();
+
  private:
   using bgPoint
       = boost::geometry::model::d2::point_xy<int,
