@@ -140,6 +140,7 @@ class Opendp
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
   void setPhiCutCell(dbMaster* master) { phi_cut_cell_ = master; }
+  void setTapPhiCell(dbMaster* master) { tap_phi_cell_ = master; }
 
   void importDb();
   bool mapMove(Node* cell);
@@ -375,6 +376,7 @@ class Opendp
   static constexpr int rand_seed_ = 777;
 
   dbMaster* phi_cut_cell_{nullptr};
+  dbMaster* tap_phi_cell_{nullptr};
 };
 
 int divRound(int dividend, int divisor);

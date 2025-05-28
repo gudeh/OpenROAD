@@ -343,6 +343,41 @@ static std::optional<std::pair<GridX, GridY>> findPhiCutPosition(
   return std::nullopt;
 }
 
+// Helper function to safely swap a cell's master
+static void swapCellMaster(Node* node, dbMaster* new_master, dbBlock* block)
+{
+  dbInst* old_inst = node->getDbInst();
+  if (!old_inst || !new_master) {
+    return;
+  }
+
+  // Save old instance properties
+  std::string inst_name = old_inst->getName();
+  dbOrientType orient = old_inst->getOrient();
+  int x = old_inst->getLocation().x();
+  int y = old_inst->getLocation().y();
+  dbPlacementStatus placement_status = old_inst->getPlacementStatus();
+  odb::dbSourceType source_type = old_inst->getSourceType();
+
+  // Delete old instance
+  dbInst::destroy(old_inst);
+
+  // Create new instance with the desired master at the same position
+  dbInst* new_inst = dbInst::create(block,
+                                    new_master,
+                                    inst_name.c_str(),
+                                    /* physical_only */ true);
+
+  // Restore properties
+  new_inst->setOrient(orient);
+  new_inst->setLocation(x, y);
+  new_inst->setPlacementStatus(placement_status);
+  new_inst->setSourceType(source_type);
+
+  // Update node's instance pointer
+  node->setDbInst(new_inst);
+}
+
 void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
 {
   if (!phi_cut_cell_) {
@@ -374,10 +409,21 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
 
     // Find next phi cell
     Node* next_cell = nullptr;
+    Node* next_welltap = nullptr;
     while (++j < row_site_count) {
       Pixel* next_pixel = grid_->gridPixel(j, row);
       if (next_pixel->cell) {
-        next_cell = next_pixel->cell;
+        auto cell = next_pixel->cell;
+        if (cell->getMaster()->getDbMaster() == phi_cut_cell_) {
+          // cut cell already exists.
+          next_cell = nullptr;
+          break;
+        } else if (cell->getMaster()->getDbMaster()->getType()
+                   == odb::dbMasterType::CORE_WELLTAP) {
+          next_welltap = cell;
+          continue;
+        }
+        next_cell = cell;
         break;
       }
     }
@@ -396,6 +442,12 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
         || curr_phi_net == next_phi_net) {
       continue;
     }
+    if (next_welltap) {
+      if (tap_phi_cell_) {
+        swapCellMaster(next_welltap, tap_phi_cell_, block_);
+      }
+      continue;
+    }
     // Calculate gap between cells
     GridX gap_start_x = grid_->gridEndX(curr_cell);
     GridX gap_end_x{j};
@@ -406,7 +458,7 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
         = std::max(grid_->gridEndY(curr_cell), grid_->gridEndY(next_cell));
 
     // Check if there's enough space for phi cut cell
-    GridX phi_cut_width{phi_cut_cell_->getWidth() / site_width.v};
+    GridX phi_cut_width{(int) phi_cut_cell_->getWidth() / site_width.v};
     GridY phi_cut_height{grid_->gridHeight(phi_cut_cell_)};
     if (gap_x < phi_cut_width) {
       continue;

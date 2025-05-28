@@ -412,26 +412,29 @@ bool PlacementDRC::checkPhiSpacing(const Node* cell,
   const GridX phi_cut_width = grid_->gridX(phi_spacing_);
   const GridX begin_x = x - phi_cut_width;
   const GridX end_x = x + grid_->gridPaddedWidth(cell) + phi_cut_width;
-
+  const GridY end_y = y + grid_->gridHeight(cell);
   std::set<Node*> checked_cells;
-  for (GridX xi = begin_x; xi < end_x; xi++) {
-    const Pixel* pixel = grid_->gridPixel(xi, y);
-    if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
-      // Skip if pixel is empty or occupied only by the current cell
-      continue;
-    }
+  for (GridY yi = y; yi < end_y; yi++) {
+    for (GridX xi = begin_x; xi < end_x; xi++) {
+      const Pixel* pixel = grid_->gridPixel(xi, yi);
+      if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
+        // Skip if pixel is empty or occupied only by the current cell
+        continue;
+      }
 
-    auto cell2 = static_cast<Node*>(pixel->cell);
-    if (checked_cells.find(cell2) != checked_cells.end()) {
-      // Skip if cell was already checked
-      continue;
-    }
-    checked_cells.insert(cell2);
+      auto cell2 = static_cast<Node*>(pixel->cell);
 
-    for (auto [_, net1_idx] : cell->getConnections()) {
-      for (auto [_, net2_idx] : cell2->getConnections()) {
-        if (net1_idx != net2_idx) {
-          return false;
+      if (checked_cells.find(cell2) != checked_cells.end()) {
+        // Skip if cell was already checked
+        continue;
+      }
+      checked_cells.insert(cell2);
+
+      for (auto [_, net1_idx] : cell->getConnections()) {
+        for (auto [_, net2_idx] : cell2->getConnections()) {
+          if (net1_idx != net2_idx) {
+            return false;
+          }
         }
       }
     }

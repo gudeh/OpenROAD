@@ -153,8 +153,6 @@ void Opendp::improvePlacement(const int seed,
   const double hpwl_delta = (hpwlAfter - hpwlBefore) / (double) hpwlBefore;
   logger_->report("Delta HPWL            {:10.1f} %", hpwl_delta * 100);
   logger_->report("");
-
-  placePhiCutCells();
 }
 
 ////////////////////////////////////////////////////////////////
