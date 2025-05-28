@@ -1101,8 +1101,10 @@ void DetailedMgr::collectFixedCells()
   // Insert fixed items, shapes AND macrocells.
   for (int i = 0; i < network_->getNumNodes(); i++) {
     Node* nd = network_->getNode(i);
-
     if (nd->isFixed()) {
+      if (nd->isStdCell()) {
+        paintInGrid(nd);
+      }
       fixedCells_.push_back(nd);
     }
   }
