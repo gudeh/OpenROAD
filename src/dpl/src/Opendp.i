@@ -180,6 +180,12 @@ void set_tap_phi_cell_cmd(odb::dbMaster* master)
   opendp->setTapPhiCell(master);
 }
 
+void set_cells_file_cmd(const char* cells_file)
+{
+  dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setCellsFile(std::string(cells_file));
+}
+
 void anneal(int max_iterations,
             double initial_temperature,
             float alpha,

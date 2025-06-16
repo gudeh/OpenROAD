@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2021-2025, The OpenROAD Authors
+
 #include "pin_swapper.h"
 
 #include <map>
@@ -13,20 +14,6 @@
 #include "utl/Logger.h"
 
 namespace dpl {
-namespace {
-bool startsWith(const std::string& str, const std::string& prefix)
-{
-  return str.find(prefix, 0) == 0;
-}
-int extractPinIdx(const std::string& str, const std::string& prefix)
-{
-  auto idx = str.substr(prefix.size());
-  if (idx.empty()) {
-    return 1;
-  }
-  return std::stoi(idx);
-}
-}  // namespace
 PinSwapper::PinSwapper(utl::Logger* logger,
                        Network* network,
                        odb::dbDatabase* db)
@@ -54,21 +41,44 @@ PinSwapper::Swap PinSwapper::swapPins(Pin* pin1, Pin* pin2)
   return std::make_pair(pin1, pin2);
 }
 
-PinSwapper::SwapGroup PinSwapper::swapPins(const std::vector<Pin*>& pins1,
-                                           const std::vector<Pin*>& pins2)
+bool PinSwapper::swapPins(const std::vector<Pin*>& pins1,
+                          const std::vector<Pin*>& pins2)
 {
+  journal_->clearJournal();
   SwapGroup swaps;
   // swap pins
   for (size_t i = 0; i < pins1.size(); ++i) {
     swaps.push_back(swapPins(pins1[i], pins2[i]));
   }
-  return swaps;
+  auto delta_cost = hpwl_evaluator_->delta(*journal_);
+  if (accept(-delta_cost)) {
+    count_++;
+    hpwl_evaluator_->accept();
+    current_cost_ -= delta_cost;
+    if (current_cost_ < best_cost_) {
+      best_cost_ = current_cost_;
+    }
+    for (const auto& swap : swaps) {
+      auto iterm1 = swap.first->getDbITerm();
+      auto iterm2 = swap.second->getDbITerm();
+      auto net1 = iterm1->getNet();
+      auto net2 = iterm2->getNet();
+      iterm1->disconnect();
+      iterm2->disconnect();
+      iterm1->connect(net2);
+      iterm2->connect(net1);
+    }
+    return true;
+  }
+  journal_->undoAll();
+  return false;
 }
 
-void PinSwapper::swapPins(Node* node)
+bool PinSwapper::optimizeBitPlacement(Node* node)
 {
+  bool change = false;
   auto function = node->getMaster()->getFunction();
-  auto swappable_pins = function->getFunctionPins();
+  auto swappable_pins = function->getMultibitPinMap();
 
   // Map to temporarily store pins by their index
   std::map<int, std::vector<Pin*>> index_to_pins;
@@ -79,10 +89,10 @@ void PinSwapper::swapPins(Node* node)
       std::string pin_name = iterm->getMTerm()->getName();
 
       // Check if this pin matches any of our patterns
-      for (const auto& pattern : swappable_pins) {
-        if (startsWith(pin_name, pattern)) {
+      for (const auto& [single_bit, pattern] : swappable_pins) {
+        if (Utility::match(pin_name, pattern)) {
           // Extract the index number from the pin name
-          int idx = extractPinIdx(pin_name, pattern);
+          int idx = Utility::extractPinIdx(pin_name, pattern);
           // Store pin in the corresponding index group
           index_to_pins[idx].push_back(pin);
           break;  // Found the matching pattern, no need to check others
@@ -111,32 +121,74 @@ void PinSwapper::swapPins(Node* node)
         if (i == j) {
           continue;
         }
-        journal_->clearJournal();
-        auto swaps = swapPins(pin_groups[i], pin_groups[j]);
-        auto delta_cost = hpwl_evaluator_->delta(*journal_);
-        if (accept(-delta_cost)) {
-          count_++;
-          hpwl_evaluator_->accept();
-          current_cost_ -= delta_cost;
-          if (current_cost_ < best_cost_) {
-            best_cost_ = current_cost_;
-          }
-          for (const auto& swap : swaps) {
-            auto iterm1 = swap.first->getDbITerm();
-            auto iterm2 = swap.second->getDbITerm();
-            auto net1 = iterm1->getNet();
-            auto net2 = iterm2->getNet();
-            iterm1->disconnect();
-            iterm2->disconnect();
-            iterm1->connect(net2);
-            iterm2->connect(net1);
-          }
-        } else {
-          journal_->undoAll();
-        }
+        change |= swapPins(pin_groups[i], pin_groups[j]);
       }
     }
   }
+  return change;
+}
+
+bool PinSwapper::optimizePinSwaps(Node* node)
+{
+  auto master = node->getMaster();
+  auto pin_swaps = master->getPinSwaps();
+  bool change = false;
+  for (int current_bit = master->getLsb(); current_bit <= master->getMsb();
+       current_bit++) {
+    for (const auto& swap_group : pin_swaps) {
+      std::vector<std::vector<Pin*>> pin_groups(2);
+      for (const auto& [pin1_name, pin2_name] : swap_group) {
+        auto pin1 = node->getPin(Utility::getPinName(pin1_name, current_bit));
+        auto pin2 = node->getPin(Utility::getPinName(pin2_name, current_bit));
+        pin_groups[0].push_back(pin1);
+        pin_groups[1].push_back(pin2);
+      }
+      change |= swapPins(pin_groups[0], pin_groups[1]);
+    }
+  }
+  return change;
+}
+
+bool PinSwapper::optimizePinPermutes(Node* node)
+{
+  bool change = false;
+  auto master = node->getMaster();
+  auto pin_permutes = master->getPinPermutes();
+  for (int current_bit = master->getLsb(); current_bit <= master->getMsb();
+       current_bit++) {
+    std::vector<Pin*> base_pins;
+    for (const auto& pin_name : pin_permutes[0]) {
+      base_pins.push_back(
+          node->getPin(Utility::getPinName(pin_name, current_bit)));
+    }
+    for (int permute = 1; permute < pin_permutes.size(); permute++) {
+      std::vector<Pin*> swap_pins;
+      for (const auto& pin_name : pin_permutes[permute]) {
+        swap_pins.push_back(
+            node->getPin(Utility::getPinName(pin_name, current_bit)));
+      }
+      std::vector<std::vector<Pin*>> pin_groups(2);
+      std::set<std::pair<Pin*, Pin*>> pin_set;
+      for (int i = 0; i < base_pins.size(); i++) {
+        auto pin1 = base_pins[i];
+        auto pin2 = swap_pins[i];
+        if (pin1 == pin2) {
+          continue;
+        }
+        if (pin1->getDbITerm()->getMTerm()->getName()
+            > pin2->getDbITerm()->getMTerm()->getName()) {
+          std::swap(pin1, pin2);
+        }
+        pin_set.insert(std::make_pair(pin1, pin2));
+      }
+      for (const auto& [pin1, pin2] : pin_set) {
+        pin_groups[0].push_back(pin1);
+        pin_groups[1].push_back(pin2);
+      }
+      change |= swapPins(pin_groups[0], pin_groups[1]);
+    }
+  }
+  return change;
 }
 
 bool PinSwapper::accept(double delta_cost)
@@ -150,14 +202,20 @@ void PinSwapper::start()
     if (!node->isStdCell()) {
       continue;
     }
-    if (node->getMaster()->getFunction() == nullptr) {
-      continue;
-    }
-    if (node->getMaster()->getFunctionBits() <= 1) {
-      continue;
-    }
-    swapPins(node.get());
-    nodes_.push_back(node.get());
+    // brute force optimization on each node
+    bool change;
+    do {
+      change = false;
+      if (node->getMaster()->isMultibit()) {
+        change |= optimizeBitPlacement(node.get());
+      }
+      if (node->getMaster()->hasPinSwaps()) {
+        change |= optimizePinSwaps(node.get());
+      }
+      if (node->getMaster()->hasPinPermutes()) {
+        change |= optimizePinPermutes(node.get());
+      }
+    } while (change);
   }
   logger_->report("Pin swapper found {} improvements", count_);
   delete journal_;

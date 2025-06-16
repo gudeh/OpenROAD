@@ -482,6 +482,21 @@ void Opendp::groupInitPixels()
   }
 }
 
+void Opendp::setTapPhiCell(dbMaster* master)
+{
+  tap_phi_cell_ = master;
+}
+
+void Opendp::setPhiCutCell(dbMaster* master)
+{
+  phi_cut_cell_ = master;
+}
+
+void Opendp::setCellsFile(const std::string& cells_file)
+{
+  cells_file_ = cells_file;
+}
+
 int divRound(const int dividend, const int divisor)
 {
   return round(static_cast<double>(dividend) / divisor);

@@ -104,5 +104,54 @@ uint64_t Utility::hpwl(const Edge* ed, uint64_t& hpwlx, uint64_t& hpwly)
   hpwly = box.dy();
   return hpwlx + hpwly;
 }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+bool Utility::match(const std::string& str, const std::string& pattern)
+{
+  // Convert the pattern to a regex pattern
+  // Replace {#} with \d+ (one or more digits)
+  std::string regex_pattern = pattern;
+  size_t pos = regex_pattern.find("{#}");
+  if (pos != std::string::npos) {
+    regex_pattern.replace(pos, 3, "\\d+");
+  }
+  // Create regex object and match
+  std::regex re(regex_pattern);
+  return std::regex_match(str, re);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+int Utility::extractPinIdx(const std::string& pin_name,
+                           const std::string& pattern)
+{
+  // Convert pattern to regex pattern by replacing {#} with capture group for
+  // digits
+  std::string regex_pattern = pattern;
+  size_t pos = regex_pattern.find("{#}");
+  if (pos != std::string::npos) {
+    regex_pattern.replace(pos, 3, "(\\d+)");  // Capture the digits
+  }
+
+  std::regex re(regex_pattern);
+  std::smatch match;
+  if (std::regex_match(pin_name, match, re) && match.size() > 1) {
+    return std::stoi(match[1].str());  // Return the captured digits
+  }
+  return -1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+std::string Utility::getPinName(const std::string& pattern, int idx)
+{
+  // Replace {#} with the actual index
+  std::string result = pattern;
+  size_t pos = result.find("{#}");
+  if (pos != std::string::npos) {
+    result.replace(pos, 3, std::to_string(idx));
+  }
+  return result;
+}
 
 }  // namespace dpl

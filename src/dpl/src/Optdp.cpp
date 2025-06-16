@@ -11,8 +11,51 @@
 #include "optimization/detailed.h"
 #include "optimization/detailed_manager.h"
 #include "optimization/pin_swapper.h"
+#include "util/CellParser.h"
+
 namespace dpl {
 
+////////////////////////////////////////////////////////////////
+void Opendp::parseCells(const std::string& cells_file)
+{
+  CellParser cell_parser;
+  auto cells = cell_parser.parse(cells_file);
+  // first create needed functions
+  for (const auto& [name, config] : cells) {
+    if (config.multibitMap) {
+      if (network_->getMasterFunction(config.function) != nullptr) {
+        continue;
+      }
+      MasterFunction* function = network_->addMasterFunction(config.function);
+      for (const auto& [single_bit, pattern] : config.multibitMap->pinMap) {
+        function->addMultibitPinEntry(single_bit, pattern);
+      }
+    }
+  }
+  for (const auto& [name, config] : cells) {
+    auto db_master = db_->findMaster(name.c_str());
+    if (db_master == nullptr) {
+      continue;
+    }
+    auto master
+        = network_->addMaster(db_master, grid_.get(), drc_engine_.get());
+    if (config.pinSwaps) {
+      master->setPinSwaps(config.pinSwaps.value());
+    }
+    if (config.pinPermutes) {
+      master->setPinPermutes(config.pinPermutes.value());
+    }
+    auto function = network_->getMasterFunction(config.function);
+    if (function == nullptr) {
+      continue;
+    }
+    if (config.multibitMap) {
+      master->setLsb(config.multibitMap->LSb);
+      master->setMsb(config.multibitMap->MSb);
+    }
+    master->setFunction(function);
+  }
+}
 ////////////////////////////////////////////////////////////////
 void Opendp::runSimulatedAnnealing(int max_iterations,
                                    double initial_temperature,
@@ -25,6 +68,7 @@ void Opendp::runSimulatedAnnealing(int max_iterations,
   odb::WireLengthEvaluator eval(db_->getChip()->getBlock());
   const int64_t hpwlBefore = eval.hpwl();
   importDb();
+  parseCells(cells_file_);
   adjustNodesOrient();
   initGrid();
   DetailedMgr mgr(arch_.get(), network_.get(), grid_.get(), drc_engine_.get());
@@ -35,33 +79,6 @@ void Opendp::runSimulatedAnnealing(int max_iterations,
   ShiftLegalizer lg;
   lg.legalize(mgr);
   Annealer annealer(logger_, this, network_.get(), db_);
-  {
-    MasterFunction* function
-        = network_->addMasterFunction("shift", {"ip", "zp", "zn"});
-    Master* temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(2);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(4);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(8);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(16);
-    temp_master->setFunction(function);
-  }
   annealer.set_sa_parameters(initial_temperature, alpha, max_iterations, seed);
   annealer.start();
   network_->removeMarkedNodes();
@@ -84,6 +101,7 @@ void Opendp::optimizePinPlacement()
   odb::WireLengthEvaluator eval(db_->getChip()->getBlock());
   const int64_t hpwlBefore = eval.hpwl();
   importDb();
+  parseCells(cells_file_);
   adjustNodesOrient();
   initGrid();
   DetailedMgr mgr(arch_.get(), network_.get(), grid_.get(), drc_engine_.get());
@@ -93,33 +111,6 @@ void Opendp::optimizePinPlacement()
   mgr.setDisallowOneSiteGaps(false);
   ShiftLegalizer lg;
   lg.legalize(mgr);
-  {
-    MasterFunction* function
-        = network_->addMasterFunction("shift", {"ip", "zp", "zn"});
-    Master* temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_1x1"), grid_.get(), drc_engine_.get());
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(2);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(4);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(8);
-    temp_master->setFunction(function);
-    temp_master = network_->addMaster(
-        db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
-    temp_master->setLsb(1);
-    temp_master->setMsb(16);
-    temp_master->setFunction(function);
-  }
   PinSwapper pin_swapper(logger_, network_.get(), db_);
   pin_swapper.start();
 

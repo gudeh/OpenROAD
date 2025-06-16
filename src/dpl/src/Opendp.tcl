@@ -200,6 +200,14 @@ proc improve_placement { args } {
   dpl::improve_placement_cmd $seed $max_displacement_x $max_displacement_y
 }
 
+sta::define_cmd_args "set_cells_file" { cells_file }
+
+proc set_cells_file { args } {
+  sta::parse_key_args "set_cells_file" args keys {} flags {}
+  sta::check_argc_eq1 "set_cells_file" $args
+  dpl::set_cells_file_cmd [lindex $args 0]
+}
+
 sta::define_cmd_args "swap_cells_anneal" {\
   [-max_iterations iterations]\
   [-initial_temperature temperature]\
@@ -207,7 +215,6 @@ sta::define_cmd_args "swap_cells_anneal" {\
   [-seed seed]\
   [-max_displacement disp|{disp_x disp_y}]
 }
-
 proc swap_cells_anneal { args } {
   sta::parse_key_args "swap_cells_anneal" args \
     keys {-max_iterations -initial_temperature -alpha -seed -max_displacement} flags {}
@@ -257,6 +264,65 @@ proc swap_cells_anneal { args } {
   sta::check_argc_eq0 "swap_cells_anneal" $args
   dpl::anneal $max_iterations $initial_temperature $alpha $seed \
     $max_displacement_x $max_displacement_y
+}
+
+sta::define_cmd_args "optimize_pin_placement" { }
+proc optimize_pin_placement { } {
+  dpl::optimize_pin_placement_cmd
+}
+
+sta::define_cmd_args "set_phi_cut_cell" { cell_name }
+
+proc set_phi_cut_cell { args } {
+  sta::parse_key_args "set_phi_cut_cell" args keys {} flags {}
+  sta::check_argc_eq1 "set_phi_cut_cell" $args
+
+  set cell_name [lindex $args 0]
+  set db [ord::get_db]
+  set master [$db findMaster $cell_name]
+  if { $master == "NULL" } {
+    utl::error DPL 107 "Cell $cell_name not found."
+  }
+
+  dpl::set_phi_cut_cell_cmd $master
+}
+
+sta::define_cmd_args "place_cut_phi_cells" {}
+
+proc place_cut_phi_cells { args } {
+  sta::parse_key_args "place_cut_phi_cells" args keys {} flags {}
+  sta::check_argc_eq0 "place_cut_phi_cells" $args
+
+  dpl::place_cut_phi_cells_cmd
+}
+
+sta::define_cmd_args "set_tap_phi_cell" { cell_name }
+
+proc set_tap_phi_cell { args } {
+  sta::parse_key_args "set_tap_phi_cell" args keys {} flags {}
+  sta::check_argc_eq1 "set_tap_phi_cell" $args
+
+  set cell_name [lindex $args 0]
+  set db [ord::get_db]
+  set master [$db findMaster $cell_name]
+  if { $master == "NULL" } {
+    utl::error DPL 108 "Cell $cell_name not found."
+  }
+
+  dpl::set_tap_phi_cell_cmd $master
+}
+# TODO: remove this command
+sta::define_cmd_args "disallow_odd_sites" {}
+
+proc disallow_odd_sites { args } {
+  sta::parse_key_args "disallow_odd_sites" args keys {} flags {}
+  sta::check_argc_eq0 "disallow_odd_sites" $args
+
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 106 "No design block found."
+  }
+
+  dpl::disallow_odd_sites_cmd
 }
 
 namespace eval dpl {
@@ -350,64 +416,5 @@ proc format_grid { x w } {
 
 proc get_row_site { } {
   return [[lindex [[ord::get_db_block] getRows] 0] getSite]
-}
-# TODO: remove this command
-sta::define_cmd_args "disallow_odd_sites" {}
-
-proc disallow_odd_sites { args } {
-  sta::parse_key_args "disallow_odd_sites" args keys {} flags {}
-  sta::check_argc_eq0 "disallow_odd_sites" $args
-
-  if { [ord::get_db_block] == "NULL" } {
-    utl::error DPL 106 "No design block found."
-  }
-
-  dpl::disallow_odd_sites_cmd
-}
-
-
-proc optimize_pin_placement { } {
-  dpl::optimize_pin_placement_cmd
-}
-
-sta::define_cmd_args "set_phi_cut_cell" { cell_name }
-
-proc set_phi_cut_cell { args } {
-  sta::parse_key_args "set_phi_cut_cell" args keys {} flags {}
-  sta::check_argc_eq1 "set_phi_cut_cell" $args
-
-  set cell_name [lindex $args 0]
-  set db [ord::get_db]
-  set master [$db findMaster $cell_name]
-  if { $master == "NULL" } {
-    utl::error DPL 107 "Cell $cell_name not found."
-  }
-
-  dpl::set_phi_cut_cell_cmd $master
-}
-
-sta::define_cmd_args "place_cut_phi_cells" {}
-
-proc place_cut_phi_cells { args } {
-  sta::parse_key_args "place_cut_phi_cells" args keys {} flags {}
-  sta::check_argc_eq0 "place_cut_phi_cells" $args
-
-  dpl::place_cut_phi_cells_cmd
-}
-
-sta::define_cmd_args "set_tap_phi_cell" { cell_name }
-
-proc set_tap_phi_cell { args } {
-  sta::parse_key_args "set_tap_phi_cell" args keys {} flags {}
-  sta::check_argc_eq1 "set_tap_phi_cell" $args
-
-  set cell_name [lindex $args 0]
-  set db [ord::get_db]
-  set master [$db findMaster $cell_name]
-  if { $master == "NULL" } {
-    utl::error DPL 108 "Cell $cell_name not found."
-  }
-
-  dpl::set_tap_phi_cell_cmd $master
 }
 }

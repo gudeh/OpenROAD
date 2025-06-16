@@ -41,6 +41,12 @@ class Utility
   static uint64_t hpwl(const Network* nw, uint64_t& hpwlx, uint64_t& hpwly);
   static uint64_t hpwl(const Edge* ed);
   static uint64_t hpwl(const Edge*, uint64_t& hpwlx, uint64_t& hpwly);
+
+  // string utilities
+  static bool match(const std::string& str, const std::string& pattern);
+  static int extractPinIdx(const std::string& pin_name,
+                           const std::string& pattern);
+  static std::string getPinName(const std::string& pattern, int idx);
 };
 
 }  // namespace dpl

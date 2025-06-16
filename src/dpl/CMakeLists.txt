@@ -43,6 +43,7 @@ add_library(dpl_lib
   src/optimization/detailed_orient.cxx
   src/optimization/annealer.cxx
   src/util/journal.cxx
+  src/util/CellParser.cxx
   src/optimization/pin_swapper.cxx
 )
 

@@ -11,21 +11,10 @@
 #include "objective/detailed_hpwl.h"
 #include "odb/db.h"
 #include "util/journal.h"
+#include "util/utility.h"
 #include "utl/Logger.h"
 namespace dpl {
 namespace {
-bool startsWith(const std::string& str, const std::string& prefix)
-{
-  return str.find(prefix, 0) == 0;
-}
-int extractPinIdx(const std::string& str, const std::string& prefix)
-{
-  auto idx = str.substr(prefix.size());
-  if (idx.empty()) {
-    return 1;
-  }
-  return std::stoi(idx);
-}
 
 void dfs_helper(const Node* seed,
                 int tgt_w,
@@ -192,13 +181,13 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
     for (int small_bit = node->getMaster()->getLsb();
          small_bit <= node->getMaster()->getMsb();
          small_bit++) {
-      for (const auto& pin_name : function->getFunctionPins()) {
+      for (const auto& [single_bit, pattern] : function->getMultibitPinMap()) {
         std::string small_iterm_name
-            = small_bit == -1 ? pin_name
-                              : fmt::format("{}{}", pin_name, small_bit);
+            = small_bit == -1 ? single_bit
+                              : Utility::getPinName(pattern, small_bit);
         auto iterm = inst->findITerm(small_iterm_name.c_str());
         auto big_iterm = big_inst->findITerm(
-            fmt::format("{}{}", pin_name, current_bit).c_str());
+            Utility::getPinName(pattern, current_bit).c_str());
         if (iterm == nullptr) {
           logger_->error(utl::DPL, 503, "ITerm {} not found", small_iterm_name);
           continue;
@@ -207,7 +196,7 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
           logger_->error(utl::DPL,
                          504,
                          "ITerm {} not found",
-                         fmt::format("{}{}", pin_name, current_bit));
+                         Utility::getPinName(pattern, current_bit));
           continue;
         }
         if (iterm->getNet() == nullptr) {
@@ -305,8 +294,9 @@ void Annealer::assignToNodeGroup(Node* node)
 
     for (auto iterm : db_inst->getITerms()) {
       bool skip_iterm = false;
-      for (const auto& pin_name : function->getFunctionPins()) {
-        if (startsWith(iterm->getMTerm()->getName(), pin_name)) {
+      const std::string term_name = iterm->getMTerm()->getName();
+      for (const auto& [single_bit, pattern] : function->getMultibitPinMap()) {
+        if (term_name == single_bit || Utility::match(term_name, pattern)) {
           skip_iterm = true;
           break;
         }
