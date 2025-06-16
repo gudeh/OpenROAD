@@ -127,15 +127,8 @@ dbMaster* Master::getDbMaster() const
 void Master::setFunction(MasterFunction* function)
 {
   function_ = function;
-  auto test_pin = function->getFunctionPins().at(0);
-  function_bits_ = 0;
-  for (auto mterm : getDbMaster()->getMTerms()) {
-    if (mterm->getName().find(test_pin, 0) == 0) {
-      ++function_bits_;
-    }
-  }
-  if (function_->getMaxBits() < function_bits_) {
-    function_->setMaxBits(function_bits_);
+  if (function_->getMaxBits() < getFunctionBits()) {
+    function_->setMaxBits(getFunctionBits());
   }
   function_->addMaster(this);
 }
@@ -145,7 +138,23 @@ MasterFunction* Master::getFunction() const
 }
 int Master::getFunctionBits() const
 {
-  return function_bits_;
+  return msb_ - lsb_ + 1;
+}
+void Master::setLsb(int lsb)
+{
+  lsb_ = lsb;
+}
+void Master::setMsb(int msb)
+{
+  msb_ = msb;
+}
+int Master::getLsb() const
+{
+  return lsb_;
+}
+int Master::getMsb() const
+{
+  return msb_;
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

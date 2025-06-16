@@ -43,15 +43,23 @@ void Opendp::runSimulatedAnnealing(int max_iterations,
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(2);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(4);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(8);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(16);
     temp_master->setFunction(function);
   }
   annealer.set_sa_parameters(initial_temperature, alpha, max_iterations, seed);
@@ -93,15 +101,23 @@ void Opendp::optimizePinPlacement()
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_2x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(2);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_4x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(4);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_8x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(8);
     temp_master->setFunction(function);
     temp_master = network_->addMaster(
         db_->findMaster("pii_shift_16x1"), grid_.get(), drc_engine_.get());
+    temp_master->setLsb(1);
+    temp_master->setMsb(16);
     temp_master->setFunction(function);
   }
   PinSwapper pin_swapper(logger_, network_.get(), db_);

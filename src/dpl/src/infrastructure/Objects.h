@@ -80,6 +80,14 @@ class Master
   void setFunction(MasterFunction* function);
   MasterFunction* getFunction() const;
   int getFunctionBits() const;
+  int getLsb() const;
+  int getMsb() const;
+  void setLsb(int lsb);
+  void setMsb(int msb);
+  void addPinSwap(
+      const std::vector<std::pair<std::string, std::string>>& pin_swaps);
+  const std::vector<std::vector<std::pair<std::string, std::string>>>&
+  getPinSwaps() const;
 
  private:
   dbMaster* db_master_{nullptr};
@@ -90,7 +98,9 @@ class Master
   int bottom_pwr_{0};
   int top_pwr_{0};
   MasterFunction* function_{nullptr};
-  int function_bits_{-1};
+  int lsb_{-1};
+  int msb_{-1};
+  std::vector<std::vector<std::pair<std::string, std::string>>> pin_swaps_;
 };
 
 class Pin;
