@@ -211,10 +211,10 @@ set_phi_cut_cell cell_name
 
 ### Place Cut Phi Cells
 
-The `place_cut_phi_cells` command places the specified phi-cut cells.
+The `place_phi_cut_cells` command places the specified phi-cut cells.
 
 ```tcl
-place_cut_phi_cells
+place_phi_cut_cells
 ```
 
 ### Set Tap Phi Cell
