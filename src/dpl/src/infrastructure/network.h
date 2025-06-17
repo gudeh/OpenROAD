@@ -113,9 +113,7 @@ class Network
   const odb::Rect& getCore() const { return core_; }
 
   // master functions...
-  MasterFunction* addMasterFunction(
-      const std::string& name,
-      const std::vector<std::string>& function_pins);
+  MasterFunction* addMasterFunction(const std::string& name);
   MasterFunction* getMasterFunction(const std::string& name) const;
 
  private:

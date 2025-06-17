@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "odb/db.h"
+
 namespace dpl {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -24,18 +26,12 @@ const Rect& MasterEdge::getBBox() const
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-MasterFunction::MasterFunction(const std::string& name,
-                               const std::vector<std::string>& function_pins)
-    : name_(name), function_pins_(function_pins)
+MasterFunction::MasterFunction(const std::string& name) : name_(name)
 {
 }
 const std::string& MasterFunction::getName() const
 {
   return name_;
-}
-const std::vector<std::string>& MasterFunction::getFunctionPins() const
-{
-  return function_pins_;
 }
 void MasterFunction::setMaxBits(int max_bits)
 {
@@ -60,6 +56,21 @@ Master* MasterFunction::getMaster(int bits) const
     return it->second;
   }
   return nullptr;
+}
+const std::map<std::string, std::string>& MasterFunction::getMultibitPinMap()
+    const
+{
+  return multibit_pin_map_;
+}
+void MasterFunction::addMultibitPinEntry(const std::string& pin_name,
+                                         const std::string& multibit_pin_name)
+{
+  multibit_pin_map_[pin_name] = multibit_pin_name;
+}
+void MasterFunction::setMultibitPinMap(
+    const std::map<std::string, std::string>& multibit_pin_map)
+{
+  multibit_pin_map_ = multibit_pin_map;
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,15 +138,8 @@ dbMaster* Master::getDbMaster() const
 void Master::setFunction(MasterFunction* function)
 {
   function_ = function;
-  auto test_pin = function->getFunctionPins().at(0);
-  function_bits_ = 0;
-  for (auto mterm : getDbMaster()->getMTerms()) {
-    if (mterm->getName().find(test_pin, 0) == 0) {
-      ++function_bits_;
-    }
-  }
-  if (function_->getMaxBits() < function_bits_) {
-    function_->setMaxBits(function_bits_);
+  if (function_->getMaxBits() < getFunctionBits()) {
+    function_->setMaxBits(getFunctionBits());
   }
   function_->addMaster(this);
 }
@@ -145,7 +149,55 @@ MasterFunction* Master::getFunction() const
 }
 int Master::getFunctionBits() const
 {
-  return function_bits_;
+  return msb_ - lsb_ + 1;
+}
+void Master::setLsb(int lsb)
+{
+  lsb_ = lsb;
+}
+void Master::setMsb(int msb)
+{
+  msb_ = msb;
+}
+int Master::getLsb() const
+{
+  return lsb_;
+}
+int Master::getMsb() const
+{
+  return msb_;
+}
+void Master::setPinSwaps(
+    const std::vector<std::vector<std::pair<std::string, std::string>>>&
+        pin_swaps)
+{
+  pin_swaps_ = pin_swaps;
+}
+const std::vector<std::vector<std::pair<std::string, std::string>>>&
+Master::getPinSwaps() const
+{
+  return pin_swaps_;
+}
+void Master::setPinPermutes(
+    const std::vector<std::vector<std::string>>& pin_permutes)
+{
+  pin_permutes_ = pin_permutes;
+}
+const std::vector<std::vector<std::string>>& Master::getPinPermutes() const
+{
+  return pin_permutes_;
+}
+bool Master::isMultibit() const
+{
+  return lsb_ != -1 && msb_ != -1;
+}
+bool Master::hasPinSwaps() const
+{
+  return !pin_swaps_.empty();
+}
+bool Master::hasPinPermutes() const
+{
+  return !pin_permutes_.empty();
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -338,6 +390,13 @@ bool Node::isToBeRemoved() const
 {
   return to_be_removed_;
 }
+Pin* Node::getPin(const std::string& pin_name) const
+{
+  if (pin_map_.find(pin_name) == pin_map_.end()) {
+    return nullptr;
+  }
+  return pin_map_.at(pin_name);
+}
 void Node::setId(int id)
 {
   id_ = id;
@@ -416,6 +475,9 @@ void Node::setMaster(Master* in)
 }
 void Node::addPin(Pin* pin)
 {
+  if (pin->getDbITerm()) {
+    pin_map_[pin->getDbITerm()->getMTerm()->getName()] = pin;
+  }
   pins_.emplace_back(pin);
 }
 void Node::setGroupId(int id)
@@ -699,7 +761,11 @@ void Pin::setDbITerm(odb::dbITerm* term)
 }
 odb::dbITerm* Pin::getDbITerm() const
 {
-  return static_cast<odb::dbITerm*>(db_owner_);
+  if (db_owner_
+      && db_owner_->getObjectType() == odb::dbObjectType::dbITermObj) {
+    return static_cast<odb::dbITerm*>(db_owner_);
+  }
+  return nullptr;
 }
 void Pin::setDbBTerm(odb::dbBTerm* term)
 {
@@ -708,7 +774,11 @@ void Pin::setDbBTerm(odb::dbBTerm* term)
 
 odb::dbBTerm* Pin::getDbBTerm() const
 {
-  return static_cast<odb::dbBTerm*>(db_owner_);
+  if (db_owner_
+      && db_owner_->getObjectType() == odb::dbObjectType::dbBTermObj) {
+    return static_cast<odb::dbBTerm*>(db_owner_);
+  }
+  return nullptr;
 }
 
 }  // namespace dpl

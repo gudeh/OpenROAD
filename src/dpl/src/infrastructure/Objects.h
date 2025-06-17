@@ -16,6 +16,7 @@ class dbInst;
 class dbMaster;
 class dbOrientType;
 class dbSite;
+class dbObject;
 }  // namespace odb
 namespace dpl {
 
@@ -23,6 +24,7 @@ using odb::dbBox;
 using odb::dbBTerm;
 using odb::dbInst;
 using odb::dbMaster;
+using odb::dbObject;
 using odb::dbOrientType;
 using odb::dbSite;
 using odb::Rect;
@@ -42,19 +44,26 @@ class MasterEdge
 class MasterFunction
 {
  public:
-  MasterFunction(const std::string& name,
-                 const std::vector<std::string>& function_pins);
+  MasterFunction(const std::string& name);
+
+  // getters
   const std::string& getName() const;
-  const std::vector<std::string>& getFunctionPins() const;
-  void setMaxBits(int max_bits);
   int getMaxBits() const;
-  void addMaster(Master* master);
   const std::map<int, Master*>& getMasters() const;
   Master* getMaster(int bits) const;
+  const std::map<std::string, std::string>& getMultibitPinMap() const;
+
+  // setters
+  void setMaxBits(int max_bits);
+  void addMaster(Master* master);
+  void addMultibitPinEntry(const std::string& pin_name,
+                           const std::string& multibit_pin_name);
+  void setMultibitPinMap(
+      const std::map<std::string, std::string>& multibit_pin_map);
 
  private:
   std::string name_;
-  std::vector<std::string> function_pins_;
+  std::map<std::string, std::string> multibit_pin_map_;
   int max_bits_{0};
   std::map<int, Master*> bits_to_master_;
 };
@@ -80,6 +89,22 @@ class Master
   void setFunction(MasterFunction* function);
   MasterFunction* getFunction() const;
   int getFunctionBits() const;
+  int getLsb() const;
+  int getMsb() const;
+  void setLsb(int lsb);
+  void setMsb(int msb);
+  void setPinSwaps(
+      const std::vector<std::vector<std::pair<std::string, std::string>>>&
+          pin_swaps);
+  void setPinPermutes(
+      const std::vector<std::vector<std::string>>& pin_permutes);
+
+  const std::vector<std::vector<std::pair<std::string, std::string>>>&
+  getPinSwaps() const;
+  const std::vector<std::vector<std::string>>& getPinPermutes() const;
+  bool isMultibit() const;
+  bool hasPinSwaps() const;
+  bool hasPinPermutes() const;
 
  private:
   dbMaster* db_master_{nullptr};
@@ -90,7 +115,10 @@ class Master
   int bottom_pwr_{0};
   int top_pwr_{0};
   MasterFunction* function_{nullptr};
-  int function_bits_{-1};
+  int lsb_{-1};
+  int msb_{-1};
+  std::vector<std::vector<std::pair<std::string, std::string>>> pin_swaps_;
+  std::vector<std::vector<std::string>> pin_permutes_;
 };
 
 class Pin;
@@ -148,6 +176,7 @@ class Node
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
   Rect getBBox() const;
   dbBTerm* getBTerm() const;
+  Pin* getPin(const std::string& pin_name) const;
 
   // setters
   void setId(int id);
@@ -208,6 +237,7 @@ class Node
   // Pins.
   std::vector<Pin*> pins_;
   std::map<uint, uint> pin_to_net_;
+  std::map<std::string, Pin*> pin_map_;
 };
 
 class Group
@@ -300,7 +330,7 @@ class Pin
   // Offsets from cell center.
   DbuX offsetX_{0};
   DbuY offsetY_{0};
-  void* db_owner_{nullptr};
+  dbObject* db_owner_{nullptr};
 };
 
 }  // namespace dpl

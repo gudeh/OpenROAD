@@ -11,21 +11,10 @@
 #include "objective/detailed_hpwl.h"
 #include "odb/db.h"
 #include "util/journal.h"
+#include "util/utility.h"
 #include "utl/Logger.h"
 namespace dpl {
 namespace {
-bool startsWith(const std::string& str, const std::string& prefix)
-{
-  return str.find(prefix, 0) == 0;
-}
-int extractPinIdx(const std::string& str, const std::string& prefix)
-{
-  auto idx = str.substr(prefix.size());
-  if (idx.empty()) {
-    return 1;
-  }
-  return std::stoi(idx);
-}
 
 void dfs_helper(const Node* seed,
                 int tgt_w,
@@ -182,38 +171,57 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
                                       target_master->getDbMaster(),
                                       new_name.c_str(),
                                       small_nodes[0]->getDbInst()->getRegion());
-  int added_bits = 0;
   DbuX left = std::numeric_limits<DbuX>::max();
   DbuY bottom = std::numeric_limits<DbuY>::max();
+  int current_bit = target_master->getLsb();
   for (auto node : small_nodes) {
     left = std::min(left, node->getLeft());
     bottom = std::min(bottom, node->getBottom());
     auto inst = node->getDbInst();
-    for (auto iterm : inst->getITerms()) {
-      auto name = iterm->getMTerm()->getName();
-      bool swappable = false;
-      for (const auto& pin_name : function->getFunctionPins()) {
-        if (!startsWith(name, pin_name)) {
+    for (int small_bit = node->getMaster()->getLsb();
+         small_bit <= node->getMaster()->getMsb();
+         small_bit++) {
+      for (const auto& [single_bit, pattern] : function->getMultibitPinMap()) {
+        std::string small_iterm_name
+            = small_bit == -1 ? single_bit
+                              : Utility::getPinName(pattern, small_bit);
+        auto iterm = inst->findITerm(small_iterm_name.c_str());
+        auto big_iterm = big_inst->findITerm(
+            Utility::getPinName(pattern, current_bit).c_str());
+        if (iterm == nullptr) {
+          logger_->error(utl::DPL, 503, "ITerm {} not found", small_iterm_name);
           continue;
         }
-        auto idx = extractPinIdx(name, pin_name);
-        std::string big_iterm_name
-            = pin_name + std::to_string(idx + added_bits);
-        auto big_iterm = big_inst->findITerm(big_iterm_name.c_str());
+        if (big_iterm == nullptr) {
+          logger_->error(utl::DPL,
+                         504,
+                         "ITerm {} not found",
+                         Utility::getPinName(pattern, current_bit));
+          continue;
+        }
+        if (iterm->getNet() == nullptr) {
+          logger_->error(
+              utl::DPL, 505, "ITerm {} not connected", small_iterm_name);
+          continue;
+        }
         big_iterm->connect(iterm->getNet());
-        swappable = true;
-        break;
       }
-      if (swappable) {
-        continue;
-      }
-      auto big_iterm = big_inst->findITerm(name.c_str());
-      if (big_iterm->isConnected()) {
-        continue;
-      }
-      big_iterm->connect(iterm->getNet());
+      current_bit++;
     }
-    added_bits += node->getMaster()->getFunctionBits();
+  }
+  for (auto big_iterm : big_inst->getITerms()) {
+    if (big_iterm->isConnected()) {
+      continue;
+    }
+    auto small_iterm = small_nodes[0]->getDbInst()->findITerm(
+        big_iterm->getMTerm()->getName().c_str());
+    if (small_iterm == nullptr) {
+      continue;
+    }
+    if (small_iterm->getNet() == nullptr) {
+      continue;
+    }
+    big_iterm->connect(small_iterm->getNet());
   }
   big_inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
   network_->addNode(big_inst);
@@ -286,8 +294,9 @@ void Annealer::assignToNodeGroup(Node* node)
 
     for (auto iterm : db_inst->getITerms()) {
       bool skip_iterm = false;
-      for (const auto& pin_name : function->getFunctionPins()) {
-        if (startsWith(iterm->getMTerm()->getName(), pin_name)) {
+      const std::string term_name = iterm->getMTerm()->getName();
+      for (const auto& [single_bit, pattern] : function->getMultibitPinMap()) {
+        if (term_name == single_bit || Utility::match(term_name, pattern)) {
           skip_iterm = true;
           break;
         }

@@ -139,8 +139,8 @@ class Opendp
   void setJournal(Journal* journal);
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
-  void setPhiCutCell(dbMaster* master) { phi_cut_cell_ = master; }
-  void setTapPhiCell(dbMaster* master) { tap_phi_cell_ = master; }
+  void setPhiCutCell(dbMaster* master);
+  void setTapPhiCell(dbMaster* master);
 
   void importDb();
   bool mapMove(Node* cell);
@@ -156,8 +156,8 @@ class Opendp
                              int max_displacement_x,
                              int max_displacement_y);
   void placePhiCutCells();
-
   void optimizePinPlacement();
+  void setCellsFile(const std::string& cells_file);
 
  private:
   using bgPoint
@@ -328,6 +328,7 @@ class Opendp
   void unplaceCell(Node* cell);
   void setGridPaddedLoc(Node* cell, GridX x, GridY y);
   void setMaxDisplacement(int max_displacement_x, int max_displacement_y);
+  void parseCells(const std::string& cells_file);
 
   Logger* logger_ = nullptr;
   dbDatabase* db_ = nullptr;
@@ -379,6 +380,7 @@ class Opendp
 
   dbMaster* phi_cut_cell_{nullptr};
   dbMaster* tap_phi_cell_{nullptr};
+  std::string cells_file_;
 };
 
 int divRound(int dividend, int divisor);
