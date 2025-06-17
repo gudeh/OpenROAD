@@ -27,7 +27,8 @@ void Opendp::parseCells(const std::string& cells_file)
         continue;
       }
       MasterFunction* function = network_->addMasterFunction(config.function);
-      for (const auto& [single_bit, pattern] : (*config.multibitMap).pinMap) {
+      for (const auto& [single_bit, pattern] :
+           config.multibitMap.value().pinMap) {
         function->addMultibitPinEntry(single_bit, pattern);
       }
     }
@@ -40,18 +41,18 @@ void Opendp::parseCells(const std::string& cells_file)
     auto master
         = network_->addMaster(db_master, grid_.get(), drc_engine_.get());
     if (config.pinSwaps.has_value()) {
-      master->setPinSwaps(*config.pinSwaps);
+      master->setPinSwaps(config.pinSwaps.value());
     }
     if (config.pinPermutes.has_value()) {
-      master->setPinPermutes(*config.pinPermutes);
+      master->setPinPermutes(config.pinPermutes.value());
     }
     auto function = network_->getMasterFunction(config.function);
     if (function == nullptr) {
       continue;
     }
     if (config.multibitMap.has_value()) {
-      master->setLsb((*config.multibitMap).LSb);
-      master->setMsb((*config.multibitMap).MSb);
+      master->setLsb(config.multibitMap.value().LSb);
+      master->setMsb(config.multibitMap.value().MSb);
     }
     master->setFunction(function);
   }
