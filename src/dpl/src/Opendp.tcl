@@ -287,13 +287,13 @@ proc set_phi_cut_cell { args } {
   dpl::set_phi_cut_cell_cmd $master
 }
 
-sta::define_cmd_args "place_cut_phi_cells" {}
+sta::define_cmd_args "place_phi_cut_cells" {}
 
-proc place_cut_phi_cells { args } {
-  sta::parse_key_args "place_cut_phi_cells" args keys {} flags {}
-  sta::check_argc_eq0 "place_cut_phi_cells" $args
+proc place_phi_cut_cells { args } {
+  sta::parse_key_args "place_phi_cut_cells" args keys {} flags {}
+  sta::check_argc_eq0 "place_phi_cut_cells" $args
 
-  dpl::place_cut_phi_cells_cmd
+  dpl::place_phi_cut_cells_cmd
 }
 
 sta::define_cmd_args "set_tap_phi_cell" { cell_name }

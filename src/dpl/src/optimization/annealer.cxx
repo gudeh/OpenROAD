@@ -162,9 +162,9 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
 {
   std::shuffle(small_nodes.begin(), small_nodes.end(), generator_);
   auto block = db_->getChip()->getBlock();
-  std::string new_name = fmt::format("osama_{}", last_id_++);
+  std::string new_name = fmt::format("MULTIBIT_{}", last_id_++);
   while (block->findInst(new_name.c_str()) != nullptr) {
-    new_name = fmt::format("osama_{}", last_id_++);
+    new_name = fmt::format("MULTIBIT_{}", last_id_++);
   }
   auto function = target_master->getFunction();
   auto big_inst = odb::dbInst::create(block,

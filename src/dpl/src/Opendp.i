@@ -168,7 +168,7 @@ void set_phi_cut_cell_cmd(odb::dbMaster* master)
   opendp->setPhiCutCell(master);
 }
 
-void place_cut_phi_cells_cmd()
+void place_phi_cut_cells_cmd()
 {
   dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
   opendp->placePhiCutCells();
