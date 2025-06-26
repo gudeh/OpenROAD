@@ -13,7 +13,7 @@
 
 #include "GRoute.h"
 #include "RoutePt.h"
-#include "ant/AntennaChecker.hh"
+#include "grt/PinGridLocation.h"
 #include "odb/db.h"
 #include "odb/dbBlockCallBackObj.h"
 #include "sta/Liberty.hh"
@@ -88,6 +88,12 @@ struct RegionAdjustment
   float getAdjustment() { return adjustment; }
 };
 
+struct RoutePointPins
+{
+  std::vector<Pin*> pins;
+  bool connected = false;
+};
+
 enum class NetType
 {
   Clock,
@@ -96,24 +102,16 @@ enum class NetType
   All
 };
 
-struct PinGridLocation
-{
-  PinGridLocation(odb::dbITerm* iterm, odb::dbBTerm* bterm, odb::Point pt);
-
-  odb::dbITerm* iterm_;
-  odb::dbBTerm* bterm_;
-  odb::Point pt_;
-};
-
 using Guides = std::vector<std::pair<int, odb::Rect>>;
 using LayerId = int;
 using TileSet = std::set<std::pair<int, int>>;
+using RoutePointToPinsMap = std::map<RoutePt, RoutePointPins>;
 
-class GlobalRouter : public ant::GlobalRouteSource
+class GlobalRouter
 {
  public:
   GlobalRouter();
-  ~GlobalRouter() override;
+  ~GlobalRouter();
 
   void init(utl::Logger* logger,
             stt::SteinerTreeBuilder* stt_builder,
@@ -158,7 +156,7 @@ class GlobalRouter : public ant::GlobalRouteSource
   void readGuides(const char* file_name);
   void loadGuidesFromDB();
   void saveGuidesFromFile(std::unordered_map<odb::dbNet*, Guides>& guides);
-  void saveGuides();
+  void saveGuides(const std::vector<odb::dbNet*>& nets);
   void writeSegments(const char* file_name);
   void readSegments(const char* file_name);
   bool netIsCovered(odb::dbNet* db_net, std::string& pins_not_covered);
@@ -204,12 +202,10 @@ class GlobalRouter : public ant::GlobalRouteSource
   void addDirtyNet(odb::dbNet* net);
   std::set<odb::dbNet*> getDirtyNets() { return dirty_nets_; }
   // check_antennas
-  bool haveRoutes() override;
+  bool haveRoutes();
   bool designIsPlaced();
   bool haveDetailedRoutes();
   bool haveDetailedRoutes(const std::vector<odb::dbNet*>& db_nets);
-  void makeNetWires() override;
-  void destroyNetWires() override;
 
   void addNetToRoute(odb::dbNet* db_net);
   std::vector<odb::dbNet*> getNetsToRoute();
@@ -307,7 +303,7 @@ class GlobalRouter : public ant::GlobalRouteSource
   void initRoutingTracks(int max_routing_layer);
   void setCapacities(int min_routing_layer, int max_routing_layer);
   void initNetlist(std::vector<Net*>& nets);
-  bool makeFastrouteNet(Net* net);
+  void makeFastrouteNet(Net* net);
   bool pinPositionsChanged(Net* net);
   bool newPinOnGrid(Net* net, std::multiset<RoutePt>& last_pos);
   std::vector<LayerId> findTransitionLayers();
@@ -386,6 +382,10 @@ class GlobalRouter : public ant::GlobalRouteSource
                     const std::map<int, int>& tile_size_y_map,
                     int& tile_size_x,
                     int& tile_size_y);
+  RoutePointToPinsMap findRoutePtPins(Net* net);
+  void addPinsConnectedToGuides(RoutePointToPinsMap& point_to_pins,
+                                const RoutePt& route_pt,
+                                odb::dbGuide* guide);
 
   // check functions
   void checkPinPlacement();
@@ -428,7 +428,6 @@ class GlobalRouter : public ant::GlobalRouteSource
                            const odb::Rect& die_area,
                            odb::dbNet* db_net);
   int computeMaxRoutingLayer();
-  std::map<int, odb::dbTechVia*> getDefaultVias(int max_routing_layer);
   void makeItermPins(Net* net, odb::dbNet* db_net, const odb::Rect& die_area);
   void makeBtermPins(Net* net, odb::dbNet* db_net, const odb::Rect& die_area);
   void initClockNets();
@@ -465,8 +464,6 @@ class GlobalRouter : public ant::GlobalRouteSource
   bool initialized_;
   int total_diodes_count_;
   bool is_congested_{false};
-  // TODO: remove this flag after support incremental updates on DRT PA
-  bool skip_drt_aps_{false};
 
   // Region adjustment variables
   std::vector<RegionAdjustment> region_adjustments_;

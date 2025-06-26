@@ -7,14 +7,16 @@
 
 #include "grt/GRoute.h"
 
+namespace odb {
+class dbNet;
+}
 namespace grt {
-
 class AbstractMakeWireParasitics
 {
  public:
   ~AbstractMakeWireParasitics() = default;
 
-  virtual void estimateParasitcs(odb::dbNet* net, GRoute& route) = 0;
+  virtual void estimateParasitics(odb::dbNet* net, GRoute& route) = 0;
 
   virtual void clearParasitics() = 0;
 

@@ -59,6 +59,10 @@ namespace fin {
 class Finale;
 }
 
+namespace exa {
+class Example;
+}
+
 namespace mpl {
 class MacroPlacer;
 }
@@ -128,7 +132,8 @@ class OpenRoad
   static void setOpenRoad(OpenRoad* app, bool reinit_ok = false);
   void init(Tcl_Interp* tcl_interp,
             const char* log_filename,
-            const char* metrics_filename);
+            const char* metrics_filename,
+            bool batch_mode);
 
   Tcl_Interp* tclInterp() { return tcl_interp_; }
   utl::Logger* getLogger() { return logger_; }
@@ -143,6 +148,7 @@ class OpenRoad
   fin::Finale* getFinale() { return finale_; }
   tap::Tapcell* getTapcell() { return tapcell_; }
   mpl::MacroPlacer* getMacroPlacer() { return macro_placer_; }
+  exa::Example* getExample() { return example_; }
   rcx::Ext* getOpenRCX() { return extractor_; }
   drt::TritonRoute* getTritonRoute() { return detailed_router_; }
   gpl::Replace* getReplace() { return replace_; }
@@ -233,6 +239,7 @@ class OpenRoad
   dpl::Opendp* opendp_ = nullptr;
   fin::Finale* finale_ = nullptr;
   mpl::MacroPlacer* macro_placer_ = nullptr;
+  exa::Example* example_ = nullptr;
   grt::GlobalRouter* global_router_ = nullptr;
   rmp::Restructure* restructure_ = nullptr;
   cts::TritonCTS* tritonCts_ = nullptr;

@@ -145,6 +145,18 @@ set_clustering_diameter(double distance)
 }
 
 void
+set_macro_clustering_size(unsigned size)
+{
+  getTritonCts()->getParms()->setMacroClusteringSize(size);
+}
+
+void
+set_macro_clustering_diameter(double distance)
+{
+  getTritonCts()->getParms()->setMacroMaxDiameter(distance);
+}
+
+void
 set_num_static_layers(unsigned num)
 {
   getTritonCts()->getParms()->setNumStaticLayers(num);
@@ -228,6 +240,12 @@ set_cts_library(const char* name)
   getTritonCts()->getParms()->setCtsLibrary(name);
 }
 
+void
+set_repair_clock_nets(bool value)
+{
+  getTritonCts()->getParms()->setRepairClockNets(value);
+}
+ 
 void
 run_triton_cts()
 {

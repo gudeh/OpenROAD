@@ -31,7 +31,7 @@ module td1 (a1,
  pinswap U4 (.ip0(a6),
     .ip1(a4),
     .ip2(a5),
-    .ip3(net2),
+    .ip3(net1),
     .op0(y2));
 endmodule
 module pinswap (ip0,

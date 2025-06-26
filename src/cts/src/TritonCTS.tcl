@@ -47,6 +47,8 @@ sta::define_cmd_args "clock_tree_synthesis" {[-wire_unit unit]
                                              [-clustering_unbalance_ratio] \
                                              [-sink_clustering_size] \
                                              [-sink_clustering_max_diameter] \
+                                             [-macro_clustering_size] \
+                                             [-macro_clustering_max_diameter] \
                                              [-sink_clustering_enable] \
                                              [-balance_levels] \
                                              [-sink_clustering_levels levels] \
@@ -59,6 +61,8 @@ sta::define_cmd_args "clock_tree_synthesis" {[-wire_unit unit]
                                              [-dont_use_dummy_load] \
                                              [-delay_buffer_derate] \
                                              [-library] \
+                                             [-repair_clock_nets] \
+                                             [-no_insertion_delay]
 } ;# checker off
 
 proc clock_tree_synthesis { args } {
@@ -68,11 +72,12 @@ proc clock_tree_synthesis { args } {
           -distance_between_buffers -branching_point_buffers_distance \
           -clustering_exponent \
           -clustering_unbalance_ratio -sink_clustering_max_diameter \
+          -macro_clustering_size -macro_clustering_max_diameter \
           -sink_clustering_levels -tree_buf \
           -sink_buffer_max_cap_derate -delay_buffer_derate -library} \
     flags {-post_cts_disable -sink_clustering_enable -balance_levels \
            -obstruction_aware -no_obstruction_aware -apply_ndr \
-           -dont_use_dummy_load
+           -dont_use_dummy_load -repair_clock_nets -no_insertion_delay
   } ;# checker off
 
   sta::check_argc_eq0 "clock_tree_synthesis" $args
@@ -96,6 +101,16 @@ proc clock_tree_synthesis { args } {
   if { [info exists keys(-sink_clustering_max_diameter)] } {
     set distance $keys(-sink_clustering_max_diameter)
     cts::set_clustering_diameter $distance
+  }
+
+  if { [info exists keys(-macro_clustering_size)] } {
+    set size $keys(-macro_clustering_size)
+    cts::set_macro_clustering_size $size
+  }
+
+  if { [info exists keys(-macro_clustering_max_diameter)] } {
+    set distance $keys(-macro_clustering_max_diameter)
+    cts::set_macro_clustering_diameter $distance
   }
 
   cts::set_balance_levels [info exists flags(-balance_levels)]
@@ -199,6 +214,18 @@ proc clock_tree_synthesis { args } {
   }
 
   cts::set_apply_ndr [info exists flags(-apply_ndr)]
+
+  if { [info exists flags(-repair_clock_nets)] } {
+    cts::set_repair_clock_nets true
+  } else {
+    cts::set_repair_clock_nets false
+  }
+
+  if { [info exists flags(-no_insertion_delay)] } {
+    cts::set_insertion_delay false
+  } else {
+    cts::set_insertion_delay true
+  }
 
   if { [ord::get_db_block] == "NULL" } {
     utl::error CTS 103 "No design block found."

@@ -73,12 +73,14 @@ or_integration_tests(
     repair_hold13
     repair_hold14
     repair_hold15
+    repair_setup_sizedown
     repair_setup1
     repair_setup2
     repair_setup3
     repair_setup4
     repair_setup4_flat
     repair_setup4_hier
+    repair_setup4_sequence
     repair_setup4_verbose
     repair_setup5
     repair_setup6
@@ -157,6 +159,7 @@ or_integration_tests(
     repair_setup6_multi
     repair_setup7_multi
     report_equiv_cells
+    replace_arith_modules1
   PASSFAIL_TESTS
     cpp_tests
 )

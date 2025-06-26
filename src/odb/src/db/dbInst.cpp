@@ -123,8 +123,7 @@ _dbInst::_dbInst(_dbDatabase*, const _dbInst& i)
       pin_access_idx_(i.pin_access_idx_)
 {
   if (i._name) {
-    _name = strdup(i._name);
-    ZALLOCATED(_name);
+    _name = safe_strdup(i._name);
   }
 }
 
@@ -365,8 +364,7 @@ bool dbInst::rename(const char* name)
 
   block->_inst_hash.remove(inst);
   free((void*) inst->_name);
-  inst->_name = strdup(name);
-  ZALLOCATED(inst->_name);
+  inst->_name = safe_strdup(name);
   block->_inst_hash.insert(inst);
 
   return true;
@@ -421,6 +419,11 @@ void dbInst::setOrigin(int x, int y)
     block->_journal->pushParam(inst->_x);
     block->_journal->pushParam(inst->_y);
     block->_journal->endAction();
+  }
+
+  for (auto iterm_idx : inst->_iterms) {
+    dbITerm* iterm = (dbITerm*) block->_iterm_tbl->getPtr(iterm_idx);
+    iterm->clearPrefAccessPoints();
   }
 
   block->_flags._valid_bbox = 0;
@@ -509,6 +512,11 @@ void dbInst::setOrient(dbOrientType orient)
                orient.getValue());
     block->_journal->updateField(
         this, _dbInst::FLAGS, prev_flags, flagsToUInt(inst));
+  }
+
+  for (auto iterm_idx : inst->_iterms) {
+    dbITerm* iterm = (dbITerm*) block->_iterm_tbl->getPtr(iterm_idx);
+    iterm->clearPrefAccessPoints();
   }
 
   block->_flags._valid_bbox = 0;
@@ -795,7 +803,16 @@ dbITerm* dbInst::findITerm(const char* name)
     return nullptr;
   }
 
-  return (dbITerm*) block->_iterm_tbl->getPtr(inst->_iterms[mterm->_order_id]);
+  // sta may callback from inDbITermDestroy to find another iterm of
+  // the same instance (eg Latches::latchDtoQEnable).  We have to
+  // check if the entry is valid here as that iterm may already have
+  // been destroyed!
+
+  dbId<_dbITerm> id = inst->_iterms[mterm->_order_id];
+  if (!id.isValid()) {
+    return nullptr;
+  }
+  return (dbITerm*) block->_iterm_tbl->getPtr(id);
 }
 
 dbRegion* dbInst::getRegion()
@@ -1143,6 +1160,11 @@ bool dbInst::swapMaster(dbMaster* new_master_)
     return false;
   }
 
+  for (auto iterm_idx : inst->_iterms) {
+    dbITerm* iterm = (dbITerm*) block->_iterm_tbl->getPtr(iterm_idx);
+    iterm->clearPrefAccessPoints();
+  }
+
   // remove reference to inst_hdr
   _dbInstHdr* old_inst_hdr
       = block->_inst_hdr_hash.find(((_dbMaster*) old_master_)->_id);
@@ -1222,20 +1244,15 @@ dbInst* dbInst::create(dbBlock* block_,
                        dbModule* parent_module)
 {
   _dbBlock* block = (_dbBlock*) block_;
+  if (block->_inst_hash.hasMember(name_)) {
+    return nullptr;
+  }
+
   _dbMaster* master = (_dbMaster*) master_;
   _dbInstHdr* inst_hdr = block->_inst_hdr_hash.find(master->_id);
-
   if (inst_hdr == nullptr) {
     inst_hdr
         = (_dbInstHdr*) dbInstHdr::create((dbBlock*) block, (dbMaster*) master);
-  }
-
-  if (block->_inst_hash.hasMember(name_)) {
-    block->getImpl()->getLogger()->error(
-        utl::ODB,
-        385,
-        "Attempt to create instance with duplicate name: {}",
-        name_);
   }
 
   _dbInst* inst = block->_inst_tbl->create();
@@ -1258,8 +1275,7 @@ dbInst* dbInst::create(dbBlock* block_,
     block->_journal->endAction();
   }
 
-  inst->_name = strdup(name_);
-  ZALLOCATED(inst->_name);
+  inst->_name = safe_strdup(name_);
   inst->_inst_hdr = inst_hdr->getOID();
   block->_inst_hash.insert(inst);
   inst_hdr->_inst_cnt++;
@@ -1354,6 +1370,35 @@ dbInst* dbInst::create(dbBlock* top_block,
   return inst;
 }
 
+dbInst* dbInst::makeUniqueDbInst(dbBlock* block,
+                                 dbMaster* master,
+                                 const char* name,
+                                 bool physical_only,
+                                 dbModule* target_module)
+{
+  dbInst* inst
+      = dbInst::create(block, master, name, physical_only, target_module);
+  if (inst) {
+    return inst;
+  }
+
+  std::unordered_map<std::string, int>& name_id_map
+      = ((_dbBlock*) block)->_inst_name_id_map;
+  std::string inst_base_name(name);
+  do {
+    std::string full_name = inst_base_name;
+    int& id = name_id_map[inst_base_name];
+    if (id > 0) {
+      full_name += "_" + std::to_string(id);
+    }
+    ++id;
+    inst = dbInst::create(
+        block, master, full_name.c_str(), physical_only, target_module);
+  } while (inst == nullptr);
+
+  return inst;
+}
+
 void dbInst::destroy(dbInst* inst_)
 {
   _dbInst* inst = (_dbInst*) inst_;
@@ -1372,7 +1417,8 @@ void dbInst::destroy(dbInst* inst_)
   // Delete these in reverse order so undo creates the in
   // the correct order.
   for (i = 0; i < n; ++i) {
-    dbId<_dbITerm> id = inst->_iterms[n - 1 - i];
+    const int index = n - 1 - i;
+    dbId<_dbITerm> id = inst->_iterms[index];
     _dbITerm* _iterm = block->_iterm_tbl->getPtr(id);
     dbITerm* iterm = (dbITerm*) _iterm;
     iterm->disconnect();
@@ -1397,8 +1443,9 @@ void dbInst::destroy(dbInst* inst_)
 
     dbProperty::destroyProperties(_iterm);
     block->_iterm_tbl->destroy(_iterm);
-    inst->_iterms.pop_back();
+    inst->_iterms[index] = dbId<_dbITerm>();  // clear
   }
+  inst->_iterms.clear();
 
   dbModule* module = inst_->getModule();
   if (module) {

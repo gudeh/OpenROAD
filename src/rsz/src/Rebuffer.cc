@@ -8,8 +8,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "BufferMove.hh"
 #include "BufferedNet.hh"
-#include "RepairSetup.hh"
 #include "db_sta/dbNetwork.hh"
 #include "rsz/Resizer.hh"
 #include "sta/Corner.hh"
@@ -35,6 +35,8 @@ using sta::INF;
 using sta::NetConnectedPinIterator;
 using sta::Path;
 using sta::PinSeq;
+using sta::RiseFall;
+using sta::RiseFallBoth;
 
 // Template magic to make it easier to write algorithms descending
 // over the buffer tree in the form of lambdas; it allows recursive
@@ -75,19 +77,12 @@ void pruneCapVsSlackOptions(StaState* sta, BufferedNetSeq& options)
   // larger slack and smaller capacitance.
   // This is fanout*log(fanout) if options are
   // presorted to hit better options sooner.
-  std::unordered_map<BufferedNet*, Slack> slacks;
-
-  for (const BufferedNetPtr& p : options) {
-    slacks[p.get()] = p->slack();
-  }
 
   sort(options.begin(),
        options.end(),
-       [&slacks](const BufferedNetPtr& option1, const BufferedNetPtr& option2) {
-         const Slack slack1 = slacks[option1.get()];
-         const Slack slack2 = slacks[option2.get()];
-         return std::make_tuple(-slack1, option1->cap())
-                < std::make_tuple(-slack2, option2->cap());
+       [](const BufferedNetPtr& option1, const BufferedNetPtr& option2) {
+         return std::make_tuple(-option1->slack(), option1->cap())
+                < std::make_tuple(-option2->slack(), option2->cap());
        });
 
   if (options.empty()) {
@@ -112,6 +107,79 @@ void pruneCapVsSlackOptions(StaState* sta, BufferedNetSeq& options)
     }
   }
   options.resize(si);
+}
+
+void characterizeChoiceTree(dbNetwork* nwk,
+                            int level,
+                            const BufferedNetPtr& choice,
+                            int& buffer_count,
+                            int& load_count,
+                            int& wire_count,
+                            int& junction_count,
+                            std::set<odb::dbModule*>& load_modules)
+{
+  switch (choice->type()) {
+    case BufferedNetType::buffer: {
+      buffer_count++;
+      characterizeChoiceTree(nwk,
+                             level + 1,
+                             choice->ref(),
+                             buffer_count,
+                             load_count,
+                             wire_count,
+                             junction_count,
+                             load_modules);
+      break;
+    }
+    case BufferedNetType::wire: {
+      wire_count++;
+      characterizeChoiceTree(nwk,
+                             level + 1,
+                             choice->ref(),
+                             buffer_count,
+                             load_count,
+                             wire_count,
+                             junction_count,
+                             load_modules);
+      break;
+    }
+    case BufferedNetType::junction: {
+      junction_count++;
+      characterizeChoiceTree(nwk,
+                             level + 1,
+                             choice->ref(),
+                             buffer_count,
+                             load_count,
+                             wire_count,
+                             junction_count,
+                             load_modules);
+      characterizeChoiceTree(nwk,
+                             level + 1,
+                             choice->ref2(),
+                             buffer_count,
+                             load_count,
+                             wire_count,
+                             junction_count,
+                             load_modules);
+      break;
+    }
+    case BufferedNetType::load: {
+      const Pin* load_pin = choice->loadPin();
+      odb::dbITerm* load_iterm = nullptr;
+      odb::dbBTerm* load_bterm = nullptr;
+      odb::dbModITerm* load_moditerm = nullptr;
+
+      nwk->staToDb(load_pin, load_iterm, load_bterm, load_moditerm);
+      if (load_iterm) {
+        dbInst* load_inst = load_iterm->getInst();
+        if (load_inst) {
+          load_modules.insert(load_inst->getModule());
+        }
+      }
+      load_count++;
+      break;
+    }
+  }
 }
 
 void pruneCapVsAreaOptions(StaState* sta, BufferedNetSeq& options)
@@ -142,8 +210,76 @@ void pruneCapVsAreaOptions(StaState* sta, BufferedNetSeq& options)
   options.resize(si);
 }
 
+// Returns the most specific transition that subsumes both `a` and `b`
+// Transitions are one of: rise, fall, both, null
+static const RiseFallBoth* commonTransition(const RiseFallBoth* a,
+                                            const RiseFallBoth* b)
+{
+  if (a == b) {
+    return a;
+  }
+  if (a == nullptr) {
+    return b;
+  }
+  if (b == nullptr) {
+    return a;
+  }
+  return RiseFallBoth::riseFall();
+}
+
+void BufferMove::annotateLoadSlacks(BufferedNetPtr& bnet, Vertex* root_vertex)
+{
+  using BnetType = BufferedNetType;
+  using BnetPtr = BufferedNetPtr;
+
+  for (auto rf_index : RiseFall::rangeIndex()) {
+    arrival_paths_[rf_index] = nullptr;
+  }
+
+  visitTree(
+      [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
+        switch (bnet->type()) {
+          case BnetType::wire:
+          case BnetType::buffer:
+            return recurse(bnet->ref());
+          case BnetType::junction:
+            return recurse(bnet->ref()) + recurse(bnet->ref2());
+          case BnetType::load: {
+            const Pin* load_pin = bnet->loadPin();
+            Vertex* vertex = graph_->pinLoadVertex(load_pin);
+            Path* req_path
+                = sta_->vertexWorstSlackPath(vertex, sta::MinMax::max());
+            Path* arrival_path = req_path;
+
+            while (req_path && arrival_path->vertex(sta_) != root_vertex) {
+              arrival_path = arrival_path->prevPath();
+              assert(arrival_path);
+            }
+
+            if (!arrival_path) {
+              bnet->setSlackTransition(nullptr);
+              bnet->setSlack(INF);
+            } else {
+              const RiseFall* rf = req_path->transition(sta_);
+              bnet->setSlackTransition(rf->asRiseFallBoth());
+              bnet->setSlack(req_path->required() - arrival_path->arrival());
+
+              if (arrival_paths_[rf->index()] == nullptr) {
+                arrival_paths_[rf->index()] = arrival_path;
+              }
+            }
+
+            return 1;
+          }
+          default:
+            logger_->error(RSZ, 87, "unhandled BufferedNet type");
+        }
+      },
+      bnet);
+}
+
 // Find initial timing-optimized rebuffering choice
-BufferedNetPtr RepairSetup::rebufferForTiming(const BufferedNetPtr& bnet)
+BufferedNetPtr BufferMove::rebufferForTiming(const BufferedNetPtr& bnet)
 {
   using BnetType = BufferedNetType;
   using BnetSeq = BufferedNetSeq;
@@ -178,9 +314,9 @@ BufferedNetPtr RepairSetup::rebufferForTiming(const BufferedNetPtr& bnet)
                                                p,
                                                q,
                                                resizer_);
-                junc->setArrivalPath(min_req->arrivalPath());
-                junc->setRequiredPath(min_req->requiredPath());
-                junc->setRequiredDelay(min_req->requiredDelay());
+                junc->setSlackTransition(commonTransition(
+                    p->slackTransition(), q->slackTransition()));
+                junc->setSlack(min_req->slack());
                 Z.push_back(std::move(junc));
               }
             }
@@ -190,15 +326,6 @@ BufferedNetPtr RepairSetup::rebufferForTiming(const BufferedNetPtr& bnet)
           }
 
           case BufferedNetType::load: {
-            const Pin* load_pin = bnet->loadPin();
-            Vertex* vertex = graph_->pinLoadVertex(load_pin);
-            Path* req_path = sta_->vertexWorstSlackPath(vertex, max_);
-            Path* arrival_path = nullptr;
-            if (req_path) {
-              arrival_path = req_path->prevPath();
-            }
-            bnet->setArrivalPath(arrival_path);
-            bnet->setRequiredPath(req_path);
             debugPrint(logger_,
                        RSZ,
                        "rebuffer",
@@ -226,16 +353,15 @@ BufferedNetPtr RepairSetup::rebufferForTiming(const BufferedNetPtr& bnet)
   int i = 1;
   for (const BufferedNetPtr& p : Z) {
     // Find slack for drvr_pin into option.
-    const Path* req_path = p->requiredPath();
-    if (req_path) {
-      Slack slack = slackAtDriverPin(p, i);
-      if (best_option == nullptr || fuzzyGreater(slack, best_slack)) {
-        best_slack = slack;
-        best_option = p;
-        best_index = i;
-      }
-      i++;
+    const Slack slack = slackAtDriverPin(p, i);
+    if (best_option == nullptr
+        || p->slackTransition() == nullptr /* buffer tree unconstrained */
+        || fuzzyGreater(slack, best_slack)) {
+      best_slack = slack;
+      best_option = p;
+      best_index = i;
     }
+    i++;
   }
 
   if (best_option) {
@@ -248,15 +374,16 @@ BufferedNetPtr RepairSetup::rebufferForTiming(const BufferedNetPtr& bnet)
 }
 
 // Recover area on a rebuffering choice without regressing timing
-BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
-                                        const Delay slack_target,
-                                        const float alpha)
+BufferedNetPtr BufferMove::recoverArea(const BufferedNetPtr& bnet,
+                                       const Delay slack_target,
+                                       const float alpha)
 {
   using BnetType = BufferedNetType;
   using BnetSeq = BufferedNetSeq;
   using BnetPtr = BufferedNetPtr;
 
-  const Delay drvr_delay = bnet->slack() - slackAtDriverPin(bnet);
+  Delay slack_correction;
+  std::tie(std::ignore, slack_correction) = drvrPinTiming(bnet);
 
   // spread down arrival delay
   visitTree(
@@ -280,7 +407,7 @@ BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
         return 0;
       },
       bnet,
-      drvr_delay);
+      -slack_correction);
 
   BnetSeq Z = visitTree(
       [&](auto& recurse,
@@ -344,9 +471,9 @@ BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
 
                 auto junc = make_shared<BufferedNet>(
                     BnetType::junction, bnet->location(), p, q, resizer_);
-                junc->setArrivalPath(min_req->arrivalPath());
-                junc->setRequiredPath(min_req->requiredPath());
-                junc->setRequiredDelay(min_req->requiredDelay());
+                junc->setSlackTransition(commonTransition(
+                    p->slackTransition(), q->slackTransition()));
+                junc->setSlack(min_req->slack());
 
                 debugPrint(logger_,
                            RSZ,
@@ -370,9 +497,9 @@ BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
                   = fuzzyLess(p->slack(), q->slack()) ? p : q;
               auto junc = make_shared<BufferedNet>(
                   BnetType::junction, bnet->location(), p, q, resizer_);
-              junc->setArrivalPath(min_req->arrivalPath());
-              junc->setRequiredPath(min_req->requiredPath());
-              junc->setRequiredDelay(min_req->requiredDelay());
+              junc->setSlackTransition(
+                  commonTransition(p->slackTransition(), q->slackTransition()));
+              junc->setSlack(min_req->slack());
 
               debugPrint(logger_,
                          RSZ,
@@ -416,22 +543,23 @@ BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
   int i = 1;
   for (const BufferedNetPtr& p : Z) {
     // Find slack for drvr_pin into option.
-    const Path* req_path = p->requiredPath();
-    if (req_path) {
-      const Slack slack = slackAtDriverPin(p, i);
-      if (best_slack_option == nullptr || fuzzyGreater(slack, best_slack)) {
-        best_slack = slack;
-        best_slack_option = p;
-        best_slack_index = i;
-      }
-      if (fuzzyGreaterEqual(slack, slack_target)
-          && (best_area_option == nullptr || fuzzyLess(p->area(), best_area))) {
-        best_area = p->area();
-        best_area_option = p;
-        best_area_index = i;
-      }
-      i++;
+    const Slack slack = slackAtDriverPin(p, i);
+    if (best_slack_option == nullptr
+        || p->slackTransition() == nullptr /* buffer tree unconstrained */
+        || fuzzyGreater(slack, best_slack)) {
+      best_slack = slack;
+      best_slack_option = p;
+      best_slack_index = i;
     }
+    if (fuzzyGreaterEqual(slack, slack_target)
+        && (best_area_option == nullptr
+            || p->slackTransition() == nullptr /* buffer tree unconstrained */
+            || fuzzyLess(p->area(), best_area))) {
+      best_area = p->area();
+      best_area_option = p;
+      best_area_index = i;
+    }
+    i++;
   }
 
   if (best_area_option) {
@@ -456,8 +584,36 @@ BufferedNetPtr RepairSetup::recoverArea(const BufferedNetPtr& bnet,
   return nullptr;
 }
 
+Delay BufferMove::requiredDelay(const BufferedNetPtr& bnet)
+{
+  using BnetType = BufferedNetType;
+  using BnetPtr = BufferedNetPtr;
+
+  Delay worst_load_slack = INF;
+  visitTree(
+      [&](auto& recurse, int level, const BnetPtr& bnet) -> int {
+        switch (bnet->type()) {
+          case BnetType::wire:
+          case BnetType::buffer:
+            return recurse(bnet->ref());
+          case BnetType::junction:
+            return recurse(bnet->ref()) + recurse(bnet->ref2());
+          case BnetType::load:
+            if (bnet->slack() < worst_load_slack) {
+              worst_load_slack = bnet->slack();
+            }
+            return 1;
+          default:
+            abort();
+        }
+      },
+      bnet);
+
+  return worst_load_slack - bnet->slack();
+}
+
 // Return inserted buffer count.
-int RepairSetup::rebuffer(const Pin* drvr_pin)
+int BufferMove::rebuffer(const Pin* drvr_pin)
 {
   int inserted_buffer_count = 0;
   Net* net;
@@ -469,15 +625,16 @@ int RepairSetup::rebuffer(const Pin* drvr_pin)
 
   if (network_->isTopLevelPort(drvr_pin)) {
     net = network_->net(network_->term(drvr_pin));
-    db_network_->staToDb(net, db_net, db_modnet);
+    db_net = db_network_->flatNet(network_->term(drvr_pin));
+    db_modnet = nullptr;
 
     LibertyCell* buffer_cell = resizer_->buffer_lowest_drive_;
     // Should use sdc external driver here.
     LibertyPort* input;
     buffer_cell->bufferPorts(input, drvr_port_);
   } else {
-    db_network_->net(drvr_pin, db_net, db_modnet);
-
+    db_net = db_network_->flatNet(drvr_pin);
+    db_modnet = db_network_->hierNet(drvr_pin);
     net = network_->net(drvr_pin);
     drvr_port_ = network_->libertyPort(drvr_pin);
   }
@@ -503,14 +660,15 @@ int RepairSetup::rebuffer(const Pin* drvr_pin)
                  sdc_network_->pathName(drvr_pin));
       sta_->findRequireds();
 
+      annotateLoadSlacks(bnet, graph_->pinDrvrVertex(drvr_pin));
       BufferedNetPtr best_option = rebufferForTiming(bnet);
 
       if (best_option) {
         Delay drvr_gate_delay;
-        std::tie(std::ignore, drvr_gate_delay) = drvrPinTiming(best_option);
+        std::tie(drvr_gate_delay, std::ignore) = drvrPinTiming(best_option);
 
         const Delay target = slackAtDriverPin(best_option)
-                             - (drvr_gate_delay + best_option->requiredDelay())
+                             - (drvr_gate_delay + requiredDelay(best_option))
                                    * rebuffer_relaxation_factor_;
 
         for (int i = 0; i < 5 && best_option; i++) {
@@ -533,27 +691,91 @@ int RepairSetup::rebuffer(const Pin* drvr_pin)
         odb::dbITerm* drvr_op_iterm = nullptr;
         odb::dbBTerm* drvr_op_bterm = nullptr;
         odb::dbModITerm* drvr_op_moditerm = nullptr;
-        odb::dbModBTerm* drvr_op_modbterm = nullptr;
-        db_network_->staToDb(drvr_pin,
-                             drvr_op_iterm,
-                             drvr_op_bterm,
-                             drvr_op_moditerm,
-                             drvr_op_modbterm);
+        db_network_->staToDb(
+            drvr_pin, drvr_op_iterm, drvr_op_bterm, drvr_op_moditerm);
 
-        if (db_net && db_modnet) {
+        bool propagate_mod_net = false;
+        bool all_loads_in_same_module = false;
+        int buffer_count = 0;
+        int load_count = 0;
+        int wire_count = 0;
+        int junction_count = 0;
+        /*
+          We characterize the choice tree by counting up the types
+          of its elements to see if this something we can propagate
+          a hierarchical net through. We also harvest the load modules
+          so we can see if we buffering a line which fanouts out to
+          different hierarchical modules (all_loads_in_same_module false)
+          or case when all loads in same module as driver
+          (all_loads_in_same_module true)
+        */
+        std::set<odb::dbModule*> load_modules;
+        characterizeChoiceTree(db_network_,
+                               1,
+                               best_option,
+                               buffer_count,
+                               load_count,
+                               wire_count,
+                               junction_count,
+                               load_modules);
+        /*
+          Propagating a hierarchicial through a single buffer or serial chain
+          of buffers is fine.
+
+          However, normally we cannot propagate a hierarchical net through a
+          junction, because we cannot discriminate between the two outputs.
+
+          Specifically if there is a junction with loads or buffers we
+          cannot do the propagation. However, if there is a
+          junction which is just doing wiring (no buffers or loads) then fine.
+         */
+
+        odb::dbModule* source_module = nullptr;
+        odb::dbITerm* drvr_iterm = nullptr;
+        odb::dbBTerm* drvr_bterm = nullptr;
+        odb::dbModITerm* drvr_moditerm = nullptr;
+        db_network_->staToDb(drvr_pin, drvr_iterm, drvr_bterm, drvr_moditerm);
+
+        if (drvr_iterm) {
+          dbInst* drvr_inst = drvr_iterm->getInst();
+          source_module = drvr_inst->getModule();
+        }
+        // check to see if we have just one module in load set
+        // and that all loads in the source module.
+        if (load_modules.size() == 1) {
+          if (*(load_modules.begin()) == source_module) {
+            all_loads_in_same_module = true;
+          }
+        }
+
+        if (junction_count != 0 && (!(buffer_count == 0 && load_count == 0))) {
+          propagate_mod_net = false;
+        } else {
+          propagate_mod_net = true;
+        }
+
+        // Corner case. If all the loads are in the same module
+        // then it is fine to propagate the modnet, no matter
+        // how many junctions
+        if (all_loads_in_same_module) {
+          propagate_mod_net = true;
+        }
+        if (db_net && db_modnet && propagate_mod_net) {
           // as we move the modnet and dbnet around we will get a clash
           //(the dbNet name now exposed is the same as the modnet name)
-          // so we uniquify the modnet name
+          // so we uniquify the modnet name. Only do this is if we
+          // are propagating the modnet..
           const std::string new_name = resizer_->makeUniqueNetName();
           db_modnet->rename(new_name.c_str());
         }
 
-        inserted_buffer_count = rebufferTopDown(best_option,
-                                                db_network_->dbToSta(db_net),
-                                                1,
-                                                parent,
-                                                drvr_op_iterm,
-                                                db_modnet);
+        inserted_buffer_count
+            = rebufferTopDown(best_option,
+                              db_network_->dbToSta(db_net),
+                              1,
+                              parent,
+                              drvr_op_iterm,
+                              (propagate_mod_net ? db_modnet : nullptr));
         if (inserted_buffer_count > 0) {
           rebuffer_net_count_++;
           debugPrint(logger_,
@@ -578,19 +800,26 @@ int RepairSetup::rebuffer(const Pin* drvr_pin)
   return inserted_buffer_count;
 }
 
-Slack RepairSetup::slackAtDriverPin(const BufferedNetPtr& bnet)
+Slack BufferMove::slackAtDriverPin(const BufferedNetPtr& bnet)
 {
   return slackAtDriverPin(bnet, -1);
 }
 
-std::tuple<const Path*, Delay> RepairSetup::drvrPinTiming(
-    const BufferedNetPtr& bnet)
+// Returns: driver pin gate delay; slack correction to account for changed
+// driver pin load
+std::tuple<Delay, Delay> BufferMove::drvrPinTiming(const BufferedNetPtr& bnet)
 {
-  const Path* req_path = bnet->requiredPath();
-  if (req_path) {
-    const Path* arrival_path = bnet->arrivalPath();
-    TimingArc* driver_arc = arrival_path->prevArc(resizer_);
+  if (bnet->slackTransition() == nullptr) {
+    return {0, 0};
+  }
+
+  Delay delay = 0, correction = INF;
+  for (auto rf : bnet->slackTransition()->range()) {
+    Delay rf_delay, rf_correction;
+    Path* arrival_path = arrival_paths_[rf->index()];
     Path* driver_path = arrival_path->prevPath();
+    TimingArc* driver_arc = arrival_path->prevArc(resizer_);
+
     if (driver_path) {
       const DcalcAnalysisPt* dcalc_ap = arrival_path->dcalcAnalysisPt(sta_);
       sta::LoadPinIndexMap load_pin_index_map(network_);
@@ -605,56 +834,54 @@ std::tuple<const Path*, Delay> RepairSetup::drvrPinTiming(
                                        nullptr,
                                        load_pin_index_map,
                                        dcalc_ap);
-      return {driver_path, dcalc_result.gateDelay()};
+      rf_delay = dcalc_result.gateDelay();
+      rf_correction = arrival_path->arrival()
+                      - (driver_path->arrival() + dcalc_result.gateDelay());
+    } else {
+      rf_delay = 0;
+      rf_correction = 0;
     }
 
-    return {arrival_path, 0};
+    if (rf_delay > delay) {
+      delay = rf_delay;
+    }
+    if (rf_correction < correction) {
+      correction = rf_correction;
+    }
   }
-  return {nullptr, 0};
+
+  return {delay, correction};
 }
 
-Slack RepairSetup::slackAtDriverPin(const BufferedNetPtr& bnet,
-                                    // Only used for debug print.
-                                    const int index)
+Slack BufferMove::slackAtDriverPin(const BufferedNetPtr& bnet,
+                                   // Only used for debug print.
+                                   const int index)
 {
-  const Path* req_path = bnet->requiredPath();
-  if (req_path) {
-    const Path* drvr_path;
-    Delay drvr_gate_delay;
-    std::tie(drvr_path, drvr_gate_delay) = drvrPinTiming(bnet);
-
-    const Delay slack = req_path->required() - bnet->requiredDelay()
-                        - drvr_gate_delay - drvr_path->arrival();
-
-    if (index >= 0) {
-      debugPrint(logger_,
-                 RSZ,
-                 "rebuffer",
-                 2,
-                 "option {:3d}: {:2d} buffers slack {} cap {}",
-                 index,
-                 bnet->bufferCount(),
-                 delayAsString(slack, this, 3),
-                 units_->capacitanceUnit()->asString(bnet->cap()));
-    }
-    return slack;
+  const Delay slack = bnet->slack() + std::get<1>(drvrPinTiming(bnet));
+  if (index >= 0) {
+    debugPrint(logger_,
+               RSZ,
+               "rebuffer",
+               2,
+               "option {:3d}: {:2d} buffers slack {} cap {}",
+               index,
+               bnet->bufferCount(),
+               delayAsString(slack, this, 3),
+               units_->capacitanceUnit()->asString(bnet->cap()));
   }
-  return INF;
+  return slack;
 }
 
 // For testing.
-void RepairSetup::rebufferNet(const Pin* drvr_pin)
+void BufferMove::rebufferNet(const Pin* drvr_pin)
 {
   init();
-  resizer_->incrementalParasiticsBegin();
-  inserted_buffer_count_ = rebuffer(drvr_pin);
-  // Leave the parasitics up to date.
-  resizer_->updateParasitics();
-  resizer_->incrementalParasiticsEnd();
+  IncrementalParasiticsGuard guard(resizer_);
+  int inserted_buffer_count_ = rebuffer(drvr_pin);
   logger_->report("Inserted {} buffers.", inserted_buffer_count_);
 }
 
-bool RepairSetup::hasTopLevelOutputPort(Net* net)
+bool BufferMove::hasTopLevelOutputPort(Net* net)
 {
   NetConnectedPinIterator* pin_iter = network_->connectedPinIterator(net);
   while (pin_iter->hasNext()) {
@@ -668,30 +895,25 @@ bool RepairSetup::hasTopLevelOutputPort(Net* net)
   return false;
 }
 
-BufferedNetPtr RepairSetup::addWire(const BufferedNetPtr& p,
-                                    const Point& wire_end,
-                                    const int wire_layer,
-                                    const int level)
+BufferedNetPtr BufferMove::addWire(const BufferedNetPtr& p,
+                                   const Point& wire_end,
+                                   const int wire_layer,
+                                   const int level)
 {
-  const Path* req_path = p->requiredPath();
-  const Corner* corner = !req_path ? sta_->cmdCorner()
-                                   : req_path->dcalcAnalysisPt(sta_)->corner();
-
   BufferedNetPtr z = make_shared<BufferedNet>(
-      BufferedNetType::wire, wire_end, wire_layer, p, corner, resizer_);
+      BufferedNetType::wire, wire_end, wire_layer, p, corner_, resizer_);
 
   double layer_res, layer_cap;
-  z->wireRC(corner, resizer_, layer_res, layer_cap);
+  z->wireRC(corner_, resizer_, layer_res, layer_cap);
   const double wire_length = resizer_->dbuToMeters(z->length());
   const double wire_res = wire_length * layer_res;
   const double wire_cap = wire_length * layer_cap;
   const double wire_delay = wire_res * (wire_cap / 2 + p->cap());
 
-  z->setArrivalPath(p->arrivalPath());
-  z->setRequiredPath(req_path);
   // account for wire delay
   z->setDelay(wire_delay);
-  z->setRequiredDelay(p->requiredDelay() + wire_delay);
+  z->setSlack(p->slack() - wire_delay);
+  z->setSlackTransition(p->slackTransition());
 
   debugPrint(logger_,
              RSZ,
@@ -706,7 +928,32 @@ BufferedNetPtr RepairSetup::addWire(const BufferedNetPtr& p,
   return z;
 }
 
-void RepairSetup::addBuffers(
+Delay BufferMove::bufferDelay(LibertyCell* cell,
+                              const RiseFallBoth* rf,
+                              float load_cap)
+{
+  Delay delay = 0;
+
+  if (rf) {
+    for (auto rf1 : rf->range()) {
+      const DcalcAnalysisPt* dcalc_ap
+          = arrival_paths_[rf1->index()]->dcalcAnalysisPt(sta_);
+      LibertyPort *input, *output;
+      cell->bufferPorts(input, output);
+      ArcDelay gate_delays[RiseFall::index_count];
+      Slew slews[RiseFall::index_count];
+      resizer_->gateDelays(output, load_cap, dcalc_ap, gate_delays, slews);
+
+      if (gate_delays[rf1->index()] > delay) {
+        delay = gate_delays[rf1->index()];
+      }
+    }
+  }
+
+  return delay;
+}
+
+void BufferMove::addBuffers(
     BufferedNetSeq& Z1,
     const int level,
     const bool area_oriented /*=false*/,
@@ -721,55 +968,38 @@ void RepairSetup::addBuffers(
       float best_area = std::numeric_limits<float>::max();
       BufferedNetPtr best_option = nullptr;
       BufferedNetPtr best_area_option = nullptr;
+      Delay best_option_delay = 0;
 
       for (const BufferedNetPtr& z : Z1) {
-        const Path* req_path = z->requiredPath();
-        // Do not buffer unconstrained paths.
-        if (req_path) {
-          const DcalcAnalysisPt* dcalc_ap = req_path->dcalcAnalysisPt(sta_);
-          const Delay buffer_delay
-              = resizer_->bufferDelay(buffer_cell,
-                                      req_path->transition(sta_),
-                                      z->cap() + out->capacitance(),
-                                      dcalc_ap);
-          const Delay slack = z->slack() - buffer_delay;
+        const Delay buffer_delay = bufferDelay(
+            buffer_cell, z->slackTransition(), z->cap() + out->capacitance());
+
+        const Delay slack = z->slack() - buffer_delay;
+        const float buffered_area = z->area() + 1;
+
+        if (!area_oriented) {
           if (fuzzyGreater(slack, best_slack)) {
             best_slack = slack;
+            best_option_delay = buffer_delay;
             best_option = z;
           }
-
-          if (area_oriented) {
-            const float buffered_area = z->area() + 1;
-            if (fuzzyGreaterEqual(slack, slack_threshold)
-                && buffered_area < best_area) {
-              best_area = buffered_area;
-              best_area_option = z;
-            }
+        } else {
+          // In area-oriented mode, anything which meets the slack threshold
+          // is OK timing-wise, we can select good area instead
+          if (fuzzyGreaterEqual(slack, slack_threshold)
+              && buffered_area < best_area) {
+            best_slack = slack;
+            best_area = buffered_area;
+            best_option_delay = buffer_delay;
+            best_option = z;
           }
         }
-      }
-
-      if (area_oriented) {
-        // In area-oriented mode, anything which meets the slack threshold
-        // is OK timing-wise, we can select good area instead
-        best_option = best_area_option;
       }
 
       if (best_option) {
-        Required slack = INF;
-        const Path* req_path = best_option->requiredPath();
-        float buffer_cap = 0.0;
-        Delay buffer_delay = 0.0;
-        if (req_path) {
-          const DcalcAnalysisPt* dcalc_ap = req_path->dcalcAnalysisPt(sta_);
-          buffer_cap = bufferInputCapacitance(buffer_cell, dcalc_ap);
-          buffer_delay
-              = resizer_->bufferDelay(buffer_cell,
-                                      req_path->transition(sta_),
-                                      best_option->cap() + out->capacitance(),
-                                      dcalc_ap);
-          slack = req_path->slack(sta_) - buffer_delay;
-        }
+        const Required slack = best_option->slack() - best_option_delay;
+        const float buffer_cap = in->capacitance();
+
         bool prune = false;
         if (!area_oriented) {
           // Don't add this buffer option if it has worse input cap and req than
@@ -801,10 +1031,9 @@ void RepairSetup::addBuffers(
               best_option,
               corner_,
               resizer_);
-          z->setArrivalPath(best_option->arrivalPath());
-          z->setRequiredPath(best_option->requiredPath());
-          z->setDelay(buffer_delay);
-          z->setRequiredDelay(best_option->requiredDelay() + buffer_delay);
+          z->setSlack(slack);
+          z->setSlackTransition(best_option->slackTransition());
+          z->setDelay(best_option_delay);
           debugPrint(logger_,
                      RSZ,
                      "rebuffer",
@@ -825,8 +1054,8 @@ void RepairSetup::addBuffers(
   }
 }
 
-float RepairSetup::bufferInputCapacitance(LibertyCell* buffer_cell,
-                                          const DcalcAnalysisPt* dcalc_ap)
+float BufferMove::bufferInputCapacitance(LibertyCell* buffer_cell,
+                                         const DcalcAnalysisPt* dcalc_ap)
 {
   LibertyPort *input, *output;
   buffer_cell->bufferPorts(input, output);
@@ -835,12 +1064,12 @@ float RepairSetup::bufferInputCapacitance(LibertyCell* buffer_cell,
   return corner_input->capacitance();
 }
 
-int RepairSetup::rebufferTopDown(const BufferedNetPtr& choice,
-                                 Net* net,  // output of buffer.
-                                 const int level,
-                                 Instance* parent_in,
-                                 odb::dbITerm* mod_net_drvr,
-                                 odb::dbModNet* mod_net_in)
+int BufferMove::rebufferTopDown(const BufferedNetPtr& choice,
+                                Net* net,  // output of buffer.
+                                const int level,
+                                Instance* parent_in,
+                                odb::dbITerm* mod_net_drvr,
+                                odb::dbModNet* mod_net_in)
 {
   // HFix, pass in the parent
   Instance* parent = parent_in;
@@ -887,12 +1116,8 @@ int RepairSetup::rebufferTopDown(const BufferedNetPtr& choice,
       odb::dbITerm* buffer_op_iterm = nullptr;
       odb::dbBTerm* buffer_op_bterm = nullptr;
       odb::dbModITerm* buffer_op_moditerm = nullptr;
-      odb::dbModBTerm* buffer_op_modbterm = nullptr;
-      db_network_->staToDb(buffer_op_pin,
-                           buffer_op_iterm,
-                           buffer_op_bterm,
-                           buffer_op_moditerm,
-                           buffer_op_modbterm);
+      db_network_->staToDb(
+          buffer_op_pin, buffer_op_iterm, buffer_op_bterm, buffer_op_moditerm);
 
       // disconnect modnet from original driver
       // connect the output to the modnet.
@@ -901,26 +1126,22 @@ int RepairSetup::rebufferTopDown(const BufferedNetPtr& choice,
       // Hierarchy handling
       if (mod_net_drvr && mod_net_in) {
         // save original dbnet
-        dbNet* orig_db_net = mod_net_drvr->getNet();
+        dbNet* orig_db_net = db_network_->flatNet((Pin*) mod_net_drvr);
         // disconnect everything
         mod_net_drvr->disconnect();
         // restore dbnet
         mod_net_drvr->connect(orig_db_net);
         // add the modnet to the new output
-        buffer_op_iterm->connect(mod_net_in);
+        buffer_op_iterm->disconnect();
+
+        // hierarchy fix: simultaneously connect flat and hieararchical net
+        // to force reassociation
+        db_network_->connectPin(buffer_op_pin, (Net*) net2, (Net*) mod_net_in);
       }
 
       const int buffer_count = rebufferTopDown(
           choice->ref(), net2, level + 1, parent, buffer_op_iterm, mod_net_in);
 
-      // ip_net
-      odb::dbNet* db_net = nullptr;
-      odb::dbModNet* db_modnet = nullptr;
-      db_network_->staToDb(net, db_net, db_modnet);
-      resizer_->parasiticsInvalid(db_network_->dbToSta(db_net));
-
-      db_network_->staToDb(net2, db_net, db_modnet);
-      resizer_->parasiticsInvalid(db_network_->dbToSta(db_net));
       return buffer_count + 1;
     }
 
@@ -931,6 +1152,7 @@ int RepairSetup::rebufferTopDown(const BufferedNetPtr& choice,
 
     case BufferedNetType::junction: {
       debugPrint(logger_, RSZ, "rebuffer", 3, "{:{}s}junction", "", level);
+
       return rebufferTopDown(choice->ref(),
                              net,
                              level + 1,
@@ -960,50 +1182,63 @@ int RepairSetup::rebufferTopDown(const BufferedNetPtr& choice,
         return 0;
       }
 
-      odb::dbNet* db_net = nullptr;
-      odb::dbModNet* db_modnet = nullptr;
-      db_network_->staToDb(net, db_net, db_modnet);
+      dbNet* db_load_net = db_network_->flatNet(load_pin);
+      odb::dbNet* db_net = db_network_->flatNet((Pin*) mod_net_drvr);
 
-      // only access at dbnet level
-      Net* load_net = network_->net(load_pin);
-
-      dbNet* db_load_net;
-      odb::dbModNet* db_mod_load_net;
-      db_network_->staToDb(load_net, db_load_net, db_mod_load_net);
-      (void) db_load_net;
-
-      if (load_net != net) {
+      if ((Net*) db_load_net != net) {
         odb::dbITerm* load_iterm = nullptr;
         odb::dbBTerm* load_bterm = nullptr;
         odb::dbModITerm* load_moditerm = nullptr;
-        odb::dbModBTerm* load_modbterm = nullptr;
-        db_network_->staToDb(
-            load_pin, load_iterm, load_bterm, load_moditerm, load_modbterm);
+        db_network_->staToDb(load_pin, load_iterm, load_bterm, load_moditerm);
 
-        debugPrint(logger_,
-                   RSZ,
-                   "rebuffer",
-                   3,
-                   "{:{}s}connect load {} to {}",
-                   "",
-                   level,
-                   sdc_network_->pathName(load_pin),
-                   sdc_network_->pathName(load_net));
+        Instance* load_parent_inst = nullptr;
+        if (load_iterm) {
+          dbInst* load_inst = load_iterm->getInst();
+          if (load_inst) {
+            auto top_module = db_network_->block()->getTopModule();
+            if (load_inst->getModule() == top_module) {
+              load_parent_inst = db_network_->topInstance();
+            } else {
+              load_parent_inst
+                  = (Instance*) (load_inst->getModule()->getModInst());
+            }
+          }
 
-        // disconnect removes everything.
-        sta_->disconnectPin(const_cast<Pin*>(load_pin));
-        // prepare for hierarchy
-        load_iterm->connect(db_net);
-        // preserve the mod net.
-        if (db_mod_load_net) {
-          load_iterm->connect(db_mod_load_net);
+          debugPrint(logger_,
+                     RSZ,
+                     "rebuffer",
+                     3,
+                     "{:{}s}connect load {} to {} modnet {}",
+                     "",
+                     level,
+                     sdc_network_->pathName(load_pin),
+                     sdc_network_->pathName((Net*) db_load_net),
+                     (mod_net_in ? mod_net_in->getName() : " none "));
+
+          // disconnect removes everything.
+          sta_->disconnectPin(const_cast<Pin*>(load_pin));
+
+          if (load_parent_inst && parent_in
+              && db_network_->hasHierarchicalElements()
+              && load_parent_inst != parent_in) {
+            // make the flat connection
+            db_network_->connectPin(const_cast<Pin*>(load_pin), net);
+            std::string preferred_connection_name;
+            // always make a unique name to avoid name clashes
+            preferred_connection_name = resizer_->makeUniqueNetName();
+            db_network_->hierarchicalConnect(
+                mod_net_drvr, load_iterm, preferred_connection_name.c_str());
+          } else if (mod_net_in) {  // input hierarchical net
+            db_network_->connectPin(
+                const_cast<Pin*>(load_pin), (Net*) db_net, (Net*) mod_net_in);
+          } else {  // flat case
+            load_iterm->connect(db_net);
+          }
+
+          // sta_->connectPin(load_inst, load_port, net);
         }
-
-        // sta_->connectPin(load_inst, load_port, net);
-        resizer_->parasiticsInvalid(db_network_->dbToSta(db_net));
-        // resizer_->parasiticsInvalid(load_net);
+        return 0;
       }
-      return 0;
     }
   }
   return 0;

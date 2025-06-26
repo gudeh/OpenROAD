@@ -78,6 +78,14 @@ class UniqueInsts
    */
   frInst* deleteInst(frInst* inst);
 
+  void initUniqueInstPinAccess(frInst* unique_inst);
+  /**
+   * @brief this function if for debugging. It makes the inst the class head.
+   * This is relevant when debugguin with the gui, this is the inst that will
+   * fail in PA, not other inst in its family
+   */
+  void forceInstAsClassHead(frInst* inst);
+
   void report() const;
   void setDesign(frDesign* design) { design_ = design; }
 
@@ -116,8 +124,6 @@ class UniqueInsts
    * @brief Initializes pin access idx of all instances
    */
   void initPinAccess();
-
-  void initUniqueInstPinAccess(frInst* unique_inst);
 
   /**
    * @brief Creates a map from Master instance to LayerRanges.

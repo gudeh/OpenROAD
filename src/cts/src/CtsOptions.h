@@ -192,6 +192,24 @@ class CtsOptions : public odb::dbBlockCallBackObj
   {
     sinkClusteringLevels_ = levels;
   }
+
+  double getMacroMaxDiameter() const { return macroMaxDiameter_; }
+  void setMacroMaxDiameter(double distance)
+  {
+    macroMaxDiameter_ = distance;
+    macroMaxDiameterSet_ = true;
+  }
+  bool isMacroMaxDiameterSet() const { return macroMaxDiameterSet_; }
+  unsigned getMacroSinkClusteringSize() const { return macroSinkClustersSize_; }
+  void setMacroClusteringSize(unsigned size)
+  {
+    macroSinkClustersSize_ = size;
+    macroSinkClustersSizeSet_ = true;
+  }
+  bool isMacroSinkClusteringSizeSet() const
+  {
+    return macroSinkClustersSizeSet_;
+  }
   unsigned getNumStaticLayers() const { return numStaticLayers_; }
   void setBalanceLevels(bool balance) { balanceLevels_ = balance; }
   bool getBalanceLevels() const { return balanceLevels_; }
@@ -243,12 +261,15 @@ class CtsOptions : public odb::dbBlockCallBackObj
   void inDbInstCreate(odb::dbInst* inst) override;
   void inDbInstCreate(odb::dbInst* inst, odb::dbRegion* region) override;
 
+  void setRepairClockNets(bool value) { repairClockNets_ = value; }
+  bool getRepairClockNets() { return repairClockNets_; }
+
  private:
-  std::string clockNets_ = "";
-  std::string rootBuffer_ = "";
-  std::string sinkBuffer_ = "";
-  std::string treeBuffer_ = "";
-  std::string metricFile_ = "";
+  std::string clockNets_;
+  std::string rootBuffer_;
+  std::string sinkBuffer_;
+  std::string treeBuffer_;
+  std::string metricFile_;
   int dbUnits_ = -1;
   unsigned wireSegmentUnit_ = 0;
   bool plotSolution_ = false;
@@ -282,6 +303,10 @@ class CtsOptions : public odb::dbBlockCallBackObj
   bool maxDiameterSet_ = false;
   unsigned sinkClustersSize_ = 20;
   bool sinkClustersSizeSet_ = false;
+  double macroMaxDiameter_ = 50;
+  bool macroMaxDiameterSet_ = false;
+  unsigned macroSinkClustersSize_ = 4;
+  bool macroSinkClustersSizeSet_ = true;
   bool balanceLevels_ = false;
   unsigned sinkClusteringLevels_ = 0;
   unsigned numStaticLayers_ = 0;
@@ -304,6 +329,7 @@ class CtsOptions : public odb::dbBlockCallBackObj
   MasterCount buffer_count_;
   std::string dummyload_prefix_ = "clkload";
   MasterCount dummy_count_;
+  bool repairClockNets_ = false;
 };
 
 }  // namespace cts

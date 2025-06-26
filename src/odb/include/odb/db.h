@@ -471,7 +471,7 @@ class dbDatabase : public dbObject
   /// as knowing when the data is fully loaded into odb.
   ///
   void triggerPostReadLef(dbTech* tech, dbLib* library);
-  void triggerPostReadDef(dbBlock* block);
+  void triggerPostReadDef(dbBlock* block, bool floorplan);
   void triggerPostReadDb();
 
   ///
@@ -700,6 +700,9 @@ class dbBox : public dbObject
   /// Create a halo on an instance.
   ///
   static dbBox* create(dbInst* inst, int x1, int y1, int x2, int y2);
+
+  // Destroy box
+  static void destroy(dbBox* box);
 
   ///
   /// Translate a database-id back to a pointer.
@@ -1532,6 +1535,11 @@ class dbBlock : public dbObject
   void setMaxLayerForClock(int max_layer_for_clock);
 
   ///
+  /// Get the gcell tile size
+  ///
+  int getGCellTileSize();
+
+  ///
   /// Get the extraction corner names
   ///
   void getExtCornerNames(std::list<std::string>& ecl);
@@ -1589,6 +1597,11 @@ class dbBlock : public dbObject
   bool designIsRouted(bool verbose);
 
   ///
+  /// Destroy wires of nets
+  ///
+  void destroyNetWires();
+
+  ///
   /// clear
   ///
   void clear();
@@ -1639,6 +1652,8 @@ class dbBlock : public dbObject
   void setDrivingItermsforNets();
 
   void clearUserInstFlags();
+
+  std::map<dbTechLayer*, dbTechVia*> getDefaultVias();
 
  public:
   ///
@@ -2331,7 +2346,7 @@ class dbNet : public dbObject
   void clearSpecial();
 
   ///
-  /// Returns true if this dbNet have its pins connected by abutment
+  /// Returns true if this dbNet has its pins connected by abutment
   ///
   bool isConnectedByAbutment();
 
@@ -3271,9 +3286,13 @@ class dbInst : public dbObject
                         const char* name,
                         dbRegion* region,
                         bool physical_only = false,
-                        dbModule* parent_module = nullptr
+                        dbModule* parent_module = nullptr);
 
-  );
+  static dbInst* makeUniqueDbInst(dbBlock* block,
+                                  dbMaster* master,
+                                  const char* name,
+                                  bool physical_only,
+                                  dbModule* target_module);
 
   ///
   /// Create a new instance of child_block in top_block.
@@ -3529,6 +3548,11 @@ class dbITerm : public dbObject
   /// Returns all access points for each pin.
   ///
   std::map<dbMPin*, std::vector<dbAccessPoint*>> getAccessPoints() const;
+
+  ///
+  /// Destroys all access points of each pin.
+  ///
+  void clearPrefAccessPoints();
 
   ///
   /// Translate a database-id back to a pointer.
@@ -5649,7 +5673,7 @@ class dbMaster : public dbObject
   ///
   /// Set _sequential of this master.
   ///
-  void setSequential(uint v);
+  void setSequential(bool v);
 
   ///
   /// Returns _sequential this master
@@ -5757,6 +5781,11 @@ class dbMTerm : public dbObject
   /// Get the signal type of this master-terminal.
   ///
   dbSigType getSigType();
+
+  ///
+  /// Set the signal type of this master-terminal.
+  ///
+  void setSigType(dbSigType type);
 
   ///
   /// Get the IO direction of this master-terminal.
@@ -7640,6 +7669,10 @@ class dbGuide : public dbObject
 
   void setIsJumper(bool jumper);
 
+  bool isConnectedToTerm();
+
+  void setIsConnectedToTerm(bool is_connected);
+
   // User Code End dbGuide
 };
 
@@ -8008,7 +8041,6 @@ class dbModBTerm : public dbObject
   dbModule* getParent() const;
 
   // User Code Begin dbModBTerm
-
   void setParentModITerm(dbModITerm* parent_pin);
   dbModITerm* getParentModITerm() const;
   void setModNet(dbModNet* modNet);
@@ -8026,8 +8058,6 @@ class dbModBTerm : public dbObject
   static void destroy(dbModBTerm*);
   static dbSet<dbModBTerm>::iterator destroy(dbSet<dbModBTerm>::iterator& itr);
   static dbModBTerm* getModBTerm(dbBlock* block, uint dbid);
-
- private:
   // User Code End dbModBTerm
 };
 
@@ -8052,6 +8082,11 @@ class dbModInst : public dbObject
 
   void RemoveUnusedPortsAndPins();
 
+  /// Swap the module of this instance.
+  /// Returns new mod inst if the operations succeeds.
+  /// Old mod inst is deleted along with its child insts.
+  dbModInst* swapMaster(dbModule* module);
+
   static dbModInst* create(dbModule* parentModule,
                            dbModule* masterModule,
                            const char* name);
@@ -8062,11 +8097,6 @@ class dbModInst : public dbObject
   static dbSet<dbModInst>::iterator destroy(dbSet<dbModInst>::iterator& itr);
 
   static dbModInst* getModInst(dbBlock* block_, uint dbid_);
-
-  /// Swap the module of this instance.
-  /// Returns new mod inst if the operations succeeds.
-  /// Old mod inst is deleted along with its child insts.
-  dbModInst* swapMaster(dbModule* module);
   // User Code End dbModInst
 };
 
@@ -8103,14 +8133,14 @@ class dbModNet : public dbObject
   dbSet<dbModBTerm> getModBTerms();
   dbSet<dbITerm> getITerms();
   dbSet<dbBTerm> getBTerms();
-
+  unsigned connectionCount();
   const char* getName() const;
   void rename(const char* new_name);
+
   static dbModNet* getModNet(dbBlock* block, uint id);
   static dbModNet* create(dbModule* parentModule, const char* name);
   static dbSet<dbModNet>::iterator destroy(dbSet<dbModNet>::iterator& itr);
   static void destroy(dbModNet*);
-
   // User Code End dbModNet
 };
 
@@ -8165,28 +8195,6 @@ class dbModule : public dbObject
   static dbModule* makeUniqueDbModule(const char* cell_name,
                                       const char* inst_name,
                                       dbBlock* block);
-
-  // Copy and uniquify a given module based on current instance
-  static void copy(dbModule* old_module,
-                   dbModule* new_module,
-                   dbModInst* new_mod_inst);
-  static void copyModulePorts(dbModule* old_module,
-                              dbModule* new_module,
-                              modBTMap& mod_bt_map);
-  static void copyModuleInsts(dbModule* old_module,
-                              dbModule* new_module,
-                              dbModInst* new_mod_inst,
-                              ITMap& it_map);
-  static void copyModuleModNets(dbModule* old_module,
-                                dbModule* new_module,
-                                modBTMap& mod_bt_map,
-                                ITMap& it_map);
-  static void copyModuleBoundaryIO(dbModule* old_module,
-                                   dbModule* new_module,
-                                   dbModInst* new_mod_inst);
-
-  // Copy module to child block for future use
-  static bool copyToChildBlock(dbModule* module);
 
   // User Code End dbModule
 };

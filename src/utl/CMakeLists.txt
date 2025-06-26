@@ -3,7 +3,7 @@
 
 include("openroad")
 
-find_package(Boost 1.78 REQUIRED)
+find_package(Boost 1.78 REQUIRED COMPONENTS iostreams)
 
 swig_lib(NAME      utl
          NAMESPACE utl
@@ -43,8 +43,9 @@ add_library(utl_lib
   src/Progress.cpp
   src/CommandLineProgress.cpp
   src/timer.cpp
-    src/decode.cpp
+  src/decode.cpp
   src/prometheus/metrics_server.cpp
+  src/histogram.cpp
 )
 
 target_include_directories(utl_lib
@@ -60,6 +61,7 @@ target_link_libraries(utl_lib
   PUBLIC
     spdlog::spdlog
     ${TCL_LIBRARY}
+    ${Boost_LIBRARIES}
 )
 
 target_sources(utl

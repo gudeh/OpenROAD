@@ -14,110 +14,20 @@
 #include "odb/db.h"
 #include "odb/dbShape.h"
 #include "utl/Logger.h"
+
 namespace odb {
-
-inline uint get_net_dbid(const char* name)
-{
-  if (*name != 'N') {
-    return 0;
-  }
-
-  ++name;
-
-  if (*name == '\0') {
-    return 0;
-  }
-
-  char* end;
-  uint dbid = strtoul(name, &end, 10);
-
-  if (*end != '\0') {
-    return 0;
-  }
-
-  return dbid;
-}
-
-definSNet::definSNet()
-{
-  init();
-  _skip_special_wires = false;
-  _skip_shields = false;
-  _skip_block_wires = false;
-  _skip_fill_wires = false;
-  _replace_wires = false;
-  _names_are_ids = false;
-}
-
-definSNet::~definSNet()
-{
-}
-
-void definSNet::init()
-{
-  definBase::init();
-  _snet_cnt = 0;
-  _snet_iterm_cnt = 0;
-  _cur_net = nullptr;
-  _cur_layer = nullptr;
-  _swire = nullptr;
-  _wire_type = dbWireType::NONE;
-  _wire_shape_type = dbWireShapeType::NONE;
-  _shield_net = nullptr;
-  _prev_x = 0;
-  _prev_y = 0;
-  _prev_ext = 0;
-  _has_prev_ext = false;
-  _width = 0;
-  _point_cnt = 0;
-}
 
 void definSNet::begin(const char* name)
 {
   assert(_cur_net == nullptr);
 
-  if (!_replace_wires) {
-    _cur_net = _block->findNet(name);
+  _cur_net = _block->findNet(name);
 
-    if (_cur_net == nullptr) {
-      _cur_net = dbNet::create(_block, name);
-    }
-
-    _cur_net->setSpecial();
-  } else {
-    if (_names_are_ids == false) {
-      _cur_net = _block->findNet(name);
-    } else {
-      uint netid = get_net_dbid(name);
-
-      if (netid) {
-        _cur_net = dbNet::getNet(_block, netid);
-      } else {
-        _cur_net = nullptr;
-      }
-    }
-
-    if (_cur_net == nullptr) {
-      _logger->warn(utl::ODB, 156, "special net {} does not exist", name);
-      ++_errors;
-    } else {
-      dbWire* wire = _cur_net->getWire();
-
-      if (wire) {
-        dbWire::destroy(wire);
-      }
-
-      dbSet<dbSWire> swires = _cur_net->getSWires();
-      dbSet<dbSWire>::iterator itr;
-
-      for (itr = swires.begin(); itr != swires.end(); itr = swires.begin()) {
-        dbSWire* swire = *itr;
-        dbSWire::destroy(swire);
-      }
-
-      _cur_net->setSpecial();
-    }
+  if (_cur_net == nullptr) {
+    _cur_net = dbNet::create(_block, name);
   }
+
+  _cur_net->setSpecial();
 
   _snet_cnt++;
   _swire = nullptr;
@@ -127,7 +37,7 @@ void definSNet::connection(const char* iname,
                            const char* tname,
                            bool /* unused: synth */)
 {
-  if ((_cur_net == nullptr) || (_replace_wires == true)) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -182,7 +92,7 @@ void definSNet::connection(const char* iname,
 
 void definSNet::use(dbSigType type)
 {
-  if ((_cur_net == nullptr) || (_replace_wires == true)) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -191,7 +101,7 @@ void definSNet::use(dbSigType type)
 
 void definSNet::source(dbSourceType source)
 {
-  if ((_cur_net == nullptr) || (_replace_wires == true)) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -200,7 +110,7 @@ void definSNet::source(dbSourceType source)
 
 void definSNet::weight(int weight)
 {
-  if ((_cur_net == nullptr) || (_replace_wires == true)) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -209,7 +119,7 @@ void definSNet::weight(int weight)
 
 void definSNet::fixedbump()
 {
-  if ((_cur_net == nullptr) || (_replace_wires == true)) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -566,7 +476,7 @@ void definSNet::wireEnd()
 
 void definSNet::property(const char* name, const char* value)
 {
-  if ((_cur_net == nullptr) || _replace_wires) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -580,7 +490,7 @@ void definSNet::property(const char* name, const char* value)
 
 void definSNet::property(const char* name, int value)
 {
-  if ((_cur_net == nullptr) || _replace_wires) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -594,7 +504,7 @@ void definSNet::property(const char* name, int value)
 
 void definSNet::property(const char* name, double value)
 {
-  if ((_cur_net == nullptr) || _replace_wires) {
+  if (_cur_net == nullptr) {
     return;
   }
 
@@ -613,18 +523,16 @@ void definSNet::end()
     return;
   }
 
-  if (_replace_wires == false) {
-    dbSet<dbITerm> iterms = _cur_net->getITerms();
+  dbSet<dbITerm> iterms = _cur_net->getITerms();
 
-    if (iterms.reversible() && iterms.orderReversed()) {
-      iterms.reverse();
-    }
+  if (iterms.reversible() && iterms.orderReversed()) {
+    iterms.reverse();
+  }
 
-    dbSet<dbProperty> props = dbProperty::getProperties(_cur_net);
+  dbSet<dbProperty> props = dbProperty::getProperties(_cur_net);
 
-    if (!props.empty() && props.orderReversed()) {
-      props.reverse();
-    }
+  if (!props.empty() && props.orderReversed()) {
+    props.reverse();
   }
 
   dbSet<dbSWire> swires = _cur_net->getSWires();

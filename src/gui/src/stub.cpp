@@ -12,6 +12,11 @@
 
 #include "gui/gui.h"
 
+// empty gif writer class
+struct GifWriter
+{
+};
+
 namespace gui {
 
 Gui* Gui::singleton_ = nullptr;
@@ -162,10 +167,6 @@ int startGui(int& argc,
   return 1;  // return unix err
 }
 
-}  // namespace gui
-
-namespace ord {
-
 void initGui(Tcl_Interp* interp,
              odb::dbDatabase* db,
              sta::dbSta* sta,
@@ -194,4 +195,60 @@ void initGui(Tcl_Interp* interp,
   Tcl_Eval(interp, enabled_supported.c_str());
 }
 
-}  // namespace ord
+void Gui::gifStart(const std::string& filename)
+{
+}
+
+void Gui::gifEnd()
+{
+}
+
+void Gui::gifAddFrame(const odb::Rect& region,
+                      int width_px,
+                      double dbu_per_pixel,
+                      std::optional<int> delay)
+{
+}
+
+void Gui::deleteLabel(const std::string& name)
+{
+}
+
+std::string Gui::addLabel(int x,
+                          int y,
+                          const std::string& text,
+                          std::optional<Painter::Color> color,
+                          std::optional<int> size,
+                          std::optional<Painter::Anchor> anchor,
+                          const std::optional<std::string>& name)
+{
+  return "";
+}
+
+void Gui::saveImage(const std::string& filename,
+                    const odb::Rect& region,
+                    int width_px,
+                    double dbu_per_pixel,
+                    const std::map<std::string, bool>& display_settings)
+{
+}
+
+void Gui::clearSelections()
+{
+}
+
+int Gui::select(const std::string& type,
+                const std::string& name_filter,
+                const std::string& attribute,
+                const std::any& value,
+                bool filter_case_sensitive,
+                int highlight_group)
+{
+  return 0;
+}
+
+void Gui::setDisplayControlsVisible(const std::string& name, bool value)
+{
+}
+
+}  // namespace gui
