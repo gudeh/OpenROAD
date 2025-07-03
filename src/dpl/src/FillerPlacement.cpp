@@ -284,9 +284,9 @@ bool Opendp::isOneSiteCell(odb::dbMaster* db_master) const
   return db_master->getType() == odb::dbMasterType::CORE_SPACER
          && db_master->getWidth() == grid_->getSiteWidth();
 }
-
+namespace {
 // Helper function to check if a cell is connected to phi nets
-static bool isPhiCell(const Node* cell)
+bool isPhiCell(const Node* cell)
 {
   if (!cell || cell->getType() != Node::CELL) {
     return false;
@@ -295,7 +295,7 @@ static bool isPhiCell(const Node* cell)
 }
 
 // Helper function to get the phi net ID for a cell
-static int getPhiNetId(const Node* cell)
+int getPhiNetId(const Node* cell)
 {
   if (!cell || cell->getType() != Node::CELL) {
     return -1;
@@ -309,35 +309,59 @@ static int getPhiNetId(const Node* cell)
   return -1;
 }
 
+int getCurrSitePhiNetId(Pixel* pixel1, Pixel* pixel2)
+{
+  if (pixel1 && pixel1->cell && isPhiCell(pixel1->cell)) {
+    return getPhiNetId(pixel1->cell);
+  }
+  if (pixel2 && pixel2->cell && isPhiCell(pixel2->cell)) {
+    return getPhiNetId(pixel2->cell);
+  }
+  return -1;
+}
+
+bool haveDifferentPhiNets(Pixel* pixel1, Pixel* pixel2)
+{
+  if (pixel1 == nullptr || pixel2 == nullptr) {
+    return false;
+  }
+  if (pixel1->cell == nullptr || pixel2->cell == nullptr) {
+    return false;
+  }
+  if (!isPhiCell(pixel1->cell) && !isPhiCell(pixel2->cell)) {
+    return false;
+  }
+  return getPhiNetId(pixel1->cell) != getPhiNetId(pixel2->cell);
+}
+}  // namespace
+
 // Helper function to find a valid position for phi cut cell
 static std::optional<std::pair<GridX, GridY>> findPhiCutPosition(
     Grid* grid,
     GridX gap_start_x,
     GridX gap_end_x,
-    GridY gap_start_y,
-    GridY gap_end_y,
+    GridY row,
     GridX phi_cut_width,
     GridY phi_cut_height)
 {
   // Try each possible position in the gap, prioritizing lower y values
-  for (GridY y = gap_start_y; y <= gap_end_y - phi_cut_height; y++) {
-    for (GridX x = gap_start_x; x <= gap_end_x - phi_cut_width; x++) {
-      // Check if this position is valid (no overlapping cells)
-      bool position_valid = true;
-      for (GridX check_x = x; check_x < x + phi_cut_width && position_valid;
-           check_x++) {
-        for (GridY check_y = y; check_y < y + phi_cut_height && position_valid;
-             check_y++) {
-          Pixel* pixel = grid->gridPixel(check_x, check_y);
-          if (!pixel->is_valid || pixel->cell) {
-            position_valid = false;
-            break;
-          }
+  for (GridX x = gap_start_x; x <= gap_end_x - phi_cut_width; x++) {
+    // Check if this position is valid (no overlapping cells)
+    bool position_valid = true;
+    for (GridX check_x = x; check_x < x + phi_cut_width && position_valid;
+         check_x++) {
+      for (GridY check_y = row;
+           check_y < row + phi_cut_height && position_valid;
+           check_y++) {
+        Pixel* pixel = grid->gridPixel(check_x, check_y);
+        if (!pixel->is_valid || pixel->cell) {
+          position_valid = false;
+          break;
         }
       }
-      if (position_valid) {
-        return std::make_pair(x, y);
-      }
+    }
+    if (position_valid) {
+      return std::make_pair(x, row);
     }
   }
   return std::nullopt;
@@ -389,99 +413,88 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
   GridX j{0};
 
   while (j < row_site_count) {
-    Pixel* pixel = grid_->gridPixel(j, row);
-    if (!pixel->is_valid) {
-      ++j;
-      continue;
+    Pixel* pixel1 = grid_->gridPixel(j, row);
+    Pixel* pixel2 = grid_->gridPixel(j, row + 1);
+    if (haveDifferentPhiNets(pixel1, pixel2)) {
+      logger_->error(DPL,
+                     58,
+                     "Cells {} and {} are on different phi nets.",
+                     pixel1->cell->name(),
+                     pixel2->cell->name());
     }
 
     // Find next valid cell
-    Node* curr_cell = pixel->cell;
+    int curr_phi_net = getCurrSitePhiNetId(pixel1, pixel2);
+    int next_phi_net = -1;
 
-    if (!curr_cell || !isPhiCell(curr_cell)) {
-      ++j;
-      continue;
-    }
-    if (curr_cell->getBottom() != grid_->gridYToDbu(row)) {
+    if (curr_phi_net == -1) {
       ++j;
       continue;
     }
 
+    GridX gap_start_x = j;
+    GridX gap_end_x{-1};
     // Find next phi cell
-    Node* next_cell = nullptr;
-    Node* next_welltap = nullptr;
+    Node* welltap_cell = nullptr;
+    bool found_cut_cell = false;
     while (++j < row_site_count) {
-      Pixel* next_pixel = grid_->gridPixel(j, row);
-      if (next_pixel->cell) {
-        auto cell = next_pixel->cell;
-        if (cell->getMaster()->getDbMaster() == phi_cut_cell_) {
-          // cut cell already exists.
-          next_cell = nullptr;
-          break;
-        } else if (cell->getMaster()->getDbMaster()->getType()
-                   == odb::dbMasterType::CORE_WELLTAP) {
-          next_welltap = cell;
-          continue;
-        }
-        next_cell = cell;
+      Pixel* next_pixel1 = grid_->gridPixel(j, row);
+      Pixel* next_pixel2 = grid_->gridPixel(j, row + 1);
+      // if there is a cut cell in this row, skip
+      if (next_pixel1->cell
+          && next_pixel1->cell->getMaster()->getDbMaster() == phi_cut_cell_) {
+        found_cut_cell = true;
+        break;
+      }
+      if (next_pixel1->cell
+          && next_pixel1->cell->getMaster()->getDbMaster()->getType()
+                 == odb::dbMasterType::CORE_WELLTAP) {
+        welltap_cell = next_pixel1->cell;
+        continue;
+      }
+      if (haveDifferentPhiNets(next_pixel1, next_pixel2)) {
+        logger_->error(DPL,
+                       59,
+                       "Cells {} and {} are on different phi nets.",
+                       next_pixel1->cell->name(),
+                       next_pixel2->cell->name());
+      }
+      int phi_net_id = getCurrSitePhiNetId(next_pixel1, next_pixel2);
+      if (phi_net_id == curr_phi_net) {
+        gap_start_x = j;
+      } else if (phi_net_id != -1) {
+        next_phi_net = phi_net_id;
+        gap_end_x = j;
         break;
       }
     }
-
-    if (!next_cell) {
-      break;  // No more phi cells in this row
-    }
-    if (!isPhiCell(next_cell)) {
+    if (found_cut_cell) {
       continue;
+    }
+    if (next_phi_net == -1) {
+      break;  // No more phi cells in this row
     }
 
     // Check if cells are on different phi nets
-    int curr_phi_net = getPhiNetId(curr_cell);
-    int next_phi_net = getPhiNetId(next_cell);
-    if (curr_phi_net == -1 || next_phi_net == -1
-        || curr_phi_net == next_phi_net) {
-      continue;
-    }
-    if (next_welltap) {
+    if (welltap_cell) {
       if (tap_phi_cell_) {
-        swapCellMaster(next_welltap, tap_phi_cell_, block_);
+        swapCellMaster(welltap_cell, tap_phi_cell_, block_);
       }
       continue;
     }
+    gap_start_x += 1;
     // Calculate gap between cells
-    GridX gap_start_x = grid_->gridEndX(curr_cell);
-    GridX gap_end_x{j};
     GridX gap_x = gap_end_x - gap_start_x;
-    GridY gap_start_y = std::min(grid_->gridSnapDownY(curr_cell),
-                                 grid_->gridSnapDownY(next_cell));
-    GridY gap_end_y
-        = std::max(grid_->gridEndY(curr_cell), grid_->gridEndY(next_cell));
-
     // Check if there's enough space for phi cut cell
     GridX phi_cut_width{(int) phi_cut_cell_->getWidth() / site_width.v};
     GridY phi_cut_height{grid_->gridHeight(phi_cut_cell_)};
     if (gap_x < phi_cut_width) {
       continue;
     }
-    // Check if there's already a phi cut cell in this gap
-    bool has_phi_cut = false;
-    for (GridX x = gap_start_x; x < gap_end_x; x++) {
-      Pixel* gap_pixel = grid_->gridPixel(x, row);
-      if (gap_pixel->cell && gap_pixel->cell->getMaster()
-          && gap_pixel->cell->getMaster()->getDbMaster() == phi_cut_cell_) {
-        has_phi_cut = true;
-        break;
-      }
-    }
-    if (has_phi_cut) {
-      continue;
-    }
-    // Find a valid position for the phi cut cell
     auto position = findPhiCutPosition(grid_.get(),
                                        gap_start_x,
                                        gap_end_x,
-                                       gap_start_y,
-                                       gap_end_y,
+                                       row,
                                        phi_cut_width,
                                        phi_cut_height);
 
@@ -536,12 +549,13 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
       auto& node = network_->getNodes().back();
       grid_->paintPixel(node.get());
     } else {
-      logger_->error(
-          DPL,
-          53,
-          "No valid position found for phi cut cell between {} and {}",
-          curr_cell->name(),
-          next_cell->name());
+      logger_->error(DPL,
+                     53,
+                     "No valid position found for phi cut cell in row {} "
+                     "between {} and {}",
+                     grid_->gridYToDbu(row),
+                     gridToDbu(gap_start_x, site_width),
+                     gridToDbu(gap_end_x, site_width));
     }
   }
 }
@@ -562,7 +576,7 @@ void Opendp::placePhiCutCells()
 
   network_->addMaster(phi_cut_cell_, grid_.get(), drc_engine_.get());
   int phi_cut_count = 0;
-  for (GridY row{0}; row < grid_->getRowCount(); row++) {
+  for (GridY row{0}; row < grid_->getRowCount(); row += 2) {
     placeRowPhiCutCells(row, phi_cut_count);
   }
 
