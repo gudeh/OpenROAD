@@ -92,6 +92,9 @@ void InitialPlace::doBicgstabPlace(int threads)
     }
 
     if (error_max <= 1e-5 && iter >= 5) {
+      if (graphics) {
+        graphics->getGuiObjectFromGraphics()->gifEnd();
+      }
       break;
     }
   }

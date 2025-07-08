@@ -130,6 +130,7 @@ class Pin
 
   void setITerm();
   void setBTerm();
+  bool isPlaced() const { return is_placed_ == 1; }
   void setMinPinX();
   void setMinPinY();
   void setMaxPinX();
@@ -177,6 +178,7 @@ class Pin
 
   unsigned char iTermField_ : 1;
   unsigned char bTermField_ : 1;
+  unsigned char is_placed_ : 1;
   unsigned char minPinXField_ : 1;
   unsigned char minPinYField_ : 1;
   unsigned char maxPinXField_ : 1;
@@ -202,7 +204,7 @@ class Net
   // HPWL: half-parameter-wire-length
   int64_t hpwl() const;
 
-  void updateBox(bool skipIoMode = false);
+  void updateBox();
 
   const std::vector<Pin*>& pins() const { return pins_; }
 

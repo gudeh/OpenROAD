@@ -494,6 +494,8 @@ void Pin::updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
     uy = std::max(bbox.yMax(), uy);
   }
 
+  offsetCx_ = offsetCy_ = 0;
+
   if (lx == INT_MAX || ly == INT_MAX || ux == INT_MIN || uy == INT_MIN) {
     logger->warn(GPL,
                  1,
@@ -501,13 +503,14 @@ void Pin::updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
                  "       Replace will regard {} is placed in (0, 0)",
                  bTerm->getConstName(),
                  bTerm->getConstName());
+    is_placed_ = 0;
+    cx_ = 0;
+    cy_ = 0;
+  } else {
+    is_placed_ = 1;
+    cx_ = (lx + ux) / 2;
+    cy_ = (ly + uy) / 2;
   }
-
-  // Just center
-  offsetCx_ = offsetCy_ = 0;
-
-  cx_ = (lx + ux) / 2;
-  cy_ = (ly + uy) / 2;
 }
 
 void Pin::updateLocation(const Instance* inst)
@@ -549,7 +552,7 @@ Net::Net() = default;
 Net::Net(odb::dbNet* net, bool skipIoMode) : Net()
 {
   net_ = net;
-  updateBox(skipIoMode);
+  updateBox();
 }
 
 Net::~Net()
@@ -596,29 +599,67 @@ int64_t Net::hpwl() const
   return static_cast<int64_t>(ux_ - lx_) + (uy_ - ly_);
 }
 
-void Net::updateBox(bool skipIoMode)
+void Net::updateBox()
 {
   lx_ = INT_MAX;
   ly_ = INT_MAX;
   ux_ = INT_MIN;
   uy_ = INT_MIN;
-  for (dbITerm* iTerm : net_->getITerms()) {
-    dbBox* box = iTerm->getInst()->getBBox();
+
+  for (odb::dbITerm* iTerm : net_->getITerms()) {
+    odb::dbBox* box = iTerm->getInst()->getBBox();
     lx_ = std::min(box->xMin(), lx_);
     ly_ = std::min(box->yMin(), ly_);
     ux_ = std::max(box->xMax(), ux_);
     uy_ = std::max(box->yMax(), uy_);
   }
 
-  if (skipIoMode == false) {
-    for (dbBTerm* bTerm : net_->getBTerms()) {
-      for (dbBPin* bPin : bTerm->getBPins()) {
-        Rect bbox = bPin->getBBox();
+  odb::Rect core_area = net_->getBlock()->getCoreArea();
+  for (odb::dbBTerm* bTerm : net_->getBTerms()) {
+    bool btermPlaced = false;
+
+    utl::Logger log;
+    log.report("bterm: {}", bTerm->getName());
+    for (odb::dbBPin* bPin : bTerm->getBPins()) {
+      log.report("bpin: {}", bPin->getId());
+      odb::Rect bbox = bPin->getBBox();
+      if (bbox.xMin() < bbox.xMax() && bbox.yMin() < bbox.yMax()) {
         lx_ = std::min(bbox.xMin(), lx_);
         ly_ = std::min(bbox.yMin(), ly_);
         ux_ = std::max(bbox.xMax(), ux_);
         uy_ = std::max(bbox.yMax(), uy_);
+        btermPlaced = true;
       }
+    }
+
+    if (!btermPlaced) {
+      // Apply fallback: project to closest core border
+      int cx = (lx_ + ux_) / 2;
+      int cy = (ly_ + uy_) / 2;
+
+      int dist_left = std::abs(cx - core_area.xMin());
+      int dist_right = std::abs(cx - core_area.xMax());
+      int dist_bottom = std::abs(cy - core_area.yMin());
+      int dist_top = std::abs(cy - core_area.yMax());
+
+      int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
+      int fallback_x = cx;
+      int fallback_y = cy;
+
+      if (min_dist == dist_left) {
+        fallback_x = core_area.xMin();
+      } else if (min_dist == dist_right) {
+        fallback_x = core_area.xMax();
+      } else if (min_dist == dist_bottom) {
+        fallback_y = core_area.yMin();
+      } else {
+        fallback_y = core_area.yMax();
+      }
+
+      lx_ = std::min(fallback_x, lx_);
+      ly_ = std::min(fallback_y, ly_);
+      ux_ = std::max(fallback_x, ux_);
+      uy_ = std::max(fallback_y, uy_);
     }
   }
 }
@@ -938,7 +979,7 @@ int64_t PlacerBaseCommon::hpwl() const
 {
   int64_t hpwl = 0;
   for (auto& net : nets_) {
-    net->updateBox(pbVars_.skipIoMode);
+    net->updateBox();
     hpwl += net->hpwl();
   }
   return hpwl;
