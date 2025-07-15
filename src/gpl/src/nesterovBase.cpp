@@ -125,16 +125,13 @@ void GCell::updateLocations()
       inst_area += inst->area();
       bbox.merge({inst->lx(), inst->ly(), inst->ux(), inst->uy()});
     }
-    odb::Rect core_area = insts_[0]->dbInst()->getBlock()->getCoreArea();
     const int center_x = bbox.xCenter();
     const int center_y = bbox.yCenter();
-    const double aspect_ratio = core_area.dx() / (double) core_area.dy();
-    const double height = std::sqrt(inst_area / aspect_ratio);
-    const double width = height * aspect_ratio;
-    bbox.init(center_x - width / 2,
-              center_y - height / 2,
-              center_x + width / 2,
-              center_y + height / 2);
+    const double side_length = std::sqrt(inst_area);
+    bbox.init(center_x - side_length / 2,
+              center_y - side_length / 2,
+              center_x + side_length / 2,
+              center_y + side_length / 2);
   }
   // density coordi has the same center points.
   dLx_ = lx_ = bbox.xMin();
@@ -250,7 +247,7 @@ bool GCell::isMacroInstance() const
   if (!isInstance()) {
     return false;
   }
-  return insts_[0]->isMacro();
+  return insts_[0]->isMacro() || insts_.size() > 1;
 }
 
 bool GCell::isStdInstance() const
