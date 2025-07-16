@@ -23,6 +23,7 @@ cleanBefore=no
 depsPrefixesFile=""
 keepLog=no
 compiler=gcc
+configonly=no
 
 _help() {
     cat <<EOF
@@ -36,13 +37,15 @@ OPTIONS:
                                                   e.g.: -cmake='-DFLAGS="-a -b"'
   -compiler=COMPILER_NAME                       Compiler name: gcc or clang
                                                   Default: gcc
-  -no-warnings
-                                                Compiler warnings are
+  -no-warnings                                  Compiler warnings are
                                                 considered errors, i.e.,
                                                 use -Werror flag during build.
   -dir=PATH                                     Path to store build files.
                                                   Default: ./build
+  -install=PATH                                 Where to install the build
+                                                  Default: /usr/local
   -coverage                                     Enable cmake coverage options
+  -only-config                                  Run, only the cmake config step
   -clean                                        Remove build dir before compile
   -no-gui                                       Disable GUI support
   -build-man                                    Build Man Pages (optional)
@@ -86,6 +89,9 @@ while [ "$#" -gt 0 ]; do
         -compiler=*)
             compiler="${1#*=}"
             ;;
+        -install=*)
+            cmakeOptions+=" -DCMAKE_INSTALL_PREFIX=${1#*=}"
+            ;;
         -no-warnings )
             cmakeOptions+=" -DALLOW_WARNINGS=OFF"
             ;;
@@ -105,6 +111,9 @@ while [ "$#" -gt 0 ]; do
             ;;
         -keep-log )
             keepLog=yes
+            ;;
+        -only-config )
+            configonly=yes
             ;;
         -threads=* )
             numThreads="${1#*=}"
@@ -193,6 +202,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     export CMAKE_PREFIX_PATH=$(brew --prefix or-tools)
 fi
 
-echo "[INFO] Using ${numThreads} threads."
 eval cmake "${cmakeOptions}" -B "${buildDir}" .
-eval time cmake --build "${buildDir}" -j "${numThreads}"
+if [[ "${configonly}" != "yes" ]]; then
+    echo "[INFO] Using ${numThreads} threads."
+    eval time cmake --build "${buildDir}" -j "${numThreads}"
+else
+    echo "[INFO] Configuration complete. You still need to run:"
+    echo "cmake --build ${buildDir} -j ${numThreads}"
+fi
