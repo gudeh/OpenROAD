@@ -479,10 +479,11 @@ class GPin
 
   void setCenterLocation(int cx, int cy);
   void updateLocation(const GCell* gCell);
+  void updateCoordi(utl::Logger* log = nullptr);
+
   void updateDensityLocation(const GCell* gCell);
 
   void print(utl::Logger* log) const;
-  void updateCoordi();
 
  private:
   GCell* gCell_ = nullptr;

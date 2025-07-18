@@ -496,22 +496,51 @@ void GPin::updateDensityLocation(const GCell* gCell)
   cy_ = gCell->dCy() + offsetCy_;
 }
 
-void GPin::updateCoordi()
+void GPin::updateCoordi(utl::Logger* log)
 {
   Pin* pb_pin = pins_[0];
+  odb::dbITerm* iTerm = pb_pin->dbITerm();
+  odb::dbBTerm* bTerm = pb_pin->dbBTerm();
+
+  if (log != nullptr) {
+    // Log type of pin
+    if (iTerm != nullptr) {
+      log->report("[GPIN] Pin is ITerm '{}'", iTerm->getName());
+    } else if (bTerm != nullptr) {
+      log->report("[GPIN] Pin is BTerm '{}'", bTerm->getName());
+    } else {
+      log->report("[GPIN] Pin is UNKNOWN type");
+    }
+
+    // Log before update
+    log->report("[GPIN] Before update: cx_ = {}, cy_ = {}, offsetCx_ = {}, offsetCy_ = {}",
+                cx_, cy_, offsetCx_, offsetCy_);
+  }
+
+  // Update coordinates
   cx_ = pb_pin->cx();
   cy_ = pb_pin->cy();
   offsetCx_ = pb_pin->offsetCx();
   offsetCy_ = pb_pin->offsetCy();
+
+  if (log != nullptr) {
+    // Log after update
+    log->report("[GPIN] After update: cx_ = {}, cy_ = {}, offsetCx_ = {}, offsetCy_ = {}",
+                cx_, cy_, offsetCx_, offsetCy_);
+  }
 }
+
 
 void GPin::print(utl::Logger* log) const
 {
-  if (pin()->dbITerm() != nullptr) {
-    log->report("--> print pin: {}", pin()->dbITerm()->getName());
+  if (pin()->isITerm()) {
+    log->report("--> print pin (ITerm): {}", pin()->dbITerm()->getName());
+  } else if (pin()->isBTerm()) {
+    log->report("--> print pin (BTerm): {}", pin()->dbBTerm()->getName());
   } else {
-    log->report("pin()->dbIterm() is nullptr!");
+    log->report("pin() is neither ITerm nor BTerm!");
   }
+
   if (gCell_) {
     if (gCell_->isInstance()) {
       log->report("GCell*: {}", gCell_->getName());
@@ -521,7 +550,8 @@ void GPin::print(utl::Logger* log) const
   } else {
     log->report("gcell of gpin is null");
   }
-  log->report("GNet: {}", gNet_->net()->dbNet()->getName());
+
+  // log->report("GNet: {}", gNet_->net()->dbNet()->getName());
   log->report("pins_.size(): {}", pins_.size());
   log->report("offsetCx_: {}", offsetCx_);
   log->report("offsetCy_: {}", offsetCy_);
@@ -1109,8 +1139,10 @@ NesterovBaseCommon::NesterovBaseCommon(NesterovBaseVars nbVars,
     gPinMap_[gPin.pin()] = &gPin;
     if (gPin.pin()->isITerm()) {
       db_iterm_to_index_map_[gPin.pin()->dbITerm()] = i;
+      log_->report("gpin from iterm {}, location: {}, {}", gPin.pin()->getName(), gPin.cx(), gPin.cy());
     } else if (gPin.pin()->isBTerm()) {
       db_bterm_to_index_map_[gPin.pin()->dbBTerm()] = i;
+      log_->report("gpin from bterm {}, location: {}, {}", gPin.pin()->getName(), gPin.cx(), gPin.cy());
     } else {
       debugPrint(log_, GPL, "callbacks", 1, "gPin neither bterm or iterm!");
     }
