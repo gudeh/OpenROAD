@@ -3008,7 +3008,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
       GCell* gcell = handle;
 
       for (auto& gpin : gcell->gPins()) {
-        gpin->pin()->updateCoordi(gpin->pin()->dbITerm());
+        gpin->pin()->updatePinCoordi(gpin->pin()->dbITerm());
         gpin->updateCoordi();
       }
 
@@ -3124,10 +3124,12 @@ size_t NesterovBaseCommon::createCbkGCell(odb::dbInst* db_inst)
   return gCellStor_.size() - 1;
 }
 
-void NesterovBaseCommon::createCbkGNet(odb::dbNet* db_net, bool skip_io_mode)
+// void NesterovBaseCommon::createCbkGNet(odb::dbNet* db_net, bool skip_io_mode)
+void NesterovBaseCommon::createCbkGNet(odb::dbNet* db_net)
 {
   debugPrint(log_, GPL, "callbacks", 2, "NBC createGNet");
-  Net gpl_net(db_net, skip_io_mode);
+  // Net gpl_net(db_net, skip_io_mode);
+  Net gpl_net(db_net);
   pb_nets_stor_.push_back(gpl_net);
   GNet gnet(&pb_nets_stor_.back());
   gNetStor_.push_back(gnet);

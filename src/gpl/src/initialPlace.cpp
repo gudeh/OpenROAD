@@ -47,9 +47,10 @@ void InitialPlace::doBicgstabPlace(int threads)
   std::unique_ptr<Graphics> graphics;
   if (ipVars_.debug && Graphics::guiActive()) {
     graphics = std::make_unique<Graphics>(log_, pbc_, pbVec_);
-  }
+  }  
 
   placeInstsCenter();
+  pbc_->initiateBterms();
 
   // set ExtId for idx reference // easy recovery
   setPlaceInstExtId();
@@ -133,6 +134,7 @@ void InitialPlace::placeInstsCenter()
     const auto group = db_inst->getGroup();
 
     if (group && group->getType() == odb::dbGroupType::POWER_DOMAIN) {
+      // log_->report("{} has group, placing on the group center",db_inst->getName());
       auto domain_region = group->getRegion();
       int domain_x_min = std::numeric_limits<int>::max();
       int domain_y_min = std::numeric_limits<int>::max();
@@ -149,14 +151,28 @@ void InitialPlace::placeInstsCenter()
       inst->setCenterLocation(domain_x_max - (domain_x_max - domain_x_min) / 2,
                               domain_y_max - (domain_y_max - domain_y_min) / 2);
       ++count_region_center;
-    } else if (pbc_->skipIoMode() && db_inst->isPlaced()) {
-      // It is helpful to pick up the placement from mpl if available,
-      // particularly when you are going to run skip_io.
+    // } else if (pbc_->skipIoMode() && db_inst->isPlaced()) {
+    //   // It is helpful to pick up the placement from mpl if available,
+    //   // particularly when you are going to run skip_io.
+    } else if (db_inst->isPlaced()) {
+      // log_->report("{} already placed",db_inst->getName());
       const auto bbox = db_inst->getBBox()->getBox();
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
     } else {
-      inst->setCenterLocation(center_x, center_y);
+      // inst->setCenterLocation(center_x, center_y);
+      // ++count_core_center;
+
+      //TODO for now center is actually random
+      int core_x_min = pbc_->die().coreLx();
+      int core_y_min = pbc_->die().coreLy();
+      int core_x_max = pbc_->die().coreUx();
+      int core_y_max = pbc_->die().coreUy();
+
+      int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
+      int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
+
+      inst->setCenterLocation(rand_x, rand_y);
       ++count_core_center;
     }
   }
@@ -429,6 +445,61 @@ void InitialPlace::updateCoordi()
       inst->dbSetPlaced();
     }
   }
+
+  for (auto& pbc_pin : pbc_->pins()) {
+    if (pbc_pin->isBTerm()) {
+      odb::dbBTerm* bterm = pbc_pin->dbBTerm();
+      // odb::dbNet* net = bterm->getNet();
+      // if (!net || net->getITerms().empty()) {
+      //   continue;
+      // }
+      pbc_pin->updatePinCoordi(pbc_pin->dbBTerm(), log_);
+    }
+  }
 }
+
+
+// void InitialPlace::updateCoordi()
+// {
+//   for (auto& pbc_pin : pbc_->pins()) {
+//     if (pbc_pin->isBTerm()) {
+//       odb::dbBTerm* bterm = pbc_pin->dbBTerm();
+//       odb::dbNet* net = bterm->getNet();
+//       if (!net || net->getITerms().empty()) {
+//         continue;  // no reference point
+//       }
+
+//       odb::Rect core = bterm->getBlock()->getCoreArea();
+
+//       // Estimate projection point from first connected ITerm
+//       odb::dbITerm* ref_iterm = *net->getITerms().begin();
+//       odb::dbBox* ref_box = ref_iterm->getInst()->getBBox();
+//       int est_x = (ref_box->xMin() + ref_box->xMax()) / 2;
+//       int est_y = (ref_box->yMin() + ref_box->yMax()) / 2;
+
+//       // Project to nearest core edge
+//       int fallback_x = est_x;
+//       int fallback_y = est_y;
+
+//       int dist_left = std::abs(est_x - core.xMin());
+//       int dist_right = std::abs(est_x - core.xMax());
+//       int dist_bottom = std::abs(est_y - core.yMin());
+//       int dist_top = std::abs(est_y - core.yMax());
+
+//       int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
+//       if (min_dist == dist_left) {
+//         fallback_x = core.xMin();
+//       } else if (min_dist == dist_right) {
+//         fallback_x = core.xMax();
+//       } else if (min_dist == dist_bottom) {
+//         fallback_y = core.yMin();
+//       } else {
+//         fallback_y = core.yMax();
+//       }
+
+//       pbc_pin->updateLocation(fallback_x, fallback_y);
+//     }
+//   }
+// }
 
 }  // namespace gpl

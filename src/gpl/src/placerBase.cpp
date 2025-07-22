@@ -300,14 +300,14 @@ Pin::Pin(odb::dbITerm* iTerm) : Pin()
 {
   setITerm();
   term_ = iTerm;
-  updateCoordi(iTerm);
+  // updatePinCoordi(iTerm);
 }
 
 Pin::Pin(odb::dbBTerm* bTerm, utl::Logger* logger) : Pin()
 {
   setBTerm();
   term_ = bTerm;
-  updateCoordi(bTerm, logger);
+  // updatePinCoordi(bTerm, logger);
 }
 
 std::string Pin::getName() const
@@ -430,7 +430,7 @@ odb::dbBTerm* Pin::dbBTerm() const
   return (isBTerm()) ? (odb::dbBTerm*) term_ : nullptr;
 }
 
-void Pin::updateCoordi(odb::dbITerm* iTerm)
+void Pin::updatePinCoordi(odb::dbITerm* iTerm)
 {
   Rect pin_bbox;
   pin_bbox.mergeInit();
@@ -479,37 +479,157 @@ void Pin::updateCoordi(odb::dbITerm* iTerm)
 //
 // for BTerm, offset* will hold bbox info.
 //
-void Pin::updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
+void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 {
-  int lx = INT_MAX;
-  int ly = INT_MAX;
-  int ux = INT_MIN;
-  int uy = INT_MIN;
-
-  for (dbBPin* bPin : bTerm->getBPins()) {
-    Rect bbox = bPin->getBBox();
-    lx = std::min(bbox.xMin(), lx);
-    ly = std::min(bbox.yMin(), ly);
-    ux = std::max(bbox.xMax(), ux);
-    uy = std::max(bbox.yMax(), uy);
-  }
-
   offsetCx_ = offsetCy_ = 0;
 
-  if (lx == INT_MAX || ly == INT_MAX || ux == INT_MIN || uy == INT_MIN) {
-    logger->warn(GPL,
-                 1,
-                 "{} toplevel port is not placed!\n"
-                 "       Replace will regard {} is placed in (0, 0)",
-                 bTerm->getConstName(),
-                 bTerm->getConstName());
-    is_placed_ = 0;
-    cx_ = 0;
-    cy_ = 0;
+  if (!is_placed_) {
+    const auto& constraint_region = bTerm->getConstraintRegion();
+
+if (constraint_region) {
+  int weighted_x = 0;
+  int weighted_y = 0;
+  int total_weight = 0;
+
+  if (net_ != nullptr) {
+    for (Pin* net_pin : net_->pins()) {
+      if (net_pin->isITerm() && net_pin->instance()) {
+        int cx = net_pin->instance()->cx();
+        int cy = net_pin->instance()->cy();
+        logger->report("ITERM {} at ({}, {}) for pin {}", 
+                       net_pin->instance()->dbInst()->getName(), 
+                       cx, 
+                       cy, 
+                       getName());
+        weighted_x += cx;
+        weighted_y += cy;
+        total_weight++;
+      } else {
+        logger->report("Skipping non-ITERM {}, pin {}", net_pin->getName(), getName());
+      }
+    }
   } else {
-    is_placed_ = 1;
+    logger->report("No net connected to pin {}", getName());
+  }
+
+  int xMin = constraint_region->xMin();
+  int xMax = constraint_region->xMax();
+  int yMin = constraint_region->yMin();
+  int yMax = constraint_region->yMax();
+
+  logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]", 
+                 bTerm->getConstName(), xMin, yMin, xMax, yMax);
+
+  int target_x = (xMin + xMax) / 2;
+  int target_y = (yMin + yMax) / 2;
+
+  if (total_weight > 0) {
+    target_x = weighted_x / total_weight;
+    target_y = weighted_y / total_weight;
+    logger->report("Weighted center for {}: ({}, {})", 
+                   bTerm->getConstName(), target_x, target_y);
+  } else {
+    logger->report("Using geometric center for {}: ({}, {})", 
+                   bTerm->getConstName(), target_x, target_y);
+  }
+
+  // Handle fixed dimension correctly
+  cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
+  cy_ = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
+
+  bterm_status_ = BTermPlacementStatus::CONSTRAINT_REGION;
+
+  logger->report("Final clamped coord for {}: ({}, {})", 
+                 bTerm->getConstName(), cx_, cy_);
+}
+else if (inst_ != nullptr && !inst_->isDummy()) {
+      const int est_x = inst_->cx();
+      const int est_y = inst_->cy();
+      odb::Rect core = bTerm->getBlock()->getCoreArea();
+
+      cx_ = est_x;
+      cy_ = est_y;
+
+      int dist_left = std::abs(est_x - core.xMin());
+      int dist_right = std::abs(est_x - core.xMax());
+      int dist_bottom = std::abs(est_y - core.yMin());
+      int dist_top = std::abs(est_y - core.yMax());
+
+      const int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
+      if (min_dist == dist_left) {
+        cx_ = core.xMin();
+      } else if (min_dist == dist_right) {
+        cx_ = core.xMax();
+      } else if (min_dist == dist_bottom) {
+        cy_ = core.yMin();
+      } else {
+        cy_ = core.yMax();
+      }
+
+      bterm_status_ = BTermPlacementStatus::PROJECTED_FROM_INSTANCE;
+
+      debugPrint(logger,
+                 GPL,
+                 "IO_constraint",
+                 2,
+                 "{} toplevel port is not placed and has no constraint region. Projected to core edge from inst center ({}, {})",
+                 bTerm->getConstName(),
+                 est_x,
+                 est_y);
+    } else {
+      cx_ = -2000;
+      cy_ = -2000;
+      bterm_status_ = BTermPlacementStatus::IGNORED;
+
+      debugPrint(logger,
+                 GPL,
+                 "IO_constraint",
+                 2,
+                 "{} toplevel port is not placed, unconstrained, and unconnected. Ignoring.",
+                 bTerm->getConstName());
+    }
+  } else {
+    int lx = INT_MAX, ly = INT_MAX;
+    int ux = INT_MIN, uy = INT_MIN;
+
+    for (odb::dbBPin* bPin : bTerm->getBPins()) {
+      odb::Rect bbox = bPin->getBBox();
+      lx = std::min(lx, bbox.xMin());
+      ly = std::min(ly, bbox.yMin());
+      ux = std::max(ux, bbox.xMax());
+      uy = std::max(uy, bbox.yMax());
+    }
+
     cx_ = (lx + ux) / 2;
     cy_ = (ly + uy) / 2;
+    bterm_status_ = BTermPlacementStatus::PLACED;
+  }
+}
+
+
+void PlacerBaseCommon::initiateBterms(){
+    // pinMap_ and pins_ update
+  std::map<Pin::BTermPlacementStatus, int> bterm_status_counts;
+
+  for (Pin& pin : pinStor_) {
+    if (pin.isBTerm()) {
+      pin.updatePinCoordi(static_cast<odb::dbBTerm*>(pin.dbBTerm()), log_);
+      auto status = pin.getBTermStatus();
+      if (status.has_value()) {
+        bterm_status_counts[status.value()]++;
+      }
+    }
+  }
+
+  for (const auto& [status, count] : bterm_status_counts) {
+    const char* label =
+        status == Pin::BTermPlacementStatus::PLACED                  ? "PLACED" :
+        status == Pin::BTermPlacementStatus::CONSTRAINT_REGION       ? "CONSTRAINT_REGION" :
+        status == Pin::BTermPlacementStatus::PROJECTED_FROM_INSTANCE ? "PROJECTED_FROM_INSTANCE" :
+        status == Pin::BTermPlacementStatus::IGNORED                 ? "IGNORED" :
+                                                                      "UNKNOWN";
+
+    log_->report("BTerm placement status: {:<25} = {}", label, count);
   }
 }
 
@@ -549,7 +669,12 @@ Pin::~Pin()
 
 Net::Net() = default;
 
-Net::Net(odb::dbNet* net, bool skipIoMode) : Net()
+// Net::Net(odb::dbNet* net, bool skipIoMode) : Net()
+// {
+//   net_ = net;
+//   updateBox();
+// }
+Net::Net(odb::dbNet* net) : Net()
 {
   net_ = net;
   updateBox();
@@ -599,6 +724,34 @@ int64_t Net::hpwl() const
   return static_cast<int64_t>(ux_ - lx_) + (uy_ - ly_);
 }
 
+// this SHOULD be the default
+// void Net::updateBox()
+// {
+//   lx_ = INT_MAX;
+//   ly_ = INT_MAX;
+//   ux_ = INT_MIN;
+//   uy_ = INT_MIN;
+
+//   for (odb::dbITerm* iTerm : net_->getITerms()) {
+//     odb::dbBox* box = iTerm->getInst()->getBBox();
+//     lx_ = std::min(box->xMin(), lx_);
+//     ly_ = std::min(box->yMin(), ly_);
+//     ux_ = std::max(box->xMax(), ux_);
+//     uy_ = std::max(box->yMax(), uy_);
+//   }
+
+//   for (odb::dbBTerm* bTerm : net_->getBTerms()) {
+//     for (odb::dbBPin* bPin : bTerm->getBPins()) {
+//       odb::Rect bbox = bPin->getBBox();
+//       lx_ = std::min(bbox.xMin(), lx_);
+//       ly_ = std::min(bbox.yMin(), ly_);
+//       ux_ = std::max(bbox.xMax(), ux_);
+//       uy_ = std::max(bbox.yMax(), uy_);
+//     }
+//   }
+// }
+
+
 void Net::updateBox()
 {
   lx_ = INT_MAX;
@@ -606,6 +759,10 @@ void Net::updateBox()
   ux_ = INT_MIN;
   uy_ = INT_MIN;
 
+  // utl::Logger log;
+  // odb::Rect core_area = net_->getBlock()->getCoreArea();
+
+  // Process ITerms
   for (odb::dbITerm* iTerm : net_->getITerms()) {
     odb::dbBox* box = iTerm->getInst()->getBBox();
     lx_ = std::min(box->xMin(), lx_);
@@ -614,55 +771,39 @@ void Net::updateBox()
     uy_ = std::max(box->yMax(), uy_);
   }
 
-  odb::Rect core_area = net_->getBlock()->getCoreArea();
+  // Process BTerms
+  // TODO print and iterate over bpins, are they the same as bterms?
   for (odb::dbBTerm* bTerm : net_->getBTerms()) {
-    bool btermPlaced = false;
+    // for (odb::dbBPin* bPin : bTerm->getBPins()) {
+      // odb::Rect bbox = bPin->getBBox();
+      odb::Rect bbox = bTerm->getBBox();
 
-    utl::Logger log;
-    log.report("bterm: {}", bTerm->getName());
-    for (odb::dbBPin* bPin : bTerm->getBPins()) {
-      log.report("bpin: {}", bPin->getId());
-      odb::Rect bbox = bPin->getBBox();
+      // log.report("  BPin ID {} BBox: ({}, {}) - ({}, {})",
+      //            bPin->getId(),
+      //            bbox.xMin(), bbox.yMin(),
+      //            bbox.xMax(), bbox.yMax());
+
       if (bbox.xMin() < bbox.xMax() && bbox.yMin() < bbox.yMax()) {
         lx_ = std::min(bbox.xMin(), lx_);
         ly_ = std::min(bbox.yMin(), ly_);
         ux_ = std::max(bbox.xMax(), ux_);
         uy_ = std::max(bbox.yMax(), uy_);
-        btermPlaced = true;
       }
-    }
-
-    if (!btermPlaced) {
-      // Apply fallback: project to closest core border
-      int cx = (lx_ + ux_) / 2;
-      int cy = (ly_ + uy_) / 2;
-
-      int dist_left = std::abs(cx - core_area.xMin());
-      int dist_right = std::abs(cx - core_area.xMax());
-      int dist_bottom = std::abs(cy - core_area.yMin());
-      int dist_top = std::abs(cy - core_area.yMax());
-
-      int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
-      int fallback_x = cx;
-      int fallback_y = cy;
-
-      if (min_dist == dist_left) {
-        fallback_x = core_area.xMin();
-      } else if (min_dist == dist_right) {
-        fallback_x = core_area.xMax();
-      } else if (min_dist == dist_bottom) {
-        fallback_y = core_area.yMin();
-      } else {
-        fallback_y = core_area.yMax();
-      }
-
-      lx_ = std::min(fallback_x, lx_);
-      ly_ = std::min(fallback_y, ly_);
-      ux_ = std::max(fallback_x, ux_);
-      uy_ = std::max(fallback_y, uy_);
-    }
+    // }
   }
+
+  // Final check: is net bbox outside core?
+  // odb::Rect net_bbox(lx_, ly_, ux_, uy_);
+  // if (!core_area.contains(net_bbox)) {
+  //   log.report(
+  //            "Net '{}' has bounding box ({}, {}) - ({}, {}) OUTSIDE core area ({}, {}) - ({}, {})",
+  //            net_->getConstName(),
+  //            lx_, ly_, ux_, uy_,
+  //            core_area.xMin(), core_area.yMin(),
+  //            core_area.xMax(), core_area.yMax());
+  // }
 }
+
 
 void Net::addPin(Pin* pin)
 {
@@ -765,7 +906,7 @@ PlacerBaseVars::PlacerBaseVars()
 void PlacerBaseVars::reset()
 {
   padLeft = padRight = 0;
-  skipIoMode = false;
+  // skipIoMode = false;
 }
 
 ////////////////////////////////////////////////////////
@@ -890,7 +1031,8 @@ void PlacerBaseCommon::init()
 
     // escape nets with VDD/VSS/reset nets
     if (netType == dbSigType::SIGNAL || netType == dbSigType::CLOCK) {
-      Net myNet(net, pbVars_.skipIoMode);
+      // Net myNet(net, pbVars_.skipIoMode);
+      Net myNet(net);
       netStor_.push_back(myNet);
 
       // this is safe because of "reserve"
@@ -901,10 +1043,13 @@ void PlacerBaseCommon::init()
         Pin myPin(iTerm);
         myPin.setNet(myNetPtr);
         myPin.setInstance(dbToPb(iTerm->getInst()));
+        myPin.updatePinCoordi(iTerm);
         pinStor_.push_back(myPin);
       }
 
-      if (pbVars_.skipIoMode == false) {
+      // log_->report("bterm loop, {} beterms!", net->getBTerms().size());
+      // if (pbVars_.skipIoMode == false) {
+      {
         for (dbBTerm* bTerm : net->getBTerms()) {
           Pin myPin(bTerm, log_);
           myPin.setNet(myNetPtr);
@@ -914,16 +1059,19 @@ void PlacerBaseCommon::init()
     }
   }
 
-  // pinMap_ and pins_ update
   pins_.reserve(pinStor_.size());
   for (auto& pin : pinStor_) {
     if (pin.isITerm()) {
       pinMap_[pin.dbITerm()] = &pin;
+      itermCount_++;
     } else if (pin.isBTerm()) {
       pinMap_[pin.dbBTerm()] = &pin;
+      btermCount_++;
     }
+
     pins_.push_back(&pin);
   }
+
 
   // instStor_'s pins_ fill
   for (auto& inst : instStor_) {
@@ -948,13 +1096,15 @@ void PlacerBaseCommon::init()
     for (dbITerm* iTerm : net.dbNet()->getITerms()) {
       net.addPin(dbToPb(iTerm));
     }
-    if (pbVars_.skipIoMode == false) {
+    // if (pbVars_.skipIoMode == false) {
+    {
       for (dbBTerm* bTerm : net.dbNet()->getBTerms()) {
         net.addPin(dbToPb(bTerm));
       }
     }
     nets_.push_back(&net);
   }
+  log_->report("finish PlacerBaseCommon::init()!");
 }
 
 void PlacerBaseCommon::reset()
@@ -977,6 +1127,7 @@ void PlacerBaseCommon::reset()
 
 int64_t PlacerBaseCommon::hpwl() const
 {
+  log_->report("PBC HPWL!");
   int64_t hpwl = 0;
   for (auto& net : nets_) {
     net->updateBox();
@@ -1302,6 +1453,9 @@ void PlacerBase::printInfo() const
       GPL, 10, format_label_int, "Number of nets:", pbCommon_->nets().size());
   log_->info(
       GPL, 11, format_label_int, "Number of pins:", pbCommon_->pins().size());
+  log_->info(
+      GPL, 9999, "\titerms: {}, bterms: {}", pbCommon_->getItermCount(), pbCommon_->getBtermCount());
+      
 
   log_->info(GPL,
              12,

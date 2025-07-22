@@ -8,6 +8,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <optional>
+#include <map>
 
 namespace odb {
 class dbDatabase;
@@ -110,6 +112,9 @@ class Instance
   bool is_locked_ = false;
 };
 
+
+
+
 class Pin
 {
  public:
@@ -127,10 +132,11 @@ class Pin
   bool isMaxPinX() const;
   bool isMinPinY() const;
   bool isMaxPinY() const;
+  bool isPlaceInstConnected() const;
+  bool isPlaced() const { return is_placed_ == 1; }
 
   void setITerm();
-  void setBTerm();
-  bool isPlaced() const { return is_placed_ == 1; }
+  void setBTerm();  
   void setMinPinX();
   void setMinPinY();
   void setMaxPinX();
@@ -144,20 +150,30 @@ class Pin
   int cy() const;
 
   int offsetCx() const;
-  int offsetCy() const;
-
-  void updateLocation(const Instance* inst);
+  int offsetCy() const;  
 
   void setInstance(Instance* inst);
-  void setNet(Net* net);
-
-  bool isPlaceInstConnected() const;
+  void setNet(Net* net);  
 
   Instance* instance() const { return inst_; }
   Net* net() const { return net_; }
   std::string getName() const;
 
-  void updateCoordi(odb::dbITerm* iTerm);
+  // Initialization pair for iTerm and bTerm
+  void updatePinCoordi(odb::dbITerm* iTerm);
+  void updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger);
+  // Modify position
+  void updateLocation(const Instance* inst);
+
+
+  enum class BTermPlacementStatus : uint8_t {
+    UNKNOWN = 0,
+    PLACED,
+    CONSTRAINT_REGION,
+    PROJECTED_FROM_INSTANCE,
+    IGNORED
+  };
+  std::optional<BTermPlacementStatus> getBTermStatus() const { return bterm_status_; }
 
  private:
   odb::dbObject* term_ = nullptr;
@@ -184,14 +200,16 @@ class Pin
   unsigned char maxPinXField_ : 1;
   unsigned char maxPinYField_ : 1;
 
-  void updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger);
+  // Track how bTerm position was handled, optional because Pin can be iTerm
+  std::optional<BTermPlacementStatus> bterm_status_;
 };
 
 class Net
 {
  public:
   Net();
-  Net(odb::dbNet* net, bool skipIoMode);
+  // Net(odb::dbNet* net, bool skipIoMode);
+  Net(odb::dbNet* net);
   ~Net();
 
   int lx() const;
@@ -270,7 +288,7 @@ class PlacerBaseVars
  public:
   int padLeft;
   int padRight;
-  bool skipIoMode;
+  // bool skipIoMode;
 
   PlacerBaseVars();
   void reset();
@@ -305,7 +323,9 @@ class PlacerBaseCommon
 
   int padLeft() const { return pbVars_.padLeft; }
   int padRight() const { return pbVars_.padRight; }
-  bool skipIoMode() const { return pbVars_.skipIoMode; }
+  // bool skipIoMode() const { return pbVars_.skipIoMode; }
+  unsigned int getItermCount() { return itermCount_; }
+  unsigned int getBtermCount() { return btermCount_; }
 
   int64_t hpwl() const;
   void printInfo() const;
@@ -315,6 +335,9 @@ class PlacerBaseCommon
   odb::dbDatabase* db() const { return db_; }
 
   void unlockAll();
+
+
+  void initiateBterms();
 
  private:
   odb::dbDatabase* db_ = nullptr;
@@ -346,6 +369,9 @@ class PlacerBaseCommon
 
   void init();
   void reset();
+
+  unsigned int btermCount_ = 0;
+  unsigned int itermCount_ = 0;
 };
 
 class PlacerBase

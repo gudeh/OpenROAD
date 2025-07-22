@@ -93,7 +93,7 @@ class Replace
 
   void setTimingDrivenMode(bool mode);
 
-  void setSkipIoMode(bool mode);
+  // void setSkipIoMode(bool mode);
   void setDisableRevertIfDiverge(bool mode);
 
   void setRoutabilityDrivenMode(bool mode);
@@ -178,7 +178,7 @@ class Replace
   bool routabilityDrivenMode_ = true;
   bool routabilityUseRudy_ = true;
   bool uniformTargetDensityMode_ = false;
-  bool skipIoMode_ = false;
+  // bool skipIoMode_ = false;
   bool disableRevertIfDiverge_ = false;
   bool enable_routing_congestion_ = false;
 

@@ -90,7 +90,7 @@ void Replace::reset()
   routabilityDrivenMode_ = true;
   routabilityUseRudy_ = true;
   uniformTargetDensityMode_ = false;
-  skipIoMode_ = false;
+  // skipIoMode_ = false;
   disableRevertIfDiverge_ = false;
 
   padLeft_ = padRight_ = 0;
@@ -98,12 +98,6 @@ void Replace::reset()
   timingNetWeightOverflows_.clear();
   timingNetWeightOverflows_.shrink_to_fit();
   timingNetWeightMax_ = 5;
-
-  gui_debug_ = false;
-  gui_debug_pause_iterations_ = 10;
-  gui_debug_update_iterations_ = 10;
-  gui_debug_draw_bins_ = false;
-  gui_debug_initial_ = false;
 }
 
 void Replace::addPlacementCluster(const Cluster& cluster)
@@ -118,7 +112,7 @@ void Replace::doIncrementalPlace(int threads)
     PlacerBaseVars pbVars;
     pbVars.padLeft = padLeft_;
     pbVars.padRight = padRight_;
-    pbVars.skipIoMode = skipIoMode_;
+    // pbVars.skipIoMode = skipIoMode_;
 
     pbc_ = std::make_shared<PlacerBaseCommon>(db_, pbVars, log_);
 
@@ -197,7 +191,7 @@ void Replace::doInitialPlace(int threads)
     PlacerBaseVars pbVars;
     pbVars.padLeft = padLeft_;
     pbVars.padRight = padRight_;
-    pbVars.skipIoMode = skipIoMode_;
+    // pbVars.skipIoMode = skipIoMode_;
 
     pbc_ = std::make_shared<PlacerBaseCommon>(db_, pbVars, log_);
 
@@ -250,7 +244,7 @@ bool Replace::initNesterovPlace(int threads)
     PlacerBaseVars pbVars;
     pbVars.padLeft = padLeft_;
     pbVars.padRight = padRight_;
-    pbVars.skipIoMode = skipIoMode_;
+    // pbVars.skipIoMode = skipIoMode_;
 
     pbc_ = std::make_shared<PlacerBaseCommon>(db_, pbVars, log_);
 
@@ -505,10 +499,10 @@ void Replace::setEnableRoutingCongestion(bool mode)
   enable_routing_congestion_ = mode;
 }
 
-void Replace::setSkipIoMode(bool mode)
-{
-  skipIoMode_ = mode;
-}
+// void Replace::setSkipIoMode(bool mode)
+// {
+//   skipIoMode_ = mode;
+// }
 
 void Replace::setTimingDrivenMode(bool mode)
 {

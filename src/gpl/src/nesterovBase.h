@@ -850,7 +850,8 @@ class NesterovBaseCommon
 
   void setCbk(nesterovDbCbk* cbk) { db_cbk_ = cbk; }
   size_t createCbkGCell(odb::dbInst* db_inst);
-  void createCbkGNet(odb::dbNet* net, bool skip_io_mode);
+  // void createCbkGNet(odb::dbNet* net, bool skip_io_mode);
+  void createCbkGNet(odb::dbNet* net);
   void createCbkITerm(odb::dbITerm* iTerm);
   std::pair<odb::dbInst*, size_t> destroyCbkGCell(odb::dbInst* db_inst);
   void destroyCbkGNet(odb::dbNet*);
