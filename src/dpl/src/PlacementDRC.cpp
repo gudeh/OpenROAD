@@ -279,15 +279,10 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
 
 bool PlacementDRC::checkColoring(const Node* cell) const
 {
-  const GridX x = grid_->gridX(cell);
-  const GridY y = grid_->gridRoundY(cell);
-  return checkColoring(cell, x, y, cell->getOrient());
+  return checkColoring(grid_->gridX(cell));
 }
 
-bool PlacementDRC::checkColoring(const Node* cell,
-                                 const GridX x,
-                                 const GridY y,
-                                 const odb::dbOrientType& orient) const
+bool PlacementDRC::checkColoring(const GridX x) const
 {
   // Do not allow placing the cell on an oldd site.
   if (disallow_odd_sites_) {
@@ -302,9 +297,9 @@ bool PlacementDRC::check(const Node* cell,
                          const odb::dbOrientType& orient) const
 {
   return checkEdgeSpacing(cell, x, y, orient)
-         && checkAbuttedPins(cell, x, y, orient)
-         && checkColoring(cell, x, y, orient);
+         && checkAbuttedPins(cell, x, y, orient) && checkColoring(x);
 }
+
 bool PlacementDRC::check(const Node* cell) const
 {
   return checkEdgeSpacing(cell) && checkAbuttedPins(cell)

@@ -48,20 +48,75 @@ class PlacementDRC
                         GridX x,
                         GridY y,
                         const odb::dbOrientType& orient) const;
+  /**
+   * @brief Checks end-of-line (EOL) spacing violations for abutted pins at
+   * the cell's current placement.
+   *
+   * @param cell the cell whose abutted pins need to be checked
+   * @return true if no EOL spacing violations are found, false otherwise
+   */
   bool checkAbuttedPins(const Node* cell) const;
+  /**
+   * @brief Checks end-of-line (EOL) spacing violations for abutted pins
+   * connected to different nets at a specified location and orientation.
+   *
+   * This function validates that pins on the same layer but connected to
+   * different nets maintain the required EOL spacing distance. It checks
+   * all neighboring cells within the EOL spacing range and verifies that
+   * pins on the same technology layer have adequate spacing when connected
+   * to different nets.
+   * @param cell the cell whose abutted pins need to be checked
+   * @param x the grid x-coordinate for the placement location
+   * @param y the grid y-coordinate for the placement location
+   * @param orient the orientation of the cell at the specified location
+   * @return true if no EOL spacing violations are found, false otherwise
+   */
   bool checkAbuttedPins(const Node* cell,
                         const GridX x,
                         const GridY y,
                         const odb::dbOrientType& orient) const;
+  /**
+   * @brief Checks phi spacing requirements at the cell's current placement.
+   *
+   * @param cell the cell whose phi spacing needs to be checked
+   * @return true if phi spacing requirements are met, false otherwise
+   */
   bool checkPhiSpacing(const Node* cell) const;
+  /**
+   * @brief Checks phi spacing requirements for cells with phi pins at a
+   * specified location and orientation.
+   *
+   * This function ensures that cells with phi pins connected to different
+   * phi nets maintain the minimum required spacing distance. It searches
+   * within a phi_spacing_ distance around the cell and verifies that all
+   * neighboring cells with connections are connected to the same nets.
+   * @param cell the cell whose phi spacing needs to be checked
+   * @param x the grid x-coordinate for the placement location
+   * @param y the grid y-coordinate for the placement location
+   * @param orient the orientation of the cell at the specified location
+   * @return true if phi spacing requirements are met, false otherwise
+   */
   bool checkPhiSpacing(const Node* cell,
                        GridX x,
                        GridY y,
                        const odb::dbOrientType& orient) const;
-  bool checkColoring(const Node* cell,
-                     GridX x,
-                     GridY y,
-                     const odb::dbOrientType& orient) const;
+  /**
+   * @brief Checks coloring constraints for placement at a specified grid
+   * x-coordinate.
+   *
+   * This function validates site coloring rules, particularly for designs
+   * that require placement only on even-numbered sites when odd sites are
+   * disallowed.
+   * @param x the grid x-coordinate to check for coloring constraints
+   * @return true if placement is allowed at the x-coordinate, false otherwise
+   */
+  bool checkColoring(GridX x) const;
+  /**
+   * @brief Checks coloring constraints at the cell's current placement.
+   *
+   * @param cell the cell whose current location needs to be checked
+   * @return true if placement is allowed, false otherwise
+   */
   bool checkColoring(const Node* cell) const;
   bool check(const Node* cell,
              GridX x,
@@ -73,11 +128,14 @@ class PlacementDRC
   int getMaxSpacing(int edge_type_idx) const;
   // TODO: remove this
   void disallowOddSites() { disallow_odd_sites_ = true; }
-  void setPhiSpacing(DbuX phi_spacing) { phi_spacing_ = phi_spacing; }
-  DbuX getPhiSpacing() const { return phi_spacing_; }
 
-  // Set phi cut cell and update phi spacing
-  void setPhiCutCell(const std::string& cell_name);
+  // Set the minimum spacing required between cells with phi pins connected to
+  // different phi nets
+  void setPhiSpacing(DbuX phi_spacing) { phi_spacing_ = phi_spacing; }
+
+  // Get the current minimum spacing required between cells with phi pins
+  // connected to different phi nets
+  DbuX getPhiSpacing() const { return phi_spacing_; }
 
  private:
   // Member variables
@@ -89,7 +147,8 @@ class PlacementDRC
   std::map<int, std::vector<EolSpacingEntry>> eol_spacing_rules_;
   // TODO: remove this
   bool disallow_odd_sites_ = false;
-  DbuX phi_spacing_{0};
+  DbuX phi_spacing_{0};  // Required spacing between cells with phi pins
+                         // connected to different phi  nets
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;
