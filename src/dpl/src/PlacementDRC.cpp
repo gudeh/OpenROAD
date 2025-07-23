@@ -408,13 +408,15 @@ bool PlacementDRC::checkPhiSpacing(const Node* cell,
   if (cell->getConnections().empty() || phi_spacing_ == 0) {
     return true;
   }
+  // Cells with PHI nets are either single or double height.
 
   const GridX phi_cut_width = grid_->gridX(phi_spacing_);
   const GridX begin_x = x - phi_cut_width;
   const GridX end_x = x + grid_->gridPaddedWidth(cell) + phi_cut_width;
-  const GridY end_y = y + grid_->gridHeight(cell);
+  const GridY y_begin = y.v % 2 == 0 ? y : y - 1;
+  const GridY end_y = y_begin + 2;
   std::set<Node*> checked_cells;
-  for (GridY yi = y; yi < end_y; yi++) {
+  for (GridY yi = y_begin; yi < end_y; yi++) {
     for (GridX xi = begin_x; xi < end_x; xi++) {
       const Pixel* pixel = grid_->gridPixel(xi, yi);
       if (pixel == nullptr || pixel->cell == nullptr || pixel->cell == cell) {
