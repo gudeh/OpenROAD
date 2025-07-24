@@ -191,17 +191,24 @@ if [[ -z "${CC}" || -z "${CXX}" ]]; then
 fi
 
 if [[ "${cleanBefore}" == "yes" ]]; then
-    rm -rf "${buildDir}"
+    if [[ ! -L "${buildDir}" ]]; then
+        rm -rf "${buildDir}"
+    else
+        rm -rf "${buildDir}/*"
+        rm -rf "${buildDir}/.cache"
+        rm -rf "${buildDir}/.clangd"
+    fi
 fi
 
-mkdir -p "${buildDir}"
+[[ ! -L "${buildDir}" ]] && mkdir -p "${buildDir}"
 __logging
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
     export CMAKE_PREFIX_PATH=$(brew --prefix or-tools)
 fi
-
+echo "[INFO] Running:" 
+echo cmake "${cmakeOptions}" -B "${buildDir}" .
 eval cmake "${cmakeOptions}" -B "${buildDir}" .
 if [[ "${configonly}" != "yes" ]]; then
     echo "[INFO] Using ${numThreads} threads."
