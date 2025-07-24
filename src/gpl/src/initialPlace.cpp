@@ -50,7 +50,7 @@ void InitialPlace::doBicgstabPlace(int threads)
   }  
 
   placeInstsCenter();
-  pbc_->initiateBterms();
+  pbc_->initiateBtermsPosition();
 
   // set ExtId for idx reference // easy recovery
   setPlaceInstExtId();
@@ -160,20 +160,20 @@ void InitialPlace::placeInstsCenter()
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
     } else {
-      // inst->setCenterLocation(center_x, center_y);
-      // ++count_core_center;
-
-      //TODO for now center is actually random
-      int core_x_min = pbc_->die().coreLx();
-      int core_y_min = pbc_->die().coreLy();
-      int core_x_max = pbc_->die().coreUx();
-      int core_y_max = pbc_->die().coreUy();
-
-      int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
-      int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
-
-      inst->setCenterLocation(rand_x, rand_y);
+      inst->setCenterLocation(center_x, center_y);
       ++count_core_center;
+
+      // //TODO for now center is actually random
+      // int core_x_min = pbc_->die().coreLx();
+      // int core_y_min = pbc_->die().coreLy();
+      // int core_x_max = pbc_->die().coreUx();
+      // int core_y_max = pbc_->die().coreUy();
+
+      // int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
+      // int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
+
+      // inst->setCenterLocation(rand_x, rand_y);
+      // ++count_core_center;
     }
   }
 
@@ -217,7 +217,7 @@ void InitialPlace::updatePinInfo()
     int ux = INT_MIN, uy = INT_MIN;
 
     // Mark B2B info on Pin structures
-    for (auto& pin : net->pins()) {
+    for (auto& pin : net->getNetPins()) {
       if (lx > pin->cx()) {
         if (pinMinX) {
           pinMinX->unsetMinPinX();
@@ -297,20 +297,20 @@ void InitialPlace::createSparseMatrix()
   // for each net
   for (auto& net : pbc_->nets()) {
     // skip for small nets.
-    if (net->pins().size() <= 1) {
+    if (net->getNetPins().size() <= 1) {
       continue;
     }
 
     // escape long time cals on huge fanout.
     //
-    if (net->pins().size() >= ipVars_.maxFanout) {
+    if (net->getNetPins().size() >= ipVars_.maxFanout) {
       continue;
     }
 
-    float netWeight = ipVars_.netWeightScale / (net->pins().size() - 1);
+    float netWeight = ipVars_.netWeightScale / (net->getNetPins().size() - 1);
 
     // foreach two pins in single nets.
-    auto& pins = net->pins();
+    auto& pins = net->getNetPins();
     for (int pinIdx1 = 1; pinIdx1 < pins.size(); ++pinIdx1) {
       Pin* pin1 = pins[pinIdx1];
       for (int pinIdx2 = 0; pinIdx2 < pinIdx1; ++pinIdx2) {
@@ -453,6 +453,7 @@ void InitialPlace::updateCoordi()
       // if (!net || net->getITerms().empty()) {
       //   continue;
       // }
+      // TODO the updatePinCoordi of iterms is called elsewhere, maybe unite both calls for bterms and iterms for better readability and organization
       pbc_pin->updatePinCoordi(pbc_pin->dbBTerm(), log_);
     }
   }

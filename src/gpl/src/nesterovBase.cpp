@@ -393,7 +393,7 @@ bool GNet::isDontCare() const
 
 void GNet::print(utl::Logger* log) const
 {
-  log->report("print net: {}", nets_[0]->dbNet()->getName());
+  log->report("print net: {}", nets_[0]->getDbNet()->getName());
   log->report("gPins_ size: {}", gPins_.size());
   log->report("nets_ size: {}", nets_.size());
   // log->report("gpl_net_: {}", pb_net->);
@@ -521,7 +521,7 @@ void GPin::print(utl::Logger* log) const
   } else {
     log->report("gcell of gpin is null");
   }
-  log->report("GNet: {}", gNet_->net()->dbNet()->getName());
+  log->report("GNet: {}", gNet_->net()->getDbNet()->getName());
   log->report("pins_.size(): {}", pins_.size());
   log->report("offsetCx_: {}", offsetCx_);
   log->report("offsetCy_: {}", offsetCy_);
@@ -1122,7 +1122,7 @@ NesterovBaseCommon::NesterovBaseCommon(NesterovBaseVars nbVars,
     GNet& gNet = gNetStor_[i];
     gNets_.push_back(&gNet);
     gNetMap_[gNet.net()] = &gNet;
-    db_net_to_index_map_[gNet.net()->dbNet()] = i;
+    db_net_to_index_map_[gNet.net()->getDbNet()] = i;
   }
 
   // gCellStor_'s pins_ fill
@@ -1155,7 +1155,7 @@ NesterovBaseCommon::NesterovBaseCommon(NesterovBaseVars nbVars,
   for (auto it = gNetStor_.begin(); it < gNetStor_.end(); ++it) {
     auto& gNet = *it;  // old-style loop for old OpenMP
 
-    for (auto& pin : gNet.net()->pins()) {
+    for (auto& pin : gNet.net()->getNetPins()) {
       gNet.addGPin(pbToNb(pin));
     }
   }
@@ -1567,7 +1567,7 @@ void NesterovBaseCommon::fixPointers()
     GNet& gNet = gNetStor_[i];
     gNets_.push_back(&gNet);
     gNetMap_[gNet.net()] = &gNet;
-    db_net_to_index_map_[gNet.net()->dbNet()] = i;
+    db_net_to_index_map_[gNet.net()->getDbNet()] = i;
   }
 
   for (auto& gCell : gCellStor_) {
@@ -1633,7 +1633,7 @@ void NesterovBaseCommon::fixPointers()
 
   for (auto& gNet : gNetStor_) {
     gNet.clearGPins();
-    for (odb::dbITerm* iterm : gNet.net()->dbNet()->getITerms()) {
+    for (odb::dbITerm* iterm : gNet.net()->getDbNet()->getITerms()) {
       if (isValidSigType(iterm->getSigType())) {
         auto it = db_iterm_to_index_map_.find(iterm);
         if (it != db_iterm_to_index_map_.end()) {
@@ -1643,7 +1643,7 @@ void NesterovBaseCommon::fixPointers()
       }
     }
 
-    for (odb::dbBTerm* bterm : gNet.net()->dbNet()->getBTerms()) {
+    for (odb::dbBTerm* bterm : gNet.net()->getDbNet()->getBTerms()) {
       if (isValidSigType(bterm->getSigType())) {
         auto it = db_bterm_to_index_map_.find(bterm);
         if (it != db_bterm_to_index_map_.end()) {
@@ -3555,7 +3555,7 @@ void NesterovBaseCommon::destroyCbkGNet(odb::dbNet* db_net)
     std::swap(gNetStor_[index_remove], gNetStor_[last_index]);
 
     // Update index map for the swapped net
-    odb::dbNet* swapped_net = gNetStor_[index_remove].nets()[0]->dbNet();
+    odb::dbNet* swapped_net = gNetStor_[index_remove].nets()[0]->getDbNet();
     db_net_to_index_map_[swapped_net] = index_remove;
   }
 

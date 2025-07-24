@@ -10,6 +10,7 @@
 #include <vector>
 #include <optional>
 #include <map>
+#include "odb/db.h"
 
 namespace odb {
 class dbDatabase;
@@ -209,7 +210,7 @@ class Net
  public:
   Net();
   // Net(odb::dbNet* net, bool skipIoMode);
-  Net(odb::dbNet* net);
+  Net(odb::dbNet* db_net);
   ~Net();
 
   int lx() const;
@@ -223,17 +224,21 @@ class Net
   int64_t hpwl() const;
 
   void updateBox();
+  odb::Rect getBBox() const
+  {
+    return odb::Rect(lx_, ly_, ux_, uy_);
+  }
 
-  const std::vector<Pin*>& pins() const { return pins_; }
+  const std::vector<Pin*>& getNetPins() const { return net_pins_; }
 
-  odb::dbNet* dbNet() const { return net_; }
+  odb::dbNet* getDbNet() const { return db_net_; }
   odb::dbSigType getSigType() const;
 
   void addPin(Pin* pin);
 
  private:
-  odb::dbNet* net_ = nullptr;
-  std::vector<Pin*> pins_;
+  odb::dbNet* db_net_ = nullptr;
+  std::vector<Pin*> net_pins_;
   int lx_ = 0;
   int ly_ = 0;
   int ux_ = 0;
@@ -337,7 +342,7 @@ class PlacerBaseCommon
   void unlockAll();
 
 
-  void initiateBterms();
+  void initiateBtermsPosition();
 
  private:
   odb::dbDatabase* db_ = nullptr;
