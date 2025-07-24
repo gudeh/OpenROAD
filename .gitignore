@@ -21,6 +21,10 @@ Makefile
 __pycache__
 venv/
 
+# build file used by clangd
+compile_commands.json
+.clangd
+
 include/ord/Version.hh
 
 build
