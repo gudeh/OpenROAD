@@ -111,6 +111,11 @@ void Replace::addPlacementCluster(const Cluster& cluster)
   clusters_.emplace_back(cluster);
 }
 
+void Replace::clearPlacementClusters()
+{
+  clusters_.clear();
+}
+
 void Replace::doIncrementalPlace(int threads)
 {
   if (pbc_ == nullptr) {
