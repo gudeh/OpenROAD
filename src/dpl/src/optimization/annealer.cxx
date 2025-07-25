@@ -189,14 +189,15 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
         auto big_iterm = big_inst->findITerm(
             Utility::getPinName(pattern, current_bit).c_str());
         if (iterm == nullptr) {
-          logger_->error(utl::DPL, 503, "ITerm {} not found", small_iterm_name);
+          logger_->error(utl::DPL, 503, "ITerm {} not found for {}", small_iterm_name, inst->getMaster()->getConstName());
           continue;
         }
         if (big_iterm == nullptr) {
           logger_->error(utl::DPL,
                          504,
-                         "ITerm {} not found",
-                         Utility::getPinName(pattern, current_bit));
+                         "ITerm {} not found for {}",
+                         Utility::getPinName(pattern, current_bit),
+                         big_inst->getMaster()->getConstName());
           continue;
         }
         if (iterm->getNet() == nullptr) {
