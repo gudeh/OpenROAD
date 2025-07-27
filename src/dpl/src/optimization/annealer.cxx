@@ -16,6 +16,29 @@
 namespace dpl {
 namespace {
 
+/**
+ * @brief Recursive helper function for finding the optimal combination of nodes
+ * to merge with a seed node.
+ *
+ * This function performs a depth-first search with pruning to find the best
+ * subset of nodes from a group that, when combined with a seed node, will
+ * best match the target dimensions. It uses a dimension metric (|ΔW| + |ΔH|)
+ * to score combinations and prunes branches that cannot improve the best score.
+ *
+ * @param seed the seed node that anchors the combination
+ * @param tgt_w target width for the combined bounding box
+ * @param tgt_h target height for the combined bounding box
+ * @param group the vector of candidate nodes to choose from
+ * @param start the starting index in the group for this branch
+ * @param remain the remaining function bits needed to complete the combination
+ * @param ux_min current minimum x-coordinate of the union bounding box
+ * @param uy_min current minimum y-coordinate of the union bounding box
+ * @param ux_max current maximum x-coordinate of the union bounding box
+ * @param uy_max current maximum y-coordinate of the union bounding box
+ * @param current the current combination being built (node indices)
+ * @param best reference to store the best combination found so far
+ * @param best_score reference to track the best score achieved
+ */
 void dfs_helper(const Node* seed,
                 int tgt_w,
                 int tgt_h,
@@ -87,8 +110,23 @@ void dfs_helper(const Node* seed,
   }
 }
 
-// finds the best set of (k_total - 1) other cells to merge with 'seed'
-// returns the indices within 'group' of the chosen cells
+/**
+ * @brief Finds the optimal set of nodes to merge with a seed node to match
+ * target dimensions.
+ *
+ * This function uses a depth-first search algorithm to find the best
+ * combination of (k_total - 1) nodes from the group that, when combined
+ * with the seed node, will create a bounding box closest to the target
+ * rectangle dimensions. The optimization criterion is minimizing the
+ * Manhattan distance between actual and target dimensions.
+ *
+ * @param seed the seed node that anchors the combination
+ * @param target_rect the target rectangle dimensions to match
+ * @param group the vector of candidate nodes to choose from
+ * @param k_total the total number of function bits required in the final
+ * combination
+ * @return vector of indices within 'group' representing the chosen nodes
+ */
 std::vector<int> findBestGroup(const Node* seed,
                                const odb::Rect& target_rect,
                                const std::vector<Node*>& group,
@@ -174,10 +212,15 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
   DbuX left = std::numeric_limits<DbuX>::max();
   DbuY bottom = std::numeric_limits<DbuY>::max();
   int current_bit = target_master->getLsb();
+
+  // Step 1: Reconnect multibit pins by mapping each small node's bits to the
+  // big instance
   for (auto node : small_nodes) {
     left = std::min(left, node->getLeft());
     bottom = std::min(bottom, node->getBottom());
     auto inst = node->getDbInst();
+    // Map each bit position from the small node to the corresponding bit in the
+    // big instance
     for (int small_bit = node->getMaster()->getLsb();
          small_bit <= node->getMaster()->getMsb();
          small_bit++) {
@@ -209,6 +252,9 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
       current_bit++;
     }
   }
+
+  // Step 2: Connect any remaining unconnected pins from the first small node
+  // (e.g., power, ground, or other non-multibit pins)
   for (auto big_iterm : big_inst->getITerms()) {
     if (big_iterm->isConnected()) {
       continue;
@@ -278,9 +324,12 @@ void Annealer::assignToNodeGroup(Node* node)
     return;
   }
   auto db_inst = node->getDbInst();
+
+  // Try to find an existing compatible group for this node
   for (auto& node_group : node_groups_) {
     auto group_head = node_group[0];
     auto group_inst = group_head->getDbInst();
+    // Check basic compatibility: same group, region, and function
     if (group_inst->getGroup() != db_inst->getGroup()) {
       continue;
     }
@@ -290,11 +339,13 @@ void Annealer::assignToNodeGroup(Node* node)
     if (group_head->getMaster()->getFunction() != function) {
       continue;
     }
-    bool equivalent = true;
 
+    // Check net connectivity equivalence for non-multibit pins
+    bool equivalent = true;
     for (auto iterm : db_inst->getITerms()) {
       bool skip_iterm = false;
       const std::string term_name = iterm->getMTerm()->getName();
+      // Skip multibit pins (they will be handled differently during swapping)
       for (const auto& [single_bit, pattern] : function->getMultibitPinMap()) {
         if (term_name == single_bit || Utility::match(term_name, pattern)) {
           skip_iterm = true;
@@ -304,6 +355,7 @@ void Annealer::assignToNodeGroup(Node* node)
       if (skip_iterm) {
         continue;
       }
+      // For non-multibit pins, ensure identical net connectivity
       auto head_iterm
           = group_inst->findITerm(iterm->getMTerm()->getName().c_str());
       if (head_iterm == nullptr) {
@@ -320,6 +372,7 @@ void Annealer::assignToNodeGroup(Node* node)
       return;
     }
   }
+  // No compatible group found, create a new group
   node_groups_.push_back({node});
 }
 
@@ -392,29 +445,37 @@ bool Annealer::generate_neighbor(int& group_idx, std::vector<int>& sub_group)
   auto group = node_groups_[group_idx];
   int node_idx;
   Node* node;
+  // Find a valid seed node that hasn't been marked for removal
   do {
     node_idx = idx_range(0, group.size() - 1)(generator_);
     node = group[node_idx];
   } while (node->isToBeRemoved());
+
   auto node_master = node->getMaster();
   auto function = node_master->getFunction();
   auto node_bits = node_master->getFunctionBits();
   auto max_bits = function->getMaxBits();
-  // node_bits and max_bits are in base 2, get their log2 distance
+  // Calculate how many size levels we can go up (node_bits and max_bits are
+  // powers of 2)
   int dist = std::log2(max_bits) - std::log2(node_bits);
   auto bits_to_master = function->getMasters();
+  // Randomly select a target size that's larger than current (1 to dist levels
+  // up)
   auto upper_size_idx = idx_range(1, dist)(generator_);
   auto masters = function->getMasters();
   auto it = bits_to_master.find(node_bits);
   std::advance(it, upper_size_idx);
   auto target_master = it->second;
+
+  // Find the best combination of nodes to merge with the seed node
   sub_group = findBestGroup(group[node_idx],
                             target_master->getBBox(),
                             group,
                             target_master->getFunctionBits());
   sub_group.push_back(node_idx);
   std::stable_sort(sub_group.begin(), sub_group.end());
-  // count total number of bits
+
+  // Verify that the selected nodes have exactly the required number of bits
   int total_bits = 0;
   for (auto idx : sub_group) {
     total_bits += group[idx]->getMaster()->getFunctionBits();
@@ -435,6 +496,8 @@ bool Annealer::accept(double delta_cost)
 {
   // delta_cost = new_wl - old_wl
   const float num = distribution_(generator_);
+  // Metropolis criterion: always accept improvements (delta_cost <= 0),
+  // probabilistically accept worse solutions based on exp(-ΔE/T)
   const float prob
       = (delta_cost > 0.0) ? std::exp((-1) * delta_cost / temperature_) : 1;
   return prob > num;
