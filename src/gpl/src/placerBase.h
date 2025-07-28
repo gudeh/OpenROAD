@@ -133,7 +133,6 @@ class Pin
   bool isMaxPinX() const;
   bool isMinPinY() const;
   bool isMaxPinY() const;
-  bool isPlaceInstConnected() const;
   bool isPlaced() const { return is_placed_ == 1; }
 
   void setITerm();
@@ -152,8 +151,6 @@ class Pin
 
   int getOffsetCx() const;
   int getOffsetCy() const;
-
-  void updateLocation(const Instance* inst);
 
   void setInstance(Instance* inst);
   void setNet(Net* net);
@@ -241,8 +238,8 @@ class Net
   void addPin(Pin* pin);
 
  private:
-  odb::dbNet* db_net_ = nullptr;
-  std::vector<Pin*> net_pins_;
+  odb::dbNet* net_ = nullptr;
+  std::vector<Pin*> pins_;
   int lx_ = 0;
   int ly_ = 0;
   int ux_ = 0;

@@ -138,9 +138,9 @@ void Graphics::drawBTermPins(gui::Painter& painter)
   size_t color_idx = 0;
 
   // First pass: assign consistent color to each region
-  for (const auto& pin : pbc_->pins()) {
+  for (const auto& pin : pbc_->getPins()) {
     if (!pin->isBTerm()) continue;
-    if (auto opt_region = pin->dbBTerm()->getConstraintRegion(); opt_region.has_value()) {
+    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
       const odb::Rect& region = opt_region.value();
       bool found = false;
       for (const auto& [existing_region, _] : region_color_map) {
@@ -158,7 +158,7 @@ void Graphics::drawBTermPins(gui::Painter& painter)
   }
 
   // Second pass: draw pins
-  // for (const auto& pin : pbc_->pins()) {
+  // for (const auto& pin : pbc_->getPins()) {
   //   if (!pin->isBTerm()) continue;
 
   //   const int cx = pin->cx();
@@ -192,7 +192,7 @@ if (nbc_) {
       continue;  // Skip null GPin
     }
 
-    Pin* pin = gpin->pin();
+    Pin* pin = gpin->getPbPin();
     if (!pin) {
       continue;  // Skip GPin with null internal Pin
     }
@@ -210,7 +210,7 @@ if (nbc_) {
       color = gui::Painter::kGray;
     }
 
-    if (auto opt_region = pin->dbBTerm()->getConstraintRegion(); opt_region.has_value()) {
+    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
       const odb::Rect& region = opt_region.value();
       for (const auto& [stored_region, region_color] : region_color_map) {
         if (stored_region == region) {
@@ -435,16 +435,16 @@ void Graphics::drawNesterov(gui::Painter& painter)
     // Draw net connections for all BTerm GPins
   painter.setPen(gui::Painter::kCyan, true);
   for (GPin* gpin : nbc_->getGPins()) {
-    if (!gpin || !gpin->pin()->isBTerm()) {
+    if (!gpin || !gpin->getPbPin()->isBTerm()) {
       continue;
     }
 
-    GNet* net = gpin->gNet();
+    GNet* net = gpin->getGNet();
     // if (!net) {
     //   continue;
     // }
 
-    for (GPin* other_pin : net->gPins()) {
+    for (GPin* other_pin : net->getGPins()) {
       if (!other_pin || other_pin == gpin) {
         continue;
       }

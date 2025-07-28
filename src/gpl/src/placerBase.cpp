@@ -600,7 +600,7 @@ void PlacerBaseCommon::initiateBtermsPosition(){
 
   for (Pin& pin : pinStor_) {
     if (pin.isBTerm()) {
-      pin.updatePinCoordi(static_cast<odb::dbBTerm*>(pin.dbBTerm()), log_);
+      pin.updatePinCoordi(static_cast<odb::dbBTerm*>(pin.getDbBTerm()), log_);
       auto status = pin.getBTermStatus();
       if (status.has_value()) {
         bterm_status_counts[status.value()]++;
@@ -663,13 +663,13 @@ Net::Net() = default;
 // }
 Net::Net(odb::dbNet* net) : Net()
 {
-  db_net_ = net;
+  net_ = net;
   updateBox();
 }
 
 Net::~Net()
 {
-  db_net_ = nullptr;
+  net_ = nullptr;
   lx_ = ly_ = ux_ = uy_ = 0;
 }
 
@@ -720,10 +720,10 @@ void Net::updateBox()
   ux_ = INT_MIN;
   uy_ = INT_MIN;
 
-  // if(db_net_)
-  // log_.report("Updating bounding box for net '{}'", db_net_->getName());
+  // if(net_)
+  // log_.report("Updating bounding box for net '{}'", net_->getName());
 
-  for (Pin* pb_pin : net_pins_) {
+  for (Pin* pb_pin : pins_) {
     // Ignoring here unplaced BTerms, maybe change this, think of cases where a net connects more than one bterm
     if(pb_pin->isITerm() || (pb_pin->isBTerm() && pb_pin->getBTermStatus() == Pin::BTermPlacementStatus::PLACED)) {
       const int cx = pb_pin->cx();
@@ -747,12 +747,12 @@ void Net::updateBox()
 
 void Net::addPin(Pin* pin)
 {
-  net_pins_.push_back(pin);
+  pins_.push_back(pin);
 }
 
 odb::dbSigType Net::getSigType() const
 {
-  return db_net_->getSigType();
+  return net_->getSigType();
 }
 
 ////////////////////////////////////////////////////////

@@ -446,15 +446,15 @@ void InitialPlace::updateCoordi()
     }
   }
 
-  for (auto& pbc_pin : pbc_->pins()) {
+  for (auto& pbc_pin : pbc_->getPins()) {
     if (pbc_pin->isBTerm()) {
-      odb::dbBTerm* bterm = pbc_pin->dbBTerm();
+      odb::dbBTerm* bterm = pbc_pin->getDbBTerm();
       // odb::dbNet* net = bterm->getNet();
       // if (!net || net->getITerms().empty()) {
       //   continue;
       // }
       // TODO the updatePinCoordi of iterms is called elsewhere, maybe unite both calls for bterms and iterms for better readability and organization
-      pbc_pin->updatePinCoordi(pbc_pin->dbBTerm(), log_);
+      pbc_pin->updatePinCoordi(pbc_pin->getDbBTerm(), log_);
     }
   }
 }
