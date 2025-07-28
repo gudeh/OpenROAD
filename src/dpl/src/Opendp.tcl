@@ -219,6 +219,10 @@ proc swap_cells_anneal { args } {
   sta::parse_key_args "swap_cells_anneal" args \
     keys {-max_iterations -initial_temperature -alpha -seed -max_displacement} flags {}
 
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 343 "No design block found."
+  }
+
   set max_iterations 1000
   if { [info exists keys(-max_iterations)] } {
     set max_iterations $keys(-max_iterations)
@@ -268,6 +272,10 @@ proc swap_cells_anneal { args } {
 
 sta::define_cmd_args "optimize_pin_placement" { }
 proc optimize_pin_placement { } {
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 346 "No design block found."
+  }
+
   dpl::optimize_pin_placement_cmd
 }
 
@@ -276,6 +284,10 @@ sta::define_cmd_args "set_phi_cut_cell" { cell_name }
 proc set_phi_cut_cell { args } {
   sta::parse_key_args "set_phi_cut_cell" args keys {} flags {}
   sta::check_argc_eq1 "set_phi_cut_cell" $args
+
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 347 "No design block found."
+  }
 
   set cell_name [lindex $args 0]
   set db [ord::get_db]
@@ -293,6 +305,10 @@ proc place_phi_cut_cells { args } {
   sta::parse_key_args "place_phi_cut_cells" args keys {} flags {}
   sta::check_argc_eq0 "place_phi_cut_cells" $args
 
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 348 "No design block found."
+  }
+  
   dpl::place_phi_cut_cells_cmd
 }
 
@@ -304,6 +320,11 @@ proc set_tap_phi_cell { args } {
 
   set cell_name [lindex $args 0]
   set db [ord::get_db]
+
+  if { [ord::get_db_block] == "NULL" } {
+    utl::error DPL 349 "No design block found."
+  }
+
   set master [$db findMaster $cell_name]
   if { $master == "NULL" } {
     utl::error DPL 108 "Cell $cell_name not found."
