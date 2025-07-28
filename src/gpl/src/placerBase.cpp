@@ -552,7 +552,7 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
     //   debugPrint(logger,
     //              GPL,
-    //              "IO_constraint",
+    //              "io_constraint",
     //              2,
     //              "{} toplevel port is not placed and has no constraint region. "
     //              "Projected to core edge from inst center ({}, {})",
@@ -569,7 +569,7 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
       debugPrint(logger,
                  GPL,
-                 "IO_constraint",
+                 "io_constraint",
                  2,
                  "{} toplevel port is not placed, unconstrained, and unconnected. "
                  "Ignoring.",

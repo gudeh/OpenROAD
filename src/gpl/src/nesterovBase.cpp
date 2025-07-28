@@ -522,7 +522,11 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       int yMin = constraint_region->yMin();
       int yMax = constraint_region->yMax();
 
-      logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]",
+      // logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]",
+      debugPrint(logger,
+                 GPL,
+                 "overflow",
+                 1,"Constraint region for {}: [({}, {}) --> ({}, {})]",
                      bTerm->getConstName(), xMin, yMin, xMax, yMax);
 
       cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
@@ -538,7 +542,7 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
       debugPrint(logger,
                  GPL,
-                 "IO_constraint",
+                 "io_constraint",
                  2,
                  "{} GPin is unplaced, unconstrained, and unconnected. Ignoring.",
                  bTerm->getConstName());

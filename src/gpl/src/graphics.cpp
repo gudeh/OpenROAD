@@ -158,32 +158,32 @@ void Graphics::drawBTermPins(gui::Painter& painter)
   }
 
   // Second pass: draw pins
-  // for (const auto& pin : pbc_->getPins()) {
-  //   if (!pin->isBTerm()) continue;
+  for (const auto& pin : pbc_->getPins()) {
+    if (!pin->isBTerm()) continue;
 
-  //   const int cx = pin->cx();
-  //   const int cy = pin->cy();
+    const int cx = pin->cx();
+    const int cy = pin->cy();
 
-  //   gui::Painter::Color color = gui::Painter::kWhite;
+    gui::Painter::Color color = gui::Painter::kWhite;
 
-  //   if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
-  //     color = gui::Painter::kGray;
-  //   }
+    if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
+      color = gui::Painter::kGray;
+    }
 
-  //   if (auto opt_region = pin->dbBTerm()->getConstraintRegion(); opt_region.has_value()) {
-  //     const odb::Rect& region = opt_region.value();
-  //     for (const auto& [stored_region, region_color] : region_color_map) {
-  //       if (stored_region == region) {
-  //         color = region_color;
-  //         break;
-  //       }
-  //     }
-  //   }
+    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
+      const odb::Rect& region = opt_region.value();
+      for (const auto& [stored_region, region_color] : region_color_map) {
+        if (stored_region == region) {
+          color = region_color;
+          break;
+        }
+      }
+    }
 
-  //   painter.setPen(color, true);
-  //   painter.setBrush(color);
-  //   painter.drawCircle(cx, cy, radius);
-  // }
+    painter.setPen(color, true);
+    painter.setBrush(color);
+    painter.drawCircle(cx, cy, radius);
+  }
 
 
 if (nbc_) {
