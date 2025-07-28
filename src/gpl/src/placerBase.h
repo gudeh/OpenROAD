@@ -95,10 +95,10 @@ class Instance
   int64_t area() const;
 
   void setExtId(int extId);
-  int extId() const { return extId_; }
+  int getExtId() const { return extId_; }
 
   void addPin(Pin* pin);
-  const std::vector<Pin*>& pins() const { return pins_; }
+  const std::vector<Pin*>& getPins() const { return pins_; }
   void snapOutward(const odb::Point& origin, int step_x, int step_y);
 
  private:
@@ -124,8 +124,8 @@ class Pin
   Pin(odb::dbBTerm* bTerm, utl::Logger* logger);
   ~Pin();
 
-  odb::dbITerm* dbITerm() const;
-  odb::dbBTerm* dbBTerm() const;
+  odb::dbITerm* getDbITerm() const;
+  odb::dbBTerm* getDbBTerm() const;
 
   bool isITerm() const;
   bool isBTerm() const;
@@ -150,14 +150,18 @@ class Pin
   int cx() const;
   int cy() const;
 
-  int offsetCx() const;
-  int offsetCy() const;  
+  int getOffsetCx() const;
+  int getOffsetCy() const;
+
+  void updateLocation(const Instance* inst);
 
   void setInstance(Instance* inst);
-  void setNet(Net* net);  
+  void setNet(Net* net);
 
-  Instance* instance() const { return inst_; }
-  Net* net() const { return net_; }
+  bool isPlaceInstConnected() const;
+
+  Instance* getInstance() const { return inst_; }
+  Net* getNet() const { return net_; }
   std::string getName() const;
 
   // Initialization pair for iTerm and bTerm
@@ -221,7 +225,7 @@ class Net
   int cy() const;
 
   // HPWL: half-parameter-wire-length
-  int64_t hpwl() const;
+  int64_t getHpwl() const;
 
   void updateBox();
   odb::Rect getBBox() const
@@ -229,9 +233,9 @@ class Net
     return odb::Rect(lx_, ly_, ux_, uy_);
   }
 
-  const std::vector<Pin*>& getNetPins() const { return net_pins_; }
+  const std::vector<Pin*>& getPins() const { return pins_; }
 
-  odb::dbNet* getDbNet() const { return db_net_; }
+  odb::dbNet* getDbNet() const { return net_; }
   odb::dbSigType getSigType() const;
 
   void addPin(Pin* pin);
@@ -311,11 +315,11 @@ class PlacerBaseCommon
   ~PlacerBaseCommon();
 
   const std::vector<Instance*>& placeInsts() const { return placeInsts_; }
-  const std::vector<Instance*>& insts() const { return insts_; }
-  const std::vector<Pin*>& pins() const { return pins_; }
-  const std::vector<Net*>& nets() const { return nets_; }
+  const std::vector<Instance*>& getInsts() const { return insts_; }
+  const std::vector<Pin*>& getPins() const { return pins_; }
+  const std::vector<Net*>& getNets() const { return nets_; }
 
-  Die& die() { return die_; }
+  Die& getDie() { return die_; }
 
   // Pb : PlacerBase
   Instance* dbToPb(odb::dbInst* inst) const;
@@ -326,16 +330,16 @@ class PlacerBaseCommon
   int siteSizeX() const { return siteSizeX_; }
   int siteSizeY() const { return siteSizeY_; }
 
-  int padLeft() const { return pbVars_.padLeft; }
-  int padRight() const { return pbVars_.padRight; }
+  int getPadLeft() const { return pbVars_.padLeft; }
+  int getPadRight() const { return pbVars_.padRight; }
   // bool skipIoMode() const { return pbVars_.skipIoMode; }
   unsigned int getItermCount() { return itermCount_; }
   unsigned int getBtermCount() { return btermCount_; }
 
-  int64_t hpwl() const;
+  int64_t getHpwl() const;
   void printInfo() const;
 
-  int64_t macroInstsArea() const { return macroInstsArea_; }
+  int64_t getMacroInstsArea() const { return macroInstsArea_; }
 
   odb::dbDatabase* db() const { return db_; }
 
@@ -390,7 +394,7 @@ class PlacerBase
              odb::dbGroup* group = nullptr);
   ~PlacerBase();
 
-  const std::vector<Instance*>& insts() const { return insts_; }
+  const std::vector<Instance*>& getInsts() const { return insts_; }
 
   //
   // placeInsts : a real instance that need to be placed
@@ -404,12 +408,12 @@ class PlacerBase
   const std::vector<Instance*>& dummyInsts() const { return dummyInsts_; }
   const std::vector<Instance*>& nonPlaceInsts() const { return nonPlaceInsts_; }
 
-  Die& die() { return die_; }
+  Die& getDie() { return die_; }
 
-  int siteSizeX() const { return siteSizeX_; }
-  int siteSizeY() const { return siteSizeY_; }
+  int getSiteSizeX() const { return siteSizeX_; }
+  int getSiteSizeY() const { return siteSizeY_; }
 
-  int64_t hpwl() const;
+  int64_t getHpwl() const;
   void printInfo() const;
 
   int64_t placeInstsArea() const { return placeInstsArea_; }

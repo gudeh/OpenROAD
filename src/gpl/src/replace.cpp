@@ -437,11 +437,16 @@ void Replace::setUniformTargetDensityMode(bool mode)
 
 float Replace::getUniformTargetDensity(int threads)
 {
-  // TODO: update to be compatible with multiple target densities
+  log_->info(GPL, 22, "Initialize gpl and calculate uniform density.");
+  log_->redirectStringBegin();
+
+  float density = 1.0f;
   if (initNesterovPlace(threads)) {
-    return nbVec_[0]->uniformTargetDensity();
+    density = nbVec_[0]->getUniformTargetDensity();
   }
-  return 1;
+
+  std::string _ = log_->redirectStringEnd();
+  return density;
 }
 
 void Replace::setInitDensityPenalityFactor(float penaltyFactor)
