@@ -827,6 +827,7 @@ void NesterovPlace::doBackTracking(const float coeff)
     }
 
     nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
+    nbc_->reloadGPinIOLocations();
 
     num_region_diverged_ = 0;
     for (auto& nb : nbVec_) {
@@ -985,8 +986,7 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
       break;
     }
 
-    updateNextIter(iter);
-    nbc_->reloadGPinIOLocations();
+    updateNextIter(iter);    
 
     updateIterGraphics(iter,
                        reports_dir,
