@@ -520,6 +520,10 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
       logger->report("Final clamped coord for {}: ({}, {})",
                      bTerm->getConstName(), cx_, cy_);
+
+
+
+
     // } else if (inst_ != nullptr) {
     //   const int est_x = inst_->cx();
     //   const int est_y = inst_->cy();
@@ -709,16 +713,18 @@ int64_t Net::hpwl() const
 
 void Net::updateBox()
 {
-  utl::Logger log_;
+  //TODO remove this !!!!
+  // utl::Logger log_;
   lx_ = INT_MAX;
   ly_ = INT_MAX;
   ux_ = INT_MIN;
   uy_ = INT_MIN;
 
-  if(db_net_)
-  log_.report("Updating bounding box for net '{}'", db_net_->getName());
+  // if(db_net_)
+  // log_.report("Updating bounding box for net '{}'", db_net_->getName());
 
   for (Pin* pb_pin : net_pins_) {
+    // Ignoring here unplaced BTerms, maybe change this, think of cases where a net connects more than one bterm
     if(pb_pin->isITerm() || (pb_pin->isBTerm() && pb_pin->getBTermStatus() == Pin::BTermPlacementStatus::PLACED)) {
       const int cx = pb_pin->cx();
       const int cy = pb_pin->cy();
@@ -726,7 +732,7 @@ void Net::updateBox()
       std::string pin_type = pb_pin->isITerm() ? "ITerm" : "BTerm";
       std::string pin_name = pb_pin->getName();
 
-      log_.report("  {} '{}' at ({}, {})", pin_type, pin_name, cx, cy);
+      // log_.report("  {} '{}' at ({}, {})", pin_type, pin_name, cx, cy);
 
       lx_ = std::min(lx_, cx);
       ly_ = std::min(ly_, cy);
@@ -735,7 +741,7 @@ void Net::updateBox()
     }
   }
 
-  log_.report("  Net bbox: [({}, {}) --> ({}, {})]\n", lx_, ly_, ux_, uy_);
+  // log_.report("  Net bbox: [({}, {}) --> ({}, {})]\n", lx_, ly_, ux_, uy_);
 }
 
 

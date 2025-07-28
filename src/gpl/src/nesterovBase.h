@@ -256,6 +256,10 @@ class GNet
   void clearGPins() { gPins_.clear(); }
   void updateBox();
   int64_t hpwl() const;
+  odb::Rect getBBox() const
+{
+  return odb::Rect(lx_, ly_, ux_, uy_);
+}
 
   void setDontCare();
   bool isDontCare() const;
@@ -482,7 +486,8 @@ class GPin
   void updateDensityLocation(const GCell* gCell);
 
   void print(utl::Logger* log) const;
-  void updateCoordi();
+  void updateGPinCoordi();
+  void updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger);
 
  private:
   GCell* gCell_ = nullptr;
@@ -802,6 +807,8 @@ class NesterovBaseCommon
   const std::vector<GCell*>& getGCells() const { return nbc_gcells_; }
   const std::vector<GNet*>& getGNets() const { return gNets_; }
   const std::vector<GPin*>& getGPins() const { return gPins_; }
+
+  void reloadGPinIOLocations();
 
   //
   // placerBase To NesterovBase functions

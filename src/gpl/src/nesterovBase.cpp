@@ -352,6 +352,7 @@ void GNet::updateBox()
     ux_ = std::max(gPin->cx(), ux_);
     uy_ = std::max(gPin->cy(), uy_);
   }
+  net()->updateBox();
 }
 
 int64_t GNet::hpwl() const
@@ -496,7 +497,7 @@ void GPin::updateDensityLocation(const GCell* gCell)
   cy_ = gCell->dCy() + offsetCy_;
 }
 
-void GPin::updateCoordi()
+void GPin::updateGPinCoordi()
 {
   Pin* pb_pin = pins_[0];
   cx_ = pb_pin->cx();
@@ -505,13 +506,101 @@ void GPin::updateCoordi()
   offsetCy_ = pb_pin->offsetCy();
 }
 
+void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
+{
+  offsetCx_ = offsetCy_ = 0;
+
+  if (!pin()->isPlaced()) {
+    const auto& constraint_region = bTerm->getConstraintRegion();
+
+    if (constraint_region) {
+      int target_x = 0;
+      int target_y = 0;
+
+      if (gNet_ != nullptr) {
+        gNet_->updateBox();
+        const odb::Rect net_box = gNet_->getBBox();
+
+        target_x = (net_box.xMin() + net_box.xMax()) / 2;
+        target_y = (net_box.yMin() + net_box.yMax()) / 2;
+
+        logger->report("GNet box center for {}: ({}, {})",
+                       bTerm->getConstName(), target_x, target_y);
+      } else {
+        logger->report("No GNet connected to GPin {}. Falling back to region center.",
+                       bTerm->getConstName());
+        target_x = (constraint_region->xMin() + constraint_region->xMax()) / 2;
+        target_y = (constraint_region->yMin() + constraint_region->yMax()) / 2;
+      }
+
+      int xMin = constraint_region->xMin();
+      int xMax = constraint_region->xMax();
+      int yMin = constraint_region->yMin();
+      int yMax = constraint_region->yMax();
+
+      logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]",
+                     bTerm->getConstName(), xMin, yMin, xMax, yMax);
+
+      cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
+      cy_ = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
+
+      logger->report("Final clamped coord for {}: ({}, {})",
+                     bTerm->getConstName(), cx_, cy_);
+
+    } else {
+      // Unplaced, unconstrained, and unconnected
+      cx_ = -2000;
+      cy_ = -2000;
+
+      debugPrint(logger,
+                 GPL,
+                 "IO_constraint",
+                 2,
+                 "{} GPin is unplaced, unconstrained, and unconnected. Ignoring.",
+                 bTerm->getConstName());
+    }
+  } else {
+    // Already placed: use BPin bounding box
+    int lx = INT_MAX, ly = INT_MAX;
+    int ux = INT_MIN, uy = INT_MIN;
+
+    for (odb::dbBPin* bPin : bTerm->getBPins()) {
+      odb::Rect bbox = bPin->getBBox();
+      lx = std::min(lx, bbox.xMin());
+      ly = std::min(ly, bbox.yMin());
+      ux = std::max(ux, bbox.xMax());
+      uy = std::max(uy, bbox.yMax());
+    }
+
+    cx_ = (lx + ux) / 2;
+    cy_ = (ly + uy) / 2;
+  }
+}
+
+
+void NesterovBaseCommon::reloadGPinIOLocations() {
+  for(auto& gpin : gPins_){
+    if(gpin->pin()->isBTerm()) {
+      // log_->report("bterm gpin call updatePinCoordi");
+      // gpin->pin()->updatePinCoordi(gpin->pin()->dbBTerm(), log_);
+      gpin->updateGPinCoordi(gpin->pin()->dbBTerm(), log_);
+      // gpin->pin()->net()->updateBox();
+      // gpin->updateGPinCoordi();
+    }
+  }
+
+}
+
 void GPin::print(utl::Logger* log) const
 {
-  if (pin()->dbITerm() != nullptr) {
-    log->report("--> print pin: {}", pin()->dbITerm()->getName());
+  if (pin()->isITerm()) {
+    log->report("--> print pin (ITerm): {}", pin()->dbITerm()->getName());
+  } else if (pin()->isBTerm()) {
+    log->report("--> print pin (BTerm): {}", pin()->dbBTerm()->getName());
   } else {
-    log->report("pin()->dbIterm() is nullptr!");
+    log->report("pin is neither ITerm nor BTerm!");
   }
+
   if (gCell_) {
     if (gCell_->isInstance()) {
       log->report("GCell*: {}", gCell_->getName());
@@ -521,12 +610,18 @@ void GPin::print(utl::Logger* log) const
   } else {
     log->report("gcell of gpin is null");
   }
-  log->report("GNet: {}", gNet_->net()->getDbNet()->getName());
+
+  if (gNet_ && gNet_->net() && gNet_->net()->getDbNet()) {
+    log->report("GNet: {}", gNet_->net()->getDbNet()->getName());
+  } else {
+    log->report("GNe: net or dbNet is null");
+  }
+
   log->report("pins_.size(): {}", pins_.size());
-  log->report("offsetCx_: {}", offsetCx_);
-  log->report("offsetCy_: {}", offsetCy_);
   log->report("cx_: {}", cx_);
   log->report("cy_: {}", cy_);
+  log->report("offsetCx_: {}", offsetCx_);
+  log->report("offsetCy_: {}", offsetCy_);
   log->report("maxExpSumX_: {}", maxExpSumX_);
   log->report("maxExpSumY_: {}", maxExpSumY_);
   log->report("minExpSumX_: {}", minExpSumX_);
@@ -1644,7 +1739,7 @@ void NesterovBaseCommon::fixPointers()
     }
 
     for (odb::dbBTerm* bterm : gNet.net()->getDbNet()->getBTerms()) {
-      if (isValidSigType(bterm->getSigType())) {
+      if (isValidSigType(bterm->getSigType()) && (bterm->getFirstPinPlacementStatus().isPlaced() || bterm->getConstraintRegion())) {
         auto it = db_bterm_to_index_map_.find(bterm);
         if (it != db_bterm_to_index_map_.end()) {
           size_t gpin_index = it->second;
@@ -1660,6 +1755,13 @@ void NesterovBaseCommon::fixPointers()
                      "warning: gpin not found for BTerm: {}",
                      bterm->getName());
         }
+      } else {
+        debugPrint(log_,
+                    GPL,
+                    "callbacks",
+                    1,
+                    "bterm gpin is invalid sig type or: {}",
+                    bterm->getName());
       }
     }
   }
@@ -3009,7 +3111,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
 
       for (auto& gpin : gcell->gPins()) {
         gpin->pin()->updatePinCoordi(gpin->pin()->dbITerm());
-        gpin->updateCoordi();
+        gpin->updateGPinCoordi();
       }
 
       // analogous to NesterovBase::updateDensitySize()

@@ -357,6 +357,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         nb->nesterovUpdateCoordinates(coeff);
       }
 
+      nbc_->reloadGPinIOLocations();
       nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
 
       num_region_diverged_ = 0;
