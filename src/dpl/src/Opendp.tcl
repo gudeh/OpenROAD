@@ -308,7 +308,7 @@ proc place_phi_cut_cells { args } {
   if { [ord::get_db_block] == "NULL" } {
     utl::error DPL 348 "No design block found."
   }
-  
+
   dpl::place_phi_cut_cells_cmd
 }
 
