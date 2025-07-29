@@ -135,6 +135,7 @@ class Pin
   bool isMaxPinY() const;
   bool isPlaced() const { return is_placed_ == 1; }
 
+  void setAsPlaced() { is_placed_ = 1; }
   void setITerm();
   void setBTerm();  
   void setMinPinX();

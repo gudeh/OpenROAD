@@ -496,10 +496,16 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
         target_x = (net_box.xMin() + net_box.xMax()) / 2;
         target_y = (net_box.yMin() + net_box.yMax()) / 2;
 
-        logger->report("Net box center for {}: ({}, {})",
+      debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"Net box center for {}: ({}, {})",
                        bTerm->getConstName(), target_x, target_y);
       } else {
-        logger->report("No net connected to pin {}. Falling back to region center.",
+      debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"No net connected to pin {}. Falling back to region center.",
                        getName());
         target_x = (constraint_region->xMin() + constraint_region->xMax()) / 2;
         target_y = (constraint_region->yMin() + constraint_region->yMax()) / 2;
@@ -510,7 +516,10 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       int yMin = constraint_region->yMin();
       int yMax = constraint_region->yMax();
 
-      logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]",
+      debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"Constraint region for {}: [({}, {}) --> ({}, {})]",
                      bTerm->getConstName(), xMin, yMin, xMax, yMax);
 
       cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
@@ -518,7 +527,10 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
       bterm_status_ = BTermPlacementStatus::CONSTRAINT_REGION;
 
-      logger->report("Final clamped coord for {}: ({}, {})",
+      debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"Final clamped coord for {}: ({}, {})",
                      bTerm->getConstName(), cx_, cy_);
 
 
@@ -991,6 +1003,9 @@ void PlacerBaseCommon::init()
         if(bTerm->getFirstPinPlacementStatus().isPlaced() || bTerm->getConstraintRegion()) {
           Pin temp_pin(bTerm, log_);
           temp_pin.setNet(temp_net_ptr);
+          if(bTerm->getFirstPinPlacementStatus().isPlaced()){
+            temp_pin.setAsPlaced();
+          }
           pinStor_.push_back(temp_pin);
         } else {
           log_->report("bterm is unplaced or unconstrained: {}",bTerm->getName());

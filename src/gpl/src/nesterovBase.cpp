@@ -326,6 +326,12 @@ void GNet::addGPin(GPin* gPin)
 
 void GNet::updateBox()
 {
+
+  if (gPins_.empty()) {
+    // log_->report("GNet has no gPins.");
+    return;
+  }
+  
   lx_ = ly_ = INT_MAX;
   ux_ = uy_ = INT_MIN;
 
@@ -335,7 +341,10 @@ void GNet::updateBox()
     ux_ = std::max(gPin->cx(), ux_);
     uy_ = std::max(gPin->cy(), uy_);
   }
-  getPbNet()->updateBox();
+
+  if (!nets_.empty()) {
+    getPbNet()->updateBox();
+  }
 }
 
 int64_t GNet::getHpwl() const
@@ -508,10 +517,16 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
         target_x = (net_box.xMin() + net_box.xMax()) / 2;
         target_y = (net_box.yMin() + net_box.yMax()) / 2;
 
-        logger->report("GNet box center for {}: ({}, {})",
+              debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"GNet box center for {}: ({}, {})",
                        bTerm->getConstName(), target_x, target_y);
       } else {
-        logger->report("No GNet connected to GPin {}. Falling back to region center.",
+              debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"No GNet connected to GPin {}. Falling back to region center.",
                        bTerm->getConstName());
         target_x = (constraint_region->xMin() + constraint_region->xMax()) / 2;
         target_y = (constraint_region->yMin() + constraint_region->yMax()) / 2;
@@ -525,14 +540,17 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       // logger->report("Constraint region for {}: [({}, {}) --> ({}, {})]",
       debugPrint(logger,
                  GPL,
-                 "overflow",
-                 1,"Constraint region for {}: [({}, {}) --> ({}, {})]",
+                 "io_constraint",
+                 2,"Constraint region for {}: [({}, {}) --> ({}, {})]",
                      bTerm->getConstName(), xMin, yMin, xMax, yMax);
 
       cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
       cy_ = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
 
-      logger->report("Final clamped coord for {}: ({}, {})",
+            debugPrint(logger,
+                 GPL,
+                 "io_constraint",
+                 2,"Final clamped coord for {}: ({}, {})",
                      bTerm->getConstName(), cx_, cy_);
 
     } else {
