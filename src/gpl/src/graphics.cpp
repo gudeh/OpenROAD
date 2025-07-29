@@ -123,24 +123,32 @@ void Graphics::drawBounds(gui::Painter& painter)
   painter.drawLine(die.coreLx(), die.coreUy(), die.coreLx(), die.coreLy());
 }
 
-void Graphics::drawBTermPins(gui::Painter& painter)
+void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode = false)
 {
   const int radius = 2000;
 
   // Unique constraint regions and associated color
   std::vector<std::pair<odb::Rect, gui::Painter::Color>> region_color_map;
-  const std::vector<gui::Painter::Color> region_colors = {
-      gui::Painter::kRed, gui::Painter::kGreen, gui::Painter::kBlue,
-      gui::Painter::kCyan, gui::Painter::kMagenta, gui::Painter::kYellow,
-      gui::Painter::kOrange, gui::Painter::kLime, gui::Painter::kPink,
-      gui::Painter::kTurquoise};
+  const std::vector<gui::Painter::Color> region_colors
+      = {gui::Painter::kRed,
+         gui::Painter::kGreen,
+         gui::Painter::kBlue,
+         gui::Painter::kCyan,
+         gui::Painter::kMagenta,
+         gui::Painter::kYellow,
+         gui::Painter::kOrange,
+         gui::Painter::kLime,
+         gui::Painter::kPink,
+         gui::Painter::kTurquoise};
 
   size_t color_idx = 0;
 
-  // First pass: assign consistent color to each region
   for (const auto& pin : pbc_->getPins()) {
-    if (!pin->isBTerm()) continue;
-    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
+    if (!pin->isBTerm()) {
+      continue;
+    }
+    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion();
+        opt_region.has_value()) {
       const odb::Rect& region = opt_region.value();
       bool found = false;
       for (const auto& [existing_region, _] : region_color_map) {
@@ -150,89 +158,91 @@ void Graphics::drawBTermPins(gui::Painter& painter)
         }
       }
       if (!found) {
-        gui::Painter::Color color = region_colors[color_idx % region_colors.size()];
+        gui::Painter::Color color
+            = region_colors[color_idx % region_colors.size()];
         region_color_map.emplace_back(region, color);
         ++color_idx;
       }
     }
   }
 
-  // Second pass: draw pins
-  for (const auto& pin : pbc_->getPins()) {
-    if (!pin->isBTerm()) continue;
+  if (!nbc_mode) {
+    for (const auto& pin : pbc_->getPins()) {
+      if (!pin->isBTerm()) {
+        continue;
+      }
 
-    const int cx = pin->cx();
-    const int cy = pin->cy();
+      const int cx = pin->cx();
+      const int cy = pin->cy();
+      gui::Painter::Color color = gui::Painter::kWhite;
 
-    gui::Painter::Color color = gui::Painter::kWhite;
+      if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
+        color = gui::Painter::kGray;
+      }
 
-    if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
-      color = gui::Painter::kGray;
-    }
-
-    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
-      const odb::Rect& region = opt_region.value();
-      for (const auto& [stored_region, region_color] : region_color_map) {
-        if (stored_region == region) {
-          color = region_color;
-          break;
+      if (auto opt_region = pin->getDbBTerm()->getConstraintRegion();
+          opt_region.has_value()) {
+        const odb::Rect& region = opt_region.value();
+        for (const auto& [stored_region, region_color] : region_color_map) {
+          if (stored_region == region) {
+            color = region_color;
+            break;
+          }
         }
       }
-    }
 
-    painter.setPen(color, true);
-    painter.setBrush(color);
-    painter.drawCircle(cx, cy, radius);
+      painter.setPen(color, true);
+      painter.setBrush(color);
+      painter.drawCircle(cx, cy, radius);
+    }
   }
 
+  if (nbc_) {
+    for (const auto& gpin : nbc_->getGPins()) {
+      if (!gpin) {
+        continue;
+      }
 
-if (nbc_) {
-  for (const auto& gpin : nbc_->getGPins()) {
-    if (!gpin) {
-      continue;  // Skip null GPin
-    }
+      Pin* pin = gpin->getPbPin();
+      if (!pin) {
+        continue;
+      }
 
-    Pin* pin = gpin->getPbPin();
-    if (!pin) {
-      continue;  // Skip GPin with null internal Pin
-    }
+      if (!pin->isBTerm()) {
+        continue;
+      }
 
-    if (!pin->isBTerm()) {
-      continue;
-    }
+      const int cx = gpin->cx();
+      const int cy = gpin->cy();
 
-    const int cx = gpin->cx();
-    const int cy = gpin->cy();
+      gui::Painter::Color color = gui::Painter::kWhite;
 
-    gui::Painter::Color color = gui::Painter::kWhite;
+      if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
+        color = gui::Painter::kGray;
+      }
 
-    if (pin->getBTermStatus() == Pin::BTermPlacementStatus::IGNORED) {
-      color = gui::Painter::kGray;
-    }
-
-    if (auto opt_region = pin->getDbBTerm()->getConstraintRegion(); opt_region.has_value()) {
-      const odb::Rect& region = opt_region.value();
-      for (const auto& [stored_region, region_color] : region_color_map) {
-        if (stored_region == region) {
-          color = region_color;
-          break;
+      if (auto opt_region = pin->getDbBTerm()->getConstraintRegion();
+          opt_region.has_value()) {
+        const odb::Rect& region = opt_region.value();
+        for (const auto& [stored_region, region_color] : region_color_map) {
+          if (stored_region == region) {
+            color = region_color;
+            break;
+          }
         }
       }
+
+      painter.setPen(color, true);
+      painter.setBrush(color);
+      painter.drawCircle(cx, cy, radius);
     }
-
-    painter.setPen(color, true);
-    painter.setBrush(color);
-    painter.drawCircle(cx, cy, radius);
   }
-}
 
-  // Final pass: draw constraint regions
   for (const auto& [region, color] : region_color_map) {
     painter.setPen(color, true);
     painter.drawRect(region);
   }
 }
-
 
 void Graphics::drawInitial(gui::Painter& painter)
 {
@@ -252,7 +262,6 @@ void Graphics::drawInitial(gui::Painter& painter)
     painter.drawRect({lx, ly, ux, uy});
   }
 }
-
 
 void Graphics::drawForce(gui::Painter& painter)
 {
@@ -432,7 +441,7 @@ void Graphics::drawNesterov(gui::Painter& painter)
     }
   }
 
-    // Draw net connections for all BTerm GPins
+  // Draw net connections for all BTerm GPins
   painter.setPen(gui::Painter::kCyan, true);
   for (GPin* gpin : nbc_->getGPins()) {
     if (!gpin || !gpin->getPbPin()->isBTerm()) {
@@ -449,16 +458,15 @@ void Graphics::drawNesterov(gui::Painter& painter)
         continue;
       }
 
-    //   // Optional: avoid duplicate lines by checking pointer order
-    //   if (other_pin < gpin) {
-    //     continue;
-    //   }
+      //   // Optional: avoid duplicate lines by checking pointer order
+      //   if (other_pin < gpin) {
+      //     continue;
+      //   }
 
       painter.drawLine(
           gpin->cx(), gpin->cy(), other_pin->cx(), other_pin->cy());
     }
   }
-
 
   // Draw force direction lines
   if (draw_bins_) {
@@ -487,11 +495,11 @@ void Graphics::drawObjects(gui::Painter& painter)
       break;
     case Nesterov:
       drawNesterov(painter);
-      drawBTermPins(painter);
+      drawBTermPins(painter, true);
       break;
     case Initial:
       drawInitial(painter);
-      drawBTermPins(painter);
+      drawBTermPins(painter, false);
       break;
   }
 }

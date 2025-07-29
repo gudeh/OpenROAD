@@ -144,7 +144,7 @@ class Graphics : public gui::Renderer, public gui::HeatMapDataSource
   void drawMBFF(gui::Painter& painter);
   void drawBounds(gui::Painter& painter);
   void reportSelected();
-  void drawBTermPins(gui::Painter& painter);
+  void drawBTermPins(gui::Painter& painter, bool nbc_mode);
 };
 
 }  // namespace gpl
