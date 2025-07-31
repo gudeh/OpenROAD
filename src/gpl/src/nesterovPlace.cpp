@@ -436,7 +436,14 @@ void NesterovPlace::runTimingDriven(const int iter,
       nb_gcells_before_td += nb->getGCells().size();
     }
 
+    // nbc_->printGPins();
+    // log_->report("call executeTimingDriven");
+    // nbc_->printGPins();
+    // nbc_->printGNets();
     bool shouldTdProceed = tb_->executeTimingDriven(virtual_td_iter);
+    // log_->report("finished executeTimingDriven");
+    // nbc_->printGPins();
+    // nbc_->printGNets();
     nbVec_[0]->setTrueReprintIterHeader();
     ++timing_driven_count;
 
@@ -678,6 +685,7 @@ void NesterovPlace::runRoutability(const int iter,
                                    float& curA,
                                    int64_t& end_routability_area)
 {
+  updateDb();
   // check routability using RUDY or GR
   if (npVars_.routability_driven_mode && is_routability_need_
       && average_overflow_unscaled_ <= npVars_.routability_end_overflow) {
@@ -986,7 +994,7 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
       break;
     }
 
-    updateNextIter(iter);    
+    updateNextIter(iter);
 
     updateIterGraphics(iter,
                        reports_dir,
@@ -995,11 +1003,17 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
                        timing_driven_count,
                        final_routability_image_saved);
 
+    // log_->report("call runTimingDriven");
+    // nbc_->printGPins();
+    // nbc_->printGNets();
     runTimingDriven(iter,
                     timing_driven_dir,
                     routability_driven_count,
                     timing_driven_count,
                     td_accumulated_delta_area);
+    // log_->report("finished runTimingDriven");        
+    // nbc_->printGPins();
+    // nbc_->printGNets();            
 
     if (isDiverged(diverge_snapshot_WlCoefX,
                    diverge_snapshot_WlCoefY,
@@ -1030,8 +1044,9 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
     if (isConverged()) {
       break;
     }
+    // log_->report("main loop end iter");
   }
-
+  // log_->report("finish main loop");
   reportResults(original_area, end_routability_area, td_accumulated_delta_area);
 
   // In all case, including divergence, the db should be updated.
@@ -1163,7 +1178,7 @@ void NesterovPlace::createGNet(odb::dbNet* db_net)
     return;
   }
   // nbc_->createCbkGNet(db_net, pbc_->skipIoMode());
-  nbc_->createCbkGNet(db_net);  
+  nbc_->createCbkGNet(db_net);
 }
 
 void NesterovPlace::destroyCbkGNet(odb::dbNet* db_net)

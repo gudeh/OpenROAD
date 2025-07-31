@@ -221,13 +221,20 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode = false)
         color = gui::Painter::kGray;
       }
 
-      if (auto opt_region = pin->getDbBTerm()->getConstraintRegion();
-          opt_region.has_value()) {
-        const odb::Rect& region = opt_region.value();
-        for (const auto& [stored_region, region_color] : region_color_map) {
-          if (stored_region == region) {
-            color = region_color;
-            break;
+      if (pin->getBTermStatus() == Pin::BTermPlacementStatus::PLACED) {
+        color = gui::Painter::kWhite;
+      }
+
+      if (pin->getBTermStatus()
+          == Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
+        if (auto opt_region = pin->getDbBTerm()->getConstraintRegion();
+            opt_region.has_value()) {
+          const odb::Rect& region = opt_region.value();
+          for (const auto& [stored_region, region_color] : region_color_map) {
+            if (stored_region == region) {
+              color = region_color;
+              break;
+            }
           }
         }
       }

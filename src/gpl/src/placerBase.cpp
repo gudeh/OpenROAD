@@ -490,23 +490,27 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       int target_y = 0;
 
       if (net_ != nullptr) {
-        net_->updateBox();
-        const odb::Rect& net_box = net_->getBBox(); //net_->getDbNet()->getTermBBox();
+        net_->updateBox(logger);
+        const odb::Rect& net_box = net_->getBBox();
 
         target_x = (net_box.xMin() + net_box.xMax()) / 2;
         target_y = (net_box.yMin() + net_box.yMax()) / 2;
 
-      debugPrint(logger,
-                 GPL,
-                 "io_constraint",
-                 2,"Net box center for {}: ({}, {})",
-                       bTerm->getConstName(), target_x, target_y);
+        debugPrint(logger,
+                   GPL,
+                   "io_constraint",
+                   2,
+                   "Net box center for {}: ({}, {})",
+                   bTerm->getConstName(),
+                   target_x,
+                   target_y);
       } else {
-      debugPrint(logger,
-                 GPL,
-                 "io_constraint",
-                 2,"No net connected to pin {}. Falling back to region center.",
-                       getName());
+        debugPrint(logger,
+                   GPL,
+                   "io_constraint",
+                   2,
+                   "No net connected to pin {}. Falling back to region center.",
+                   getName());
         target_x = (constraint_region->xMin() + constraint_region->xMax()) / 2;
         target_y = (constraint_region->yMin() + constraint_region->yMax()) / 2;
       }
@@ -519,8 +523,13 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       debugPrint(logger,
                  GPL,
                  "io_constraint",
-                 2,"Constraint region for {}: [({}, {}) --> ({}, {})]",
-                     bTerm->getConstName(), xMin, yMin, xMax, yMax);
+                 2,
+                 "Constraint region for {}: [({}, {}) --> ({}, {})]",
+                 bTerm->getConstName(),
+                 xMin,
+                 yMin,
+                 xMax,
+                 yMax);
 
       cx_ = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
       cy_ = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
@@ -530,62 +539,61 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       debugPrint(logger,
                  GPL,
                  "io_constraint",
-                 2,"Final clamped coord for {}: ({}, {})",
-                     bTerm->getConstName(), cx_, cy_);
+                 2,
+                 "Final clamped coord for {}: ({}, {})",
+                 bTerm->getConstName(),
+                 cx_,
+                 cy_);
 
+      // } else if (inst_ != nullptr) {
+      //   const int est_x = inst_->cx();
+      //   const int est_y = inst_->cy();
+      //   odb::Rect core = bTerm->getBlock()->getCoreArea();
 
+      //   cx_ = est_x;
+      //   cy_ = est_y;
 
+      //   int dist_left = std::abs(est_x - core.xMin());
+      //   int dist_right = std::abs(est_x - core.xMax());
+      //   int dist_bottom = std::abs(est_y - core.yMin());
+      //   int dist_top = std::abs(est_y - core.yMax());
 
-    // } else if (inst_ != nullptr) {
-    //   const int est_x = inst_->cx();
-    //   const int est_y = inst_->cy();
-    //   odb::Rect core = bTerm->getBlock()->getCoreArea();
+      //   const int min_dist = std::min({dist_left, dist_right, dist_bottom,
+      //   dist_top}); if (min_dist == dist_left) {
+      //     cx_ = core.xMin();
+      //   } else if (min_dist == dist_right) {
+      //     cx_ = core.xMax();
+      //   } else if (min_dist == dist_bottom) {
+      //     cy_ = core.yMin();
+      //   } else {
+      //     cy_ = core.yMax();
+      //   }
 
-    //   cx_ = est_x;
-    //   cy_ = est_y;
+      //   bterm_status_ = BTermPlacementStatus::PROJECTED_FROM_INSTANCE;
 
-    //   int dist_left = std::abs(est_x - core.xMin());
-    //   int dist_right = std::abs(est_x - core.xMax());
-    //   int dist_bottom = std::abs(est_y - core.yMin());
-    //   int dist_top = std::abs(est_y - core.yMax());
+      //   debugPrint(logger,
+      //              GPL,
+      //              "io_constraint",
+      //              2,
+      //              "{} toplevel port is not placed and has no constraint
+      //              region. " "Projected to core edge from inst center ({},
+      //              {})", bTerm->getConstName(), est_x, est_y);
 
-    //   const int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
-    //   if (min_dist == dist_left) {
-    //     cx_ = core.xMin();
-    //   } else if (min_dist == dist_right) {
-    //     cx_ = core.xMax();
-    //   } else if (min_dist == dist_bottom) {
-    //     cy_ = core.yMin();
-    //   } else {
-    //     cy_ = core.yMax();
-    //   }
-
-    //   bterm_status_ = BTermPlacementStatus::PROJECTED_FROM_INSTANCE;
-
-    //   debugPrint(logger,
-    //              GPL,
-    //              "io_constraint",
-    //              2,
-    //              "{} toplevel port is not placed and has no constraint region. "
-    //              "Projected to core edge from inst center ({}, {})",
-    //              bTerm->getConstName(),
-    //              est_x,
-    //              est_y);
-
-    // If unconstrained or unconnected
+      // If unconstrained or unconnected
     } else {
       // TODO, what to do with the position?
       cx_ = -2000;
       cy_ = -2000;
       bterm_status_ = BTermPlacementStatus::IGNORED;
 
-      debugPrint(logger,
-                 GPL,
-                 "io_constraint",
-                 2,
-                 "{} toplevel port is not placed, unconstrained, and unconnected. "
-                 "Ignoring.",
-                 bTerm->getConstName());
+      debugPrint(
+          logger,
+          GPL,
+          "io_constraint",
+          2,
+          "{} toplevel port is not placed, unconstrained, and unconnected. "
+          "Ignoring.",
+          bTerm->getConstName());
     }
   } else {
     int lx = INT_MAX, ly = INT_MAX;
@@ -605,9 +613,8 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
   }
 }
 
-
-
-void PlacerBaseCommon::initiateBtermsPosition(){
+void PlacerBaseCommon::initiateBtermsPosition()
+{
   std::map<Pin::BTermPlacementStatus, int> bterm_status_counts;
 
   for (Pin& pin : pinStor_) {
@@ -621,12 +628,14 @@ void PlacerBaseCommon::initiateBtermsPosition(){
   }
 
   for (const auto& [status, count] : bterm_status_counts) {
-    const char* label =
-        status == Pin::BTermPlacementStatus::PLACED                  ? "PLACED" :
-        status == Pin::BTermPlacementStatus::CONSTRAINT_REGION       ? "CONSTRAINT_REGION" :
-        status == Pin::BTermPlacementStatus::PROJECTED_FROM_INSTANCE ? "PROJECTED_FROM_INSTANCE" :
-        status == Pin::BTermPlacementStatus::IGNORED                 ? "IGNORED" :
-                                                                      "UNKNOWN";
+    const char* label
+        = status == Pin::BTermPlacementStatus::PLACED ? "PLACED"
+          : status == Pin::BTermPlacementStatus::CONSTRAINT_REGION
+              ? "CONSTRAINT_REGION"
+          : status == Pin::BTermPlacementStatus::PROJECTED_FROM_INSTANCE
+              ? "PROJECTED_FROM_INSTANCE"
+          : status == Pin::BTermPlacementStatus::IGNORED ? "IGNORED"
+                                                         : "UNKNOWN";
 
     log_->report("BTerm placement status: {:<25} = {}", label, count);
   }
@@ -676,7 +685,7 @@ Net::Net() = default;
 Net::Net(odb::dbNet* net) : Net()
 {
   net_ = net;
-  updateBox();
+  // updateBox();
 }
 
 Net::~Net()
@@ -723,10 +732,9 @@ int64_t Net::getHpwl() const
   return static_cast<int64_t>(ux_ - lx_) + (uy_ - ly_);
 }
 
-void Net::updateBox()
+void Net::updateBox(utl::Logger* log)
 {
-  //TODO remove this !!!!
-  // utl::Logger log_;
+  // log_.report("Net::updateBox()");
   lx_ = INT_MAX;
   ly_ = INT_MAX;
   ux_ = INT_MIN;
@@ -736,15 +744,24 @@ void Net::updateBox()
   // log_.report("Updating bounding box for net '{}'", net_->getName());
 
   for (Pin* pb_pin : pins_) {
-    // Ignoring here unplaced BTerms, maybe change this, think of cases where a net connects more than one bterm
-    if(pb_pin->isITerm() || (pb_pin->isBTerm() && pb_pin->getBTermStatus() == Pin::BTermPlacementStatus::PLACED)) {
+    if (!pb_pin) {
+      log->report("Net '{}' has null pin in pins_ vector", net_->getName());
+      continue;
+    }
+    // Ignoring here unplaced BTerms, maybe change this, think of cases where a
+    // net connects more than one bterm
+    if (pb_pin->isITerm()
+        || (pb_pin->isBTerm()
+            && (pb_pin->getBTermStatus() == Pin::BTermPlacementStatus::PLACED 
+            || pb_pin->getBTermStatus() == Pin::BTermPlacementStatus::CONSTRAINT_REGION))) {
       const int cx = pb_pin->cx();
       const int cy = pb_pin->cy();
 
       std::string pin_type = pb_pin->isITerm() ? "ITerm" : "BTerm";
-      std::string pin_name = pb_pin->getName();
-
-      // log_.report("  {} '{}' at ({}, {})", pin_type, pin_name, cx, cy);
+            debugPrint(log,
+                   GPL,
+                   "io_constraint",
+                   2,"  {} '{}' at ({}, {})", pin_type, pb_pin->getName(), cx, cy);
 
       lx_ = std::min(lx_, cx);
       ly_ = std::min(ly_, cy);
@@ -752,10 +769,7 @@ void Net::updateBox()
       uy_ = std::max(uy_, cy);
     }
   }
-
-  // log_.report("  Net bbox: [({}, {}) --> ({}, {})]\n", lx_, ly_, ux_, uy_);
 }
-
 
 void Net::addPin(Pin* pin)
 {
@@ -975,6 +989,9 @@ void PlacerBaseCommon::init()
     }
   }
 
+  int placed_count = 0;
+  int constrained_count = 0;
+  int ignored_count = 0;
   // nets fill
   dbSet<dbNet> db_nets = block->getNets();
   netStor_.reserve(db_nets.size());
@@ -984,6 +1001,7 @@ void PlacerBaseCommon::init()
     // escape nets with VDD/VSS/reset nets
     if (net_type == dbSigType::SIGNAL || net_type == dbSigType::CLOCK) {
       Net temp_net(db_net);
+      temp_net.updateBox(log_);
       netStor_.push_back(temp_net);
 
       // this is safe because of "reserve"
@@ -1000,19 +1018,31 @@ void PlacerBaseCommon::init()
 
       for (dbBTerm* bTerm : db_net->getBTerms()) {
         // Ignore unplaced and unconstrained bterms
-        if(bTerm->getFirstPinPlacementStatus().isPlaced() || bTerm->getConstraintRegion()) {
+        if (bTerm->getFirstPinPlacementStatus().isPlaced()
+            || bTerm->getFirstPinPlacementStatus().isFixed()
+            || bTerm->getConstraintRegion()) {
           Pin temp_pin(bTerm, log_);
           temp_pin.setNet(temp_net_ptr);
-          if(bTerm->getFirstPinPlacementStatus().isPlaced()){
+
+          if (bTerm->getFirstPinPlacementStatus().isPlaced()
+              || bTerm->getFirstPinPlacementStatus().isFixed()) {
             temp_pin.setAsPlaced();
+            ++placed_count;
+          } else {
+            ++constrained_count;
           }
+
           pinStor_.push_back(temp_pin);
         } else {
-          log_->report("bterm is unplaced or unconstrained: {}",bTerm->getName());
+          ++ignored_count;
         }
       }
     }
   }
+  log_->report("Placed BTerms: {}", placed_count);
+  log_->report("Unplaced and constrained BTerms: {}", constrained_count);
+  log_->report("Ignored BTerms (unplaced and unconstrained): {}",
+               ignored_count);
 
   pins_.reserve(pinStor_.size());
   for (auto& pb_pin : pinStor_) {
@@ -1025,7 +1055,6 @@ void PlacerBaseCommon::init()
     }
     pins_.push_back(&pb_pin);
   }
-
 
   // instStor_'s pins_ fill
   for (auto& pb_inst : instStor_) {
@@ -1054,11 +1083,15 @@ void PlacerBaseCommon::init()
     {
       for (dbBTerm* bTerm : pb_net.getDbNet()->getBTerms()) {
         // Ignore unplaced and unconstrained bterms
-        if(bTerm->getFirstPinPlacementStatus().isPlaced() || bTerm->getConstraintRegion()) {
+        if (bTerm->getFirstPinPlacementStatus().isPlaced()
+            || bTerm->getFirstPinPlacementStatus().isFixed()
+            || bTerm->getConstraintRegion()) {
           pb_net.addPin(dbToPb(bTerm));
-        } else {
-          log_->report("bterm is unplaced or unconstrained: {}", bTerm->getName());
         }
+        //  else {
+        //   log_->report("bterm is unplaced or unconstrained: {}",
+        //   bTerm->getName());
+        // }
       }
     }
     nets_.push_back(&pb_net);
@@ -1088,7 +1121,7 @@ int64_t PlacerBaseCommon::getHpwl() const
 {
   int64_t hpwl = 0;
   for (auto& net : nets_) {
-    net->updateBox();
+    net->updateBox(log_);
     hpwl += net->getHpwl();
   }
   return hpwl;
@@ -1407,12 +1440,21 @@ void PlacerBase::printInfo() const
       GPL, 7, format_label_int, "Movable instances:", placeInsts_.size());
   log_->info(GPL, 8, format_label_int, "Fixed instances:", fixedInsts_.size());
   log_->info(GPL, 9, format_label_int, "Dummy instances:", dummyInsts_.size());
-  log_->info(
-      GPL, 10, format_label_int, "Number of nets:", pbCommon_->getNets().size());
-  log_->info(
-      GPL, 11, format_label_int, "Number of pins:", pbCommon_->getPins().size());
-  log_->info(
-      GPL, 9999, "\titerms: {}, bterms: {}", pbCommon_->getItermCount(), pbCommon_->getBtermCount());
+  log_->info(GPL,
+             10,
+             format_label_int,
+             "Number of nets:",
+             pbCommon_->getNets().size());
+  log_->info(GPL,
+             11,
+             format_label_int,
+             "Number of pins:",
+             pbCommon_->getPins().size());
+  log_->info(GPL,
+             9999,
+             "\titerms: {}, bterms: {}",
+             pbCommon_->getItermCount(),
+             pbCommon_->getBtermCount());
 
   log_->info(GPL,
              12,

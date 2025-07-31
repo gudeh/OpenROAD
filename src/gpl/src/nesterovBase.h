@@ -245,12 +245,9 @@ class GNet
 
   void addGPin(GPin* gPin);
   void clearGPins() { gPins_.clear(); }
-  void updateBox();
+  void updateBox(utl::Logger* log);
   int64_t getHpwl() const;
-    odb::Rect getBBox() const
-{
-  return odb::Rect(lx_, ly_, ux_, uy_);
-}
+  odb::Rect getBBox() const { return odb::Rect(lx_, ly_, ux_, uy_); }
 
   void setDontCare();
   bool isDontCare() const;
@@ -868,6 +865,7 @@ class NesterovBaseCommon
 
   void printGCells();
   void printGPins();
+  void printGNets();
 
   // TODO do this for each region? Also, manage this properly if other callbacks
   // are implemented.

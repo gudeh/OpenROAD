@@ -4,12 +4,13 @@
 #pragma once
 
 #include <climits>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <optional>
-#include <map>
+
 #include "odb/db.h"
 
 namespace odb {
@@ -113,9 +114,6 @@ class Instance
   bool is_locked_ = false;
 };
 
-
-
-
 class Pin
 {
  public:
@@ -137,7 +135,7 @@ class Pin
 
   void setAsPlaced() { is_placed_ = 1; }
   void setITerm();
-  void setBTerm();  
+  void setBTerm();
   void setMinPinX();
   void setMinPinY();
   void setMaxPinX();
@@ -168,15 +166,18 @@ class Pin
   // Modify position
   void updateLocation(const Instance* inst);
 
-
-  enum class BTermPlacementStatus : uint8_t {
+  enum class BTermPlacementStatus : uint8_t
+  {
     UNKNOWN = 0,
     PLACED,
     CONSTRAINT_REGION,
     PROJECTED_FROM_INSTANCE,
     IGNORED
   };
-  std::optional<BTermPlacementStatus> getBTermStatus() const { return bterm_status_; }
+  std::optional<BTermPlacementStatus> getBTermStatus() const
+  {
+    return bterm_status_;
+  }
 
  private:
   odb::dbObject* term_ = nullptr;
@@ -225,11 +226,8 @@ class Net
   // HPWL: half-parameter-wire-length
   int64_t getHpwl() const;
 
-  void updateBox();
-  odb::Rect getBBox() const
-  {
-    return odb::Rect(lx_, ly_, ux_, uy_);
-  }
+  void updateBox(utl::Logger* log);
+  odb::Rect getBBox() const { return odb::Rect(lx_, ly_, ux_, uy_); }
 
   const std::vector<Pin*>& getPins() const { return pins_; }
 
@@ -342,7 +340,6 @@ class PlacerBaseCommon
   odb::dbDatabase* db() const { return db_; }
 
   void unlockAll();
-
 
   void initiateBtermsPosition();
 

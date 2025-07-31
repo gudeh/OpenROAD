@@ -47,7 +47,7 @@ void InitialPlace::doBicgstabPlace(int threads)
   std::unique_ptr<Graphics> graphics;
   if (ipVars_.debug && Graphics::guiActive()) {
     graphics = std::make_unique<Graphics>(log_, pbc_, pbVec_);
-  }  
+  }
 
   placeInstsCenter();
   pbc_->initiateBtermsPosition();
@@ -118,6 +118,7 @@ void InitialPlace::doBicgstabPlace(int threads)
 // starting point of initial place is center.
 void InitialPlace::placeInstsCenter()
 {
+  log_->report("InitialPlace::placeInstsCenter()");
   const int center_x = pbc_->getDie().coreCx();
   const int center_y = pbc_->getDie().coreCy();
 
@@ -134,7 +135,8 @@ void InitialPlace::placeInstsCenter()
     const auto group = db_inst->getGroup();
 
     if (group && group->getType() == odb::dbGroupType::POWER_DOMAIN) {
-      // log_->report("{} has group, placing on the group center",db_inst->getName());
+      // log_->report("{} has group, placing on the group
+      // center",db_inst->getName());
       auto domain_region = group->getRegion();
       int domain_x_min = std::numeric_limits<int>::max();
       int domain_y_min = std::numeric_limits<int>::max();
@@ -151,11 +153,11 @@ void InitialPlace::placeInstsCenter()
       inst->setCenterLocation(domain_x_max - (domain_x_max - domain_x_min) / 2,
                               domain_y_max - (domain_y_max - domain_y_min) / 2);
       ++count_region_center;
-    // } else if (pbc_->skipIoMode() && db_inst->isPlaced()) {
-    //   // It is helpful to pick up the placement from mpl if available,
-    //   // particularly when you are going to run skip_io.
+      // } else if (pbc_->skipIoMode() && db_inst->isPlaced()) {
+      //   // It is helpful to pick up the placement from mpl if available,
+      //   // particularly when you are going to run skip_io.
     } else if (db_inst->isPlaced()) {
-      // log_->report("{} already placed",db_inst->getName());
+      log_->report("{} already placed",db_inst->getName());
       const auto bbox = db_inst->getBBox()->getBox();
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
@@ -453,12 +455,13 @@ void InitialPlace::updateCoordi()
       // if (!net || net->getITerms().empty()) {
       //   continue;
       // }
-      // TODO the updatePinCoordi of iterms is called elsewhere, maybe unite both calls for bterms and iterms for better readability and organization
+      // TODO the updatePinCoordi of iterms is called elsewhere, maybe unite
+      // both calls for bterms and iterms for better readability and
+      // organization
       pbc_pin->updatePinCoordi(pbc_pin->getDbBTerm(), log_);
     }
   }
 }
-
 
 // void InitialPlace::updateCoordi()
 // {
@@ -487,8 +490,8 @@ void InitialPlace::updateCoordi()
 //       int dist_bottom = std::abs(est_y - core.yMin());
 //       int dist_top = std::abs(est_y - core.yMax());
 
-//       int min_dist = std::min({dist_left, dist_right, dist_bottom, dist_top});
-//       if (min_dist == dist_left) {
+//       int min_dist = std::min({dist_left, dist_right, dist_bottom,
+//       dist_top}); if (min_dist == dist_left) {
 //         fallback_x = core.xMin();
 //       } else if (min_dist == dist_right) {
 //         fallback_x = core.xMax();
