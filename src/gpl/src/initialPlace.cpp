@@ -157,7 +157,7 @@ void InitialPlace::placeInstsCenter()
       //   // It is helpful to pick up the placement from mpl if available,
       //   // particularly when you are going to run skip_io.
     } else if (db_inst->isPlaced()) {
-      log_->report("{} already placed",db_inst->getName());
+      // log_->report("{} already placed",db_inst->getName());
       const auto bbox = db_inst->getBBox()->getBox();
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;

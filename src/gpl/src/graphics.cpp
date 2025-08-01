@@ -449,31 +449,23 @@ void Graphics::drawNesterov(gui::Painter& painter)
   }
 
   // Draw net connections for all BTerm GPins
-  painter.setPen(gui::Painter::kCyan, true);
-  for (GPin* gpin : nbc_->getGPins()) {
-    if (!gpin || !gpin->getPbPin()->isBTerm()) {
-      continue;
-    }
+  // painter.setPen(gui::Painter::kCyan, true);
+  // for (GPin* gpin : nbc_->getGPins()) {
+  //   if (!gpin || !gpin->getPbPin()->isBTerm()) {
+  //     continue;
+  //   }
 
-    GNet* net = gpin->getGNet();
-    // if (!net) {
-    //   continue;
-    // }
+  //   GNet* net = gpin->getGNet();
 
-    for (GPin* other_pin : net->getGPins()) {
-      if (!other_pin || other_pin == gpin) {
-        continue;
-      }
+  //   for (GPin* other_pin : net->getGPins()) {
+  //     if (!other_pin || other_pin == gpin) {
+  //       continue;
+  //     }
 
-      //   // Optional: avoid duplicate lines by checking pointer order
-      //   if (other_pin < gpin) {
-      //     continue;
-      //   }
-
-      painter.drawLine(
-          gpin->cx(), gpin->cy(), other_pin->cx(), other_pin->cy());
-    }
-  }
+  //     painter.drawLine(
+  //         gpin->cx(), gpin->cy(), other_pin->cx(), other_pin->cy());
+  //   }
+  // }
 
   // Draw force direction lines
   if (draw_bins_) {
