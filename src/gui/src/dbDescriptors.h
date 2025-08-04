@@ -739,6 +739,61 @@ class DbScanInstDescriptor : public BaseDbDescriptor<odb::dbScanInst>
   Properties getDBProperties(odb::dbScanInst* scan_inst) const override;
 };
 
+class DbScanListDescriptor : public BaseDbDescriptor<odb::dbScanList>
+{
+ public:
+  DbScanListDescriptor(odb::dbDatabase* db);
+
+  std::string getName(std::any object) const override;
+  std::string getTypeName() const override;
+
+  bool getBBox(std::any object, odb::Rect& bbox) const override;
+
+  void highlight(std::any object, Painter& painter) const override;
+
+  bool getAllObjects(SelectionSet& objects) const override;
+
+ protected:
+  Properties getDBProperties(odb::dbScanList* scan_list) const override;
+};
+
+class DbScanPartitionDescriptor : public BaseDbDescriptor<odb::dbScanPartition>
+{
+ public:
+  DbScanPartitionDescriptor(odb::dbDatabase* db);
+
+  std::string getName(std::any object) const override;
+  std::string getTypeName() const override;
+
+  bool getBBox(std::any object, odb::Rect& bbox) const override;
+
+  void highlight(std::any object, Painter& painter) const override;
+
+  bool getAllObjects(SelectionSet& objects) const override;
+
+ protected:
+  Properties getDBProperties(
+      odb::dbScanPartition* scan_partition) const override;
+};
+
+class DbScanChainDescriptor : public BaseDbDescriptor<odb::dbScanChain>
+{
+ public:
+  DbScanChainDescriptor(odb::dbDatabase* db);
+
+  std::string getName(std::any object) const override;
+  std::string getTypeName() const override;
+
+  bool getBBox(std::any object, odb::Rect& bbox) const override;
+
+  void highlight(std::any object, Painter& painter) const override;
+
+  bool getAllObjects(SelectionSet& objects) const override;
+
+ protected:
+  Properties getDBProperties(odb::dbScanChain* scan_chain) const override;
+};
+
 class DbBoxDescriptor : public BaseDbDescriptor<odb::dbBox>
 {
  public:
