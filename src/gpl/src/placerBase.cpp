@@ -761,7 +761,7 @@ void Net::updateBox(utl::Logger* log)
             debugPrint(log,
                    GPL,
                    "io_constraint",
-                   2,"  {} '{}' at ({}, {})", pin_type, pb_pin->getName(), cx, cy);
+                   3,"  {} '{}' at ({}, {})", pin_type, pb_pin->getName(), cx, cy);
 
       lx_ = std::min(lx_, cx);
       ly_ = std::min(ly_, cy);

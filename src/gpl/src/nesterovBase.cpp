@@ -350,9 +350,9 @@ void GNet::updateBox(utl::Logger* log)
   }
 
   //  log_.report("GNet::updateBox() 3");
-  // if (!nets_.empty()) {
-  //   getPbNet()->updateBox(log);
-  // }
+  if (!nets_.empty()) {
+    getPbNet()->updateBox(log);
+  }
   //  log_.report("GNet::updateBox() 4");
 }
 
@@ -437,13 +437,8 @@ Pin* GPin::getPbPin() const
 
 void GPin::setGCell(GCell* gCell)
 {
-  if(!gCell)
-{
-  utl::Logger log;
-  log.report("warning gCell nullptr in setGCell()");
-} else {
-  gCell_ = gCell;
-}
+  if(gCell)
+    gCell_ = gCell;
 }
 
 void GPin::setGNet(GNet* gNet)
@@ -533,7 +528,7 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       if (gNet_ != nullptr) {
         // logger->report("updateGPinCoordi::gNet_->updateBox() for gpin {}", this->getPbPin()->getName());
         // logger->report("gNet_ {}", gNet_->getPbNet()->getDbNet()->getConstName());
-        gNet_->updateBox(logger);      
+        // gNet_->updateBox(logger);      
         const odb::Rect net_box = gNet_->getBBox();
 
         target_x = (net_box.xMin() + net_box.xMax()) / 2;
@@ -552,7 +547,7 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
             logger,
             GPL,
             "io_constraint",
-            2,
+            1,
             "No GNet connected to GPin {}. Falling back to region center.",
             bTerm->getConstName());
         target_x = (constraint_region->xMin() + constraint_region->xMax()) / 2;
@@ -582,7 +577,7 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
       debugPrint(logger,
                  GPL,
                  "io_constraint",
-                 2,
+                 3,
                  "Final clamped coord for {}: ({}, {})",
                  bTerm->getConstName(),
                  cx_,
@@ -602,6 +597,14 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
           bTerm->getConstName());
     }
   } else {
+
+      debugPrint(
+          logger,
+          GPL,
+          "io_constraint",
+          2,
+          "{} GPin being placed from db position.",
+          bTerm->getConstName());
     // Already placed: use BPin bounding box
     int lx = INT_MAX, ly = INT_MAX;
     int ux = INT_MIN, uy = INT_MIN;
@@ -1362,7 +1365,7 @@ void NesterovBaseCommon::updateWireLengthForceWA(float wlCoeffX, float wlCoeffY)
     // old-style loop for old OpenMP
 
     gNet->clearWaVars();
-    // gNet->updateBox(log_);
+    gNet->updateBox(log_);
 
     for (auto& gPin : gNet->getGPins()) {
       // The WA terms are shift invariant:
@@ -1665,7 +1668,7 @@ int64_t NesterovBaseCommon::getHpwl()
 #pragma omp parallel for num_threads(num_threads_) reduction(+ : hpwl)
   for (auto gNet = gNetStor_.begin(); gNet < gNetStor_.end(); ++gNet) {
     // old-style loop for old OpenMP
-    // gNet->updateBox(log_);
+    gNet->updateBox(log_);
     hpwl += gNet->getHpwl();
   }
   return hpwl;
@@ -1784,8 +1787,6 @@ void NesterovBaseCommon::fixPointers()
       continue;
     }
 
-    // log_->report("before gCell.gPins().size() {}", gCell.gPins().size());
-    int before = gCell.gPins().size();
     gCell.clearGPins();
     for (Instance* inst : gCell.insts()) {
       for (odb::dbITerm* iterm : inst->dbInst()->getITerms()) {
@@ -1806,14 +1807,12 @@ void NesterovBaseCommon::fixPointers()
         }
       }
     }
-    if(gCell.gPins().size() != before)
-      log_->report("before and after different: {} != {}, {}", before, gCell.gPins().size(), gCell.getName());
   }
 
   for (auto& gPin : gPinStor_) {
     Pin* pbPin = gPin.getPbPin();
     if (!pbPin) {
-      debugPrint(log_, GPL, "callbacks", 1, "gPin has nullptr PbPin.");
+      debugPrint(log_, GPL, "callbacks", 1, "warning gPin has nullptr PbPin.");
       continue;
     }
 
@@ -1844,17 +1843,23 @@ void NesterovBaseCommon::fixPointers()
 
     } else if (pbPin->isBTerm()) {
       odb::dbBTerm* bterm = pbPin->getDbBTerm();
-      if (!bterm) continue;
+      if (!bterm) {
+        continue;
+      }
 
       if (isValidSigType(bterm->getSigType())
           && (bterm->getFirstPinPlacementStatus().isPlaced()
             || bterm->getFirstPinPlacementStatus().isFixed()
             || bterm->getConstraintRegion())) {
         odb::dbNet* net = bterm->getNet();
-        if (!net) continue;
+        if (!net){
+          log_->report("warning net is nullptr for bterm in fixpointers");
+          continue;
+        }
 
         auto net_it = db_net_to_index_map_.find(net);
         if (net_it != db_net_to_index_map_.end()) {
+          log_->report("set gnet of gpin that is a bterm");
           gPin.setGNet(&gNetStor_[net_it->second]);
         } else {
           debugPrint(log_,
@@ -1865,9 +1870,11 @@ void NesterovBaseCommon::fixPointers()
                     net->getName(),
                     bterm->getName());
         }
-      }
+      } else {
+      debugPrint(log_, GPL, "callbacks", 1, "gPin is bTerm but invalid status.");
+    }
     } else {
-      debugPrint(log_, GPL, "callbacks", 1, "gPin is neither ITerm nor BTerm.");
+      debugPrint(log_, GPL, "callbacks", 1, "warning gPin is neither ITerm nor BTerm.");
     }
   }
 
@@ -1889,7 +1896,7 @@ void NesterovBaseCommon::fixPointers()
           && (bterm->getFirstPinPlacementStatus().isPlaced()
             || bterm->getFirstPinPlacementStatus().isFixed()
             || bterm->getConstraintRegion())) {
-              // log_->report("fix bterm {} at gNet {}",bterm->getName(), gNet.getPbNet()->getDbNet()->getName());
+              log_->report("fix bterm {} at gNet {}",bterm->getName(), gNet.getPbNet()->getDbNet()->getName());
         auto it = db_bterm_to_index_map_.find(bterm);
         if (it != db_bterm_to_index_map_.end()) {
           size_t gpin_index = it->second;
@@ -1910,7 +1917,7 @@ void NesterovBaseCommon::fixPointers()
                    GPL,
                    "callbacks",
                    1,
-                   "bterm gpin is invalid sig type or: {}",
+                   "warning bterm gpin is invalid sig type or: {}",
                    bterm->getName());
       }
     }
@@ -3279,6 +3286,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
         gpin->getPbPin()->updatePinCoordi(gpin->getPbPin()->getDbITerm());
         gpin->updateGPinCoordi();
       }
+      // nbc_->reloadGPinIOLocations();
 
       // analogous to NesterovBase::updateDensitySize()
       float scaleX = 0, scaleY = 0;
@@ -3425,7 +3433,7 @@ void NesterovBaseCommon::createCbkITerm(odb::dbITerm* iTerm)
 //  maintaining consistency in NBC::gcellStor_ and NB::gCells_
 void NesterovBase::destroyCbkGCell(odb::dbInst* db_inst)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBase::destroyGCel");
+  debugPrint(log_, GPL, "callbacks", 2, "NesterovBase::destroyGCell {}", db_inst->getName());
   auto db_it = db_inst_to_nb_index_.find(db_inst);
   if (db_it != db_inst_to_nb_index_.end()) {
     size_t last_index = nb_gcells_.size() - 1;
@@ -3801,7 +3809,7 @@ void NesterovBase::restoreRemovedFillers()
 
 void NesterovBaseCommon::destroyCbkGNet(odb::dbNet* db_net)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyGNet");
+  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyGNet {}", db_net->getName());
   auto db_it = db_net_to_index_map_.find(db_net);
   if (db_it == db_net_to_index_map_.end()) {
     log_->error(GPL,
@@ -3837,7 +3845,7 @@ void NesterovBaseCommon::destroyCbkGNet(odb::dbNet* db_net)
 
 void NesterovBaseCommon::destroyCbkITerm(odb::dbITerm* db_iterm)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyITerm");
+  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyITerm {}", db_iterm->getName());
   auto db_it = db_iterm_to_index_map_.find(db_iterm);
   if (db_it != db_iterm_to_index_map_.end()) {
     size_t last_index = gPinStor_.size() - 1;
