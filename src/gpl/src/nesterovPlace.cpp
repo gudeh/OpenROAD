@@ -834,8 +834,8 @@ void NesterovPlace::doBackTracking(const float coeff)
       nb->nesterovUpdateCoordinates(coeff);
     }
 
-    nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
-    nbc_->reloadGPinIOLocations();
+    // nbc_->reloadGPinIOLocations();
+    nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);    
 
     num_region_diverged_ = 0;
     for (auto& nb : nbVec_) {
@@ -983,6 +983,7 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
     // coeff is (a_k - 1) / ( a_(k+1) ) in paper.
     const float coeff = (prevA - 1.0) / curA;
 
+    nbc_->reloadGPinIOLocations();
     doBackTracking(coeff);
 
     // Adjust Phi dynamically for larger designs

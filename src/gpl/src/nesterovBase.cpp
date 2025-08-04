@@ -437,12 +437,24 @@ Pin* GPin::getPbPin() const
 
 void GPin::setGCell(GCell* gCell)
 {
+  if(!gCell)
+{
+  utl::Logger log;
+  log.report("warning gCell nullptr in setGCell()");
+} else {
   gCell_ = gCell;
+}
 }
 
 void GPin::setGNet(GNet* gNet)
 {
+  if(!gNet)
+{
+  utl::Logger log;
+  log.report("warning gNet nullptr in setGNet()");
+} else {
   gNet_ = gNet;
+}
 }
 
 void GPin::setCenterLocation(int cx, int cy)
@@ -1500,19 +1512,26 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientPinWA(const GPin* gPin,
                                                           float wlCoeffX,
                                                           float wlCoeffY) const
 {
-  float gradientMinX = 0, gradientMinY = 0;
-  float gradientMaxX = 0, gradientMaxY = 0;
+  float gradientMinX = 0.0f, gradientMinY = 0.0f;
+  float gradientMaxX = 0.0f, gradientMaxY = 0.0f;
+
+  if (!gPin) {
+    log_->report("gPin is nullptr in getWireLengthGradientPinWA");
+    return FloatPoint(0.0f, 0.0f);
+  }
 
   // min x
   if (gPin->hasMinExpSumX()) {
-    // from Net.
     float waExpMinSumX = gPin->getGNet()->waExpMinSumX();
     float waXExpMinSumX = gPin->getGNet()->waXExpMinSumX();
 
-    gradientMinX
-        = (waExpMinSumX * (gPin->minExpSumX() * (1.0 - wlCoeffX * gPin->cx()))
-           + wlCoeffX * gPin->minExpSumX() * waXExpMinSumX)
-          / (waExpMinSumX * waExpMinSumX);
+    if (waExpMinSumX != 0.0f) {
+      gradientMinX = (waExpMinSumX * (gPin->minExpSumX() * (1.0f - wlCoeffX * gPin->cx()))
+                      + wlCoeffX * gPin->minExpSumX() * waXExpMinSumX)
+                     / (waExpMinSumX * waExpMinSumX);
+    } else {
+      log_->report("waExpMinSumX == 0 for pin {}", gPin->getPbPin()->getName());
+    }
   }
 
   // max x
@@ -1520,10 +1539,13 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientPinWA(const GPin* gPin,
     float waExpMaxSumX = gPin->getGNet()->waExpMaxSumX();
     float waXExpMaxSumX = gPin->getGNet()->waXExpMaxSumX();
 
-    gradientMaxX
-        = (waExpMaxSumX * (gPin->maxExpSumX() * (1.0 + wlCoeffX * gPin->cx()))
-           - wlCoeffX * gPin->maxExpSumX() * waXExpMaxSumX)
-          / (waExpMaxSumX * waExpMaxSumX);
+    if (waExpMaxSumX != 0.0f) {
+      gradientMaxX = (waExpMaxSumX * (gPin->maxExpSumX() * (1.0f + wlCoeffX * gPin->cx()))
+                      - wlCoeffX * gPin->maxExpSumX() * waXExpMaxSumX)
+                     / (waExpMaxSumX * waExpMaxSumX);
+    } else {
+      log_->report("waExpMaxSumX == 0 for pin {}", gPin->getPbPin()->getName());
+    }
   }
 
   // min y
@@ -1531,10 +1553,13 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientPinWA(const GPin* gPin,
     float waExpMinSumY = gPin->getGNet()->waExpMinSumY();
     float waYExpMinSumY = gPin->getGNet()->waYExpMinSumY();
 
-    gradientMinY
-        = (waExpMinSumY * (gPin->minExpSumY() * (1.0 - wlCoeffY * gPin->cy()))
-           + wlCoeffY * gPin->minExpSumY() * waYExpMinSumY)
-          / (waExpMinSumY * waExpMinSumY);
+    if (waExpMinSumY != 0.0f) {
+      gradientMinY = (waExpMinSumY * (gPin->minExpSumY() * (1.0f - wlCoeffY * gPin->cy()))
+                      + wlCoeffY * gPin->minExpSumY() * waYExpMinSumY)
+                     / (waExpMinSumY * waExpMinSumY);
+    } else {
+      log_->report("waExpMinSumY == 0 for pin {}", gPin->getPbPin()->getName());
+    }
   }
 
   // max y
@@ -1542,25 +1567,28 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientPinWA(const GPin* gPin,
     float waExpMaxSumY = gPin->getGNet()->waExpMaxSumY();
     float waYExpMaxSumY = gPin->getGNet()->waYExpMaxSumY();
 
-    gradientMaxY
-        = (waExpMaxSumY * (gPin->maxExpSumY() * (1.0 + wlCoeffY * gPin->cy()))
-           - wlCoeffY * gPin->maxExpSumY() * waYExpMaxSumY)
-          / (waExpMaxSumY * waExpMaxSumY);
+    if (waExpMaxSumY != 0.0f) {
+      gradientMaxY = (waExpMaxSumY * (gPin->maxExpSumY() * (1.0f + wlCoeffY * gPin->cy()))
+                      - wlCoeffY * gPin->maxExpSumY() * waYExpMaxSumY)
+                     / (waExpMaxSumY * waExpMaxSumY);
+    } else {
+      log_->report("waExpMaxSumY == 0 for pin {}", gPin->getPbPin()->getName());
+    }
   }
 
-  debugPrint(log_,
-             GPL,
-             "getGradientWAPin",
-             1,
-             "{}, X[{:g} {:g}]  Y[{:g} {:g}]",
-             gPin->getGCell()->getName(),
-             gradientMinX,
-             gradientMaxX,
-             gradientMinY,
-             gradientMaxY);
+  FloatPoint result(gradientMinX - gradientMaxX, gradientMinY - gradientMaxY);
 
-  return FloatPoint(gradientMinX - gradientMaxX, gradientMinY - gradientMaxY);
+  if (!std::isfinite(result.x) || !std::isfinite(result.y)) {
+    log_->report("Non-finite gradient result for pin {}: result = ({:g}, {:g}), net: {}",
+                 gPin->getPbPin()->getName(),
+                 result.x,
+                 result.y,
+                gPin->getGNet()->getPbNet()->getDbNet()->getName());
+  }
+
+  return result;
 }
+
 
 FloatPoint NesterovBaseCommon::getWireLengthPreconditioner(
     const GCell* gCell) const
@@ -1728,6 +1756,7 @@ void NesterovBaseCommon::fixPointers()
   gPins_.reserve(gPinStor_.size());
   for (size_t i = 0; i < gPinStor_.size(); ++i) {
     GPin& gPin = gPinStor_[i];
+    gPin.updateGPinCoordi();
     gPins_.push_back(&gPin);
     gPinMap_[gPin.getPbPin()] = &gPin;
     if (gPin.getPbPin()->isITerm()) {
@@ -1755,6 +1784,8 @@ void NesterovBaseCommon::fixPointers()
       continue;
     }
 
+    // log_->report("before gCell.gPins().size() {}", gCell.gPins().size());
+    int before = gCell.gPins().size();
     gCell.clearGPins();
     for (Instance* inst : gCell.insts()) {
       for (odb::dbITerm* iterm : inst->dbInst()->getITerms()) {
@@ -1775,6 +1806,8 @@ void NesterovBaseCommon::fixPointers()
         }
       }
     }
+    if(gCell.gPins().size() != before)
+      log_->report("before and after different: {} != {}, {}", before, gCell.gPins().size(), gCell.getName());
   }
 
   for (auto& gPin : gPinStor_) {
@@ -3306,8 +3339,8 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
                  "callbacks",
                  1,
                  "warning: updateGCellState, db_inst not found in "
-                 "db_inst_index_map_ for instance: {}",
-                 db_inst->getName());
+                 "db_inst_index_map_ for instance: {}");
+                //  db_inst->getName());
     }
   }
   new_instances_.clear();
