@@ -2990,7 +2990,7 @@ void GlobalRouter::checkPinPlacement()
   }
 
   if (invalid) {
-    logger_->error(GRT, 80, "Invalid pin placement.");
+    logger_->warn(GRT, 80, "Invalid pin placement.");
   }
 }
 
