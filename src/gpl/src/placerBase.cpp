@@ -619,7 +619,7 @@ void PlacerBaseCommon::initiateBtermsPosition()
 
   for (Pin& pin : pinStor_) {
     if (pin.isBTerm()) {
-      pin.updatePinCoordi(static_cast<odb::dbBTerm*>(pin.getDbBTerm()), log_);
+      pin.updatePinCoordi(pin.getDbBTerm(), log_);
       auto status = pin.getBTermStatus();
       if (status.has_value()) {
         bterm_status_counts[status.value()]++;

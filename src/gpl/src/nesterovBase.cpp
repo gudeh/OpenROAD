@@ -624,8 +624,16 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
 void NesterovBaseCommon::reloadGPinIOLocations()
 {
+  // log_->report("executing reloadGPinIOLocations()");  
+  // for (const odb::Rect& excl_region : pbc_->db()->getChip()->getBlock()->getBlockedRegionsForPins()) {
+  //   log_->report("Excluded pin region: [({}, {}) --> ({}, {})]",
+  //               excl_region.xMin(), excl_region.yMin(),
+  //               excl_region.xMax(), excl_region.yMax());
+  // }
+
   for (auto& gpin : gPins_) {
     if (gpin->getPbPin()->isBTerm()) {
+      
       // log_->report("bterm gpin call updatePinCoordi");
       // gpin->getPbPin()->updatePinCoordi(gpin->getPbPin()->dbBTerm(), log_);
       gpin->updateGPinCoordi(gpin->getPbPin()->getDbBTerm(), log_);

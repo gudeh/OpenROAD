@@ -130,8 +130,7 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode = false)
   // Unique constraint regions and associated color
   std::vector<std::pair<odb::Rect, gui::Painter::Color>> region_color_map;
   const std::vector<gui::Painter::Color> region_colors
-      = {gui::Painter::kRed,
-         gui::Painter::kGreen,
+      = {gui::Painter::kGreen,
          gui::Painter::kBlue,
          gui::Painter::kCyan,
          gui::Painter::kMagenta,
@@ -248,6 +247,11 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode = false)
   for (const auto& [region, color] : region_color_map) {
     painter.setPen(color, true);
     painter.drawRect(region);
+  }
+
+  painter.setPen(gui::Painter::kRed, true);
+  for (const odb::Rect& excl : pbc_->db()->getChip()->getBlock()->getBlockedRegionsForPins()) {
+    painter.drawRect(excl);
   }
 }
 
