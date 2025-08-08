@@ -245,7 +245,7 @@ class GNet
 
   void addGPin(GPin* gPin);
   void clearGPins() { gPins_.clear(); }
-  void updateBox(utl::Logger* log);
+  void updateBox(utl::Logger* log, bool ignore_bterms);
   int64_t getHpwl() const;
   odb::Rect getBBox() const { return odb::Rect(lx_, ly_, ux_, uy_); }
 

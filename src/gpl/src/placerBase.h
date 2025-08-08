@@ -133,7 +133,6 @@ class Pin
   bool isMaxPinY() const;
   bool isPlaced() const { return is_placed_ == 1; }
 
-  void setAsPlaced() { is_placed_ = 1; }
   void setITerm();
   void setBTerm();
   void setMinPinX();
@@ -168,12 +167,15 @@ class Pin
 
   enum class BTermPlacementStatus : uint8_t
   {
-    UNKNOWN = 0,
-    PLACED,
-    CONSTRAINT_REGION,
-    PROJECTED_FROM_INSTANCE,
-    IGNORED
+    UNKNOWN = 0,             // Not evaluated yet
+    PLACED,                  // Placed in odb
+    CONSTRAINT_REGION,       // Placed using IO pin constraint region
+    PROJECTED,               // To die edge from net bbox center
+    IGNORED                  // Unconnected
   };
+
+  void setAsPlaced() { is_placed_ = 1; }
+  void setBtermPlaceStatus(BTermPlacementStatus status) { bterm_status_ = status; }
   std::optional<BTermPlacementStatus> getBTermStatus() const
   {
     return bterm_status_;
@@ -226,7 +228,7 @@ class Net
   // HPWL: half-parameter-wire-length
   int64_t getHpwl() const;
 
-  void updateBox(utl::Logger* log);
+  void updateBox(utl::Logger* log, bool ignore_bterms);
   odb::Rect getBBox() const { return odb::Rect(lx_, ly_, ux_, uy_); }
 
   const std::vector<Pin*>& getPins() const { return pins_; }
