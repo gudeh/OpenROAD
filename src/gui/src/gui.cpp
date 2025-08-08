@@ -408,6 +408,16 @@ void Gui::deleteRuler(const std::string& name)
   main_window->deleteRuler(name);
 }
 
+void Gui::pauseGuiUpdates(int val)
+{
+  main_window->setPauseSelectUpdates(val > 0);
+}
+
+int Gui::getGuiPauseState()
+{
+  return main_window->getPauseSelectUpdates();
+}
+
 int Gui::select(const std::string& type,
                 const std::string& name_filter,
                 const std::string& attribute,

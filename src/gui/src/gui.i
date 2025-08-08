@@ -837,4 +837,16 @@ void set_title(std::string title)
   gui->setMainWindowTitle(title);
 }
 
+void pause_updates(bool do_pause = true)
+{
+  auto gui = gui::Gui::get();
+  gui->pauseGuiUpdates(do_pause);
+}
+
+bool get_pause_state()
+{
+  auto gui = gui::Gui::get();
+  return gui->getGuiPauseState();
+}
+
 %} // inline

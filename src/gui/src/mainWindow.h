@@ -90,6 +90,9 @@ class MainWindow : public QMainWindow, public odb::dbDatabaseObserver
 
   void setTitle(const std::string& title);
 
+  void setPauseSelectUpdates(bool);
+  bool getPauseSelectUpdates() const {return pause_window_updates_; }
+
  signals:
   // Signaled when we get a postRead callback to tell the sub-widgets
   // to update
@@ -286,6 +289,7 @@ class MainWindow : public QMainWindow, public odb::dbDatabaseObserver
   Rulers rulers_;
 
   int arrow_keys_scroll_step_;
+  bool pause_window_updates_ = false;
 
   // All but viewer_ are owned by this widget.  Qt will
   // handle destroying the children.

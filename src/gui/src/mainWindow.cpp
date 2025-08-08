@@ -1071,6 +1071,11 @@ void MainWindow::removeSelectedByType(const std::string& type)
   }
 }
 
+void MainWindow::setPauseSelectUpdates(bool pause)
+{
+  pause_window_updates_ = pause;
+}
+
 void MainWindow::addSelected(const SelectionSet& selections, bool find_in_cts)
 {
   int prev_selected_size = selected_.size();
@@ -1081,9 +1086,11 @@ void MainWindow::addSelected(const SelectionSet& selections, bool find_in_cts)
   }
   status(std::string("Added ")
          + std::to_string(selected_.size() - prev_selected_size));
-  emit selectionChanged();
+  if(!pause_window_updates_) {
+    emit selectionChanged();
+  }
 
-  if (find_in_cts) {
+  if (find_in_cts && !pause_window_updates_) {
     emit findInCts(selections);
   }
 }
@@ -1125,7 +1132,10 @@ void MainWindow::addHighlighted(const SelectionSet& highlights,
       group.insert(highlight);
     }
   }
-  emit highlightChanged();
+
+  if(!pause_window_updates_) {
+    emit highlightChanged();
+  }
 }
 
 std::string MainWindow::addRuler(int x0,
