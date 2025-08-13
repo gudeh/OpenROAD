@@ -167,24 +167,27 @@ class Pin
 
   enum class BTermPlacementStatus : uint8_t
   {
-    UNKNOWN = 0,             // Not evaluated yet
+    UNKNOWN = 0,  // Not evaluated yet
     ODB_PLACED,
-    ODB_FIXED,            
-    CONSTRAINT_REGION,       // Placed using IO pin constraint region
-    PROJECTED,               // To die edge from net bbox center
-    IGNORED                  // Unconnected
+    ODB_FIXED,
+    CONSTRAINT_REGION,  // Placed using IO pin constraint region
+    PROJECTED,          // To die edge from net bbox center
+    IGNORED             // Unconnected
   };
 
   // void setAsPlaced() { is_placed_ = 1; }
-  void setBtermPlaceStatus(BTermPlacementStatus status) { bterm_status_ = status; }
+  void setBtermPlaceStatus(BTermPlacementStatus status)
+  {
+    bterm_status_ = status;
+  }
   std::optional<BTermPlacementStatus> getBTermStatus() const
   {
     return bterm_status_;
   }
 
-  bool isBTermPredefinedPlacement() {
-    return isBTerm()
-           && bterm_status_.has_value()
+  bool isBTermPredefinedPlacement()
+  {
+    return isBTerm() && bterm_status_.has_value()
            && (bterm_status_.value() == BTermPlacementStatus::ODB_PLACED
                || bterm_status_.value() == BTermPlacementStatus::ODB_FIXED);
   }
@@ -217,7 +220,7 @@ class Pin
   unsigned char maxPinYField_ : 1;
 
   // Track how bTerm position was handled, optional because Pin can be iTerm
-  std::optional<BTermPlacementStatus> bterm_status_;  
+  std::optional<BTermPlacementStatus> bterm_status_;
 };
 
 class Net

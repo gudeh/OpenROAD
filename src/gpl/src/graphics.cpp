@@ -129,10 +129,14 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode)
 
   // Unique constraint regions and associated color
   std::vector<std::pair<odb::Rect, gui::Painter::Color>> region_color_map;
-  const std::vector<gui::Painter::Color> region_colors = {
-      gui::Painter::kGreen, gui::Painter::kBlue, gui::Painter::kCyan,
-      gui::Painter::kMagenta, gui::Painter::kTeal, gui::Painter::kPink,
-      gui::Painter::kTurquoise};
+  const std::vector<gui::Painter::Color> region_colors
+      = {gui::Painter::kGreen,
+         gui::Painter::kBlue,
+         gui::Painter::kCyan,
+         gui::Painter::kMagenta,
+         gui::Painter::kTeal,
+         gui::Painter::kPink,
+         gui::Painter::kTurquoise};
 
   size_t color_idx = 0;
 
@@ -158,46 +162,45 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode)
     }
 
     if (!found) {
-      region_color_map.emplace_back(region,
-                                    region_colors[color_idx % region_colors.size()]);
+      region_color_map.emplace_back(
+          region, region_colors[color_idx % region_colors.size()]);
       ++color_idx;
     }
   }
 
   // Helper lambdas
-auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
-  auto opt_status = pin->getBTermStatus();
-  if (!opt_status.has_value()) {
-    return gui::Painter::kBrown;
-  }
-
-  using Status = Pin::BTermPlacementStatus;
-  Status status = opt_status.value();
-
-  switch (status) {
-    case Status::IGNORED:
-      return gui::Painter::kGray;
-    case Status::ODB_PLACED:
-      return gui::Painter::kWhite;
-    case Status::PROJECTED:
-      return gui::Painter::kDarkMagenta;
-    case Status::CONSTRAINT_REGION: {
-      auto region_constraint = pin->getDbBTerm()->getConstraintRegion();
-      if (region_constraint.has_value()) {
-        const odb::Rect& region = region_constraint.value();
-        for (const auto& [stored_region, region_color] : region_color_map) {
-          if (stored_region == region) {
-            return region_color;
-          }
-        }
-      }
+  auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
+    auto opt_status = pin->getBTermStatus();
+    if (!opt_status.has_value()) {
       return gui::Painter::kBrown;
     }
-    default:
-      return gui::Painter::kBrown;
-  }
-};
 
+    using Status = Pin::BTermPlacementStatus;
+    Status status = opt_status.value();
+
+    switch (status) {
+      case Status::IGNORED:
+        return gui::Painter::kGray;
+      case Status::ODB_PLACED:
+        return gui::Painter::kWhite;
+      case Status::PROJECTED:
+        return gui::Painter::kDarkMagenta;
+      case Status::CONSTRAINT_REGION: {
+        auto region_constraint = pin->getDbBTerm()->getConstraintRegion();
+        if (region_constraint.has_value()) {
+          const odb::Rect& region = region_constraint.value();
+          for (const auto& [stored_region, region_color] : region_color_map) {
+            if (stored_region == region) {
+              return region_color;
+            }
+          }
+        }
+        return gui::Painter::kBrown;
+      }
+      default:
+        return gui::Painter::kBrown;
+    }
+  };
 
   auto drawBTermCircle = [&](int cx, int cy, gui::Painter::Color color) {
     painter.setPen(color, true);
@@ -239,7 +242,6 @@ auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
     //     painter.drawLine(pin->cx(), pin->cy(), inst_cx, inst_cy);
     //   }
     // }
-
   }
 
   // Draw GPin mode (Nesterov)
@@ -255,7 +257,8 @@ auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
     // Draw net connections for BTerm GPins
     // painter.setPen(gui::Painter::kCyan, true);
     // for (GPin* gpin : nbc_->getGPins()) {
-    //   if (!gpin || !gpin->getPbPin() || !gpin->getPbPin()->isBTerm() || !gpin->getGNet()) {
+    //   if (!gpin || !gpin->getPbPin() || !gpin->getPbPin()->isBTerm() ||
+    //   !gpin->getGNet()) {
     //     continue;
     //   }
 
@@ -264,7 +267,8 @@ auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
     //       continue;
     //     }
 
-    //     painter.drawLine(gpin->cx(), gpin->cy(), other_pin->cx(), other_pin->cy());
+    //     painter.drawLine(gpin->cx(), gpin->cy(), other_pin->cx(),
+    //     other_pin->cy());
     //   }
     // }
   }
@@ -282,7 +286,6 @@ auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
     painter.drawRect(excl);
   }
 }
-
 
 void Graphics::drawInitial(gui::Painter& painter)
 {

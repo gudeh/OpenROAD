@@ -832,7 +832,7 @@ void NesterovPlace::doBackTracking(const float coeff)
     }
 
     // nbc_->reloadGPinIOLocations();
-    nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);    
+    nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
 
     num_region_diverged_ = 0;
     for (auto& nb : nbVec_) {

@@ -118,7 +118,6 @@ void InitialPlace::doBicgstabPlace(int threads)
 // starting point of initial place is center.
 void InitialPlace::placeInstsCenter()
 {
-  log_->report("InitialPlace::placeInstsCenter()");
   const int center_x = pbc_->getDie().coreCx();
   const int center_y = pbc_->getDie().coreCy();
 
@@ -135,8 +134,6 @@ void InitialPlace::placeInstsCenter()
     const auto group = db_inst->getGroup();
 
     if (group && group->getType() == odb::dbGroupType::POWER_DOMAIN) {
-      // log_->report("{} has group, placing on the group
-      // center",db_inst->getName());
       auto domain_region = group->getRegion();
       int domain_x_min = std::numeric_limits<int>::max();
       int domain_y_min = std::numeric_limits<int>::max();
@@ -153,11 +150,9 @@ void InitialPlace::placeInstsCenter()
       inst->setCenterLocation(domain_x_max - (domain_x_max - domain_x_min) / 2,
                               domain_y_max - (domain_y_max - domain_y_min) / 2);
       ++count_region_center;
-      // } else if (pbc_->skipIoMode() && db_inst->isPlaced()) {
-      //   // It is helpful to pick up the placement from mpl if available,
-      //   // particularly when you are going to run skip_io.
+      // Initialize instances with position available in odb, if available,
+      // otherwise use center
     } else if (db_inst->isPlaced()) {
-      // log_->report("{} already placed",db_inst->getName());
       const auto bbox = db_inst->getBBox()->getBox();
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
@@ -438,60 +433,9 @@ void InitialPlace::updateCoordi()
 
   for (auto& pbc_pin : pbc_->getPins()) {
     if (pbc_pin->isBTerm()) {
-      odb::dbBTerm* bterm = pbc_pin->getDbBTerm();
-      // odb::dbNet* net = bterm->getNet();
-      // if (!net || net->getITerms().empty()) {
-      //   continue;
-      // }
-      // TODO the updatePinCoordi of iterms is called elsewhere, maybe unite
-      // both calls for bterms and iterms for better readability and
-      // organization
       pbc_pin->updatePinCoordi(pbc_pin->getDbBTerm(), log_);
     }
   }
 }
-
-// void InitialPlace::updateCoordi()
-// {
-//   for (auto& pbc_pin : pbc_->pins()) {
-//     if (pbc_pin->isBTerm()) {
-//       odb::dbBTerm* bterm = pbc_pin->dbBTerm();
-//       odb::dbNet* net = bterm->getNet();
-//       if (!net || net->getITerms().empty()) {
-//         continue;  // no reference point
-//       }
-
-//       odb::Rect core = bterm->getBlock()->getCoreArea();
-
-//       // Estimate projection point from first connected ITerm
-//       odb::dbITerm* ref_iterm = *net->getITerms().begin();
-//       odb::dbBox* ref_box = ref_iterm->getInst()->getBBox();
-//       int est_x = (ref_box->xMin() + ref_box->xMax()) / 2;
-//       int est_y = (ref_box->yMin() + ref_box->yMax()) / 2;
-
-//       // Project to nearest core edge
-//       int fallback_x = est_x;
-//       int fallback_y = est_y;
-
-//       int dist_left = std::abs(est_x - core.xMin());
-//       int dist_right = std::abs(est_x - core.xMax());
-//       int dist_bottom = std::abs(est_y - core.yMin());
-//       int dist_top = std::abs(est_y - core.yMax());
-
-//       int min_dist = std::min({dist_left, dist_right, dist_bottom,
-//       dist_top}); if (min_dist == dist_left) {
-//         fallback_x = core.xMin();
-//       } else if (min_dist == dist_right) {
-//         fallback_x = core.xMax();
-//       } else if (min_dist == dist_bottom) {
-//         fallback_y = core.yMin();
-//       } else {
-//         fallback_y = core.yMax();
-//       }
-
-//       pbc_pin->updateLocation(fallback_x, fallback_y);
-//     }
-//   }
-// }
 
 }  // namespace gpl

@@ -318,8 +318,8 @@ inline std::pair<int, int> computeIOCoordi(
       };
 
       int64_t best_dist = std::numeric_limits<int64_t>::max();
-      int best_x = -2000;
-      int best_y = -2000;
+      int best_x = std::numeric_limits<int>::min();
+      int best_y = std::numeric_limits<int>::min();
 
       for (const auto& [x, y] : candidates) {
         bool excluded_point = false;
@@ -333,7 +333,7 @@ inline std::pair<int, int> computeIOCoordi(
           continue;
   }
 
-        // Manhattan distance is enough (and safe)
+        // Manhattan distance
         int64_t dx = static_cast<int64_t>(x) - static_cast<int64_t>(net_cx);
         int64_t dy = static_cast<int64_t>(y) - static_cast<int64_t>(net_cy);
         int64_t dist = std::llabs(dx) + std::llabs(dy);
