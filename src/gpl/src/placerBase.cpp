@@ -901,6 +901,7 @@ void PlacerBaseCommon::init()
   int unplaced_constrained_count = 0;
   int unplaced_unconstrained_count = 0;
   int ignored_count = 0;
+  int dangling_count = 0;
   // nets fill
   dbSet<dbNet> db_nets = block->getNets();
   netStor_.reserve(db_nets.size());
@@ -917,11 +918,11 @@ void PlacerBaseCommon::init()
       int num_bTerms = std::distance(db_net_bTerms.begin(), db_net_bTerms.end());
 
       if (num_iTerms == 0 && num_bTerms > 0) {
-      for (dbBTerm* bTerm : db_net_bTerms) {
-        log_->report("Skipping BTerm '{}' on net '{}': not connected to any instance", bTerm->getName(), db_net->getName());
-        ++ignored_count;
-      }
-      continue;
+        for (dbBTerm* bTerm : db_net_bTerms) {
+          log_->report("BTerm '{}' on net '{}': not connected to any instance", bTerm->getName(), db_net->getName());
+          ++dangling_count;
+        }
+        // continue;
       }
 
       Net temp_net(db_net);
@@ -968,7 +969,8 @@ void PlacerBaseCommon::init()
       }
     }
   }
-  log_->report("Ignored BTerms: {}", ignored_count);
+  log_->report("Ignored BTerms (no net): {}", ignored_count);
+  log_->report("Dangling BTerms (no instance): {}", dangling_count);  
   log_->report("Placed BTerms: {}", placed_count);
   log_->report("Fixed BTerms: {}", fixed_count);
   log_->report("Unplaced and constrained BTerms: {}", unplaced_constrained_count);
