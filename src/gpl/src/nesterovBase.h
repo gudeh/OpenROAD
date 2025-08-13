@@ -836,7 +836,8 @@ class NesterovBaseCommon
 
   int64_t getHpwl();
 
-  void updateDbGCells();
+  void updateDbFromGCells();
+  void updateDbFromGPins();
 
   // Number of threads of execution
   size_t getNumThreads() { return num_threads_; }

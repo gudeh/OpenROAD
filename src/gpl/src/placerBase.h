@@ -182,6 +182,13 @@ class Pin
     return bterm_status_;
   }
 
+  bool isBTermPredefinedPlacement() {
+    return isBTerm()
+           && bterm_status_.has_value()
+           && (bterm_status_.value() == BTermPlacementStatus::ODB_PLACED
+               || bterm_status_.value() == BTermPlacementStatus::ODB_FIXED);
+  }
+
  private:
   odb::dbObject* term_ = nullptr;
   Instance* inst_ = nullptr;

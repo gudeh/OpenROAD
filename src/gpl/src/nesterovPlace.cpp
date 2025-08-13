@@ -1150,7 +1150,8 @@ void NesterovPlace::updateNextIter(const int iter)
 
 void NesterovPlace::updateDb()
 {
-  nbc_->updateDbGCells();
+  nbc_->updateDbFromGCells();
+  nbc_->updateDbFromGPins();
 }
 
 // divergence detection on

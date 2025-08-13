@@ -270,14 +270,16 @@ void RouteBase::init()
 
 void RouteBase::getRudyResult()
 {
-  nbc_->updateDbGCells();
+  nbc_->updateDbFromGCells();
+  nbc_->updateDbFromGPins();
   updateRudyRoute();
 }
 
 void RouteBase::getGrtResult()
 {
   // update gCells' location to DB for GR
-  nbc_->updateDbGCells();
+  nbc_->updateDbFromGCells();
+  nbc_->updateDbFromGPins();
 
   // these two options must be on
   grouter_->setAllowCongestion(true);

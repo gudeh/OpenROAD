@@ -1652,12 +1652,13 @@ FloatPoint NesterovBaseCommon::getWireLengthPreconditioner(
   return FloatPoint(gCell->gPins().size(), gCell->gPins().size());
 }
 
-void NesterovBaseCommon::updateDbGCells()
+void NesterovBaseCommon::updateDbFromGCells()
 {
   if (db_cbk_) {
     db_cbk_->removeOwner();
   }
   assert(omp_get_thread_num() == 0);
+
 #pragma omp parallel for num_threads(num_threads_)
   for (auto it = getGCells().begin(); it < getGCells().end(); ++it) {
     auto& gCell = *it;  // old-style loop for old OpenMP
@@ -1674,11 +1675,21 @@ void NesterovBaseCommon::updateDbGCells()
     }
   }
 
-  //TODO transofrm this into another function.
-  // log_->report("updating bterm pins in ODB!!!");
+  if (db_cbk_) {
+    db_cbk_->addOwner(pbc_->db()->getChip()->getBlock());
+  }
+}
+
+
+void NesterovBaseCommon::updateDbFromGPins()
+{
+  if (db_cbk_) {
+    db_cbk_->removeOwner();
+  }
+
   for (const GPin* gpin : gPins_) {
     Pin* pin = gpin->getPbPin();
-    if (!pin || !pin->isBTerm()) {
+    if (!pin || gpin->getPbPin()->isBTermPredefinedPlacement()) {
       continue;
     }
 

@@ -218,17 +218,18 @@ inline constexpr const char* format_label_um2_with_delta
 inline std::pair<int, int> computeIOCoordi(
       odb::dbBTerm* bTerm,
       const odb::Rect& net_bbox,
-      const gpl::Pin* pb_pin,
+      gpl::Pin* pb_pin,
       utl::Logger* logger)
   {
-    bool is_placed = false;
-    auto status_opt = pb_pin->getBTermStatus();
-    if (status_opt.has_value()) {
-      auto status = status_opt.value();
-      if (status == Pin::BTermPlacementStatus::ODB_PLACED || status == Pin::BTermPlacementStatus::ODB_FIXED) {
-        is_placed = true;
-      }
-    }
+    // bool is_placed = false;
+    bool is_placed = pb_pin->isBTermPredefinedPlacement();
+    // auto status_opt = pb_pin->getBTermStatus();
+    // if (status_opt.has_value()) {
+    //   auto status = status_opt.value();
+    //   if (status == Pin::BTermPlacementStatus::ODB_PLACED || status == Pin::BTermPlacementStatus::ODB_FIXED) {
+    //     is_placed = true;
+    //   }
+    // }
 
     //TODO in theory we could send back the value the pin already has, although the present function is also used for initialization.
     // maybe implement a different function only for already placed.
