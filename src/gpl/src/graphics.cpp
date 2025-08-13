@@ -177,7 +177,7 @@ auto getBTermColor = [&](Pin* pin) -> gui::Painter::Color {
   switch (status) {
     case Status::IGNORED:
       return gui::Painter::kGray;
-    case Status::PLACED:
+    case Status::ODB_PLACED:
       return gui::Painter::kWhite;
     case Status::PROJECTED:
       return gui::Painter::kDarkMagenta;

@@ -486,7 +486,7 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
   if (net_) {
     net_->updateBox(logger, true);
     net_bbox = net_->getBBox();
-    std::tie(cx_, cy_) = gpl::computeIOCoordi(bTerm, net_bbox, is_placed_, logger);
+    std::tie(cx_, cy_) = gpl::computeIOCoordi(bTerm, net_bbox, this, logger);
   } else {
       debugPrint(logger,
                 utl::GPL,
@@ -512,14 +512,20 @@ void PlacerBaseCommon::initiateBtermsPosition()
   }
 
   for (const auto& [status, count] : bterm_status_counts) {
-    const char* label
-        = status == Pin::BTermPlacementStatus::PLACED ? "PLACED"
-          : status == Pin::BTermPlacementStatus::CONSTRAINT_REGION
-              ? "CONSTRAINT_REGION"
-          : status == Pin::BTermPlacementStatus::PROJECTED
-              ? "PROJECTED"
-          : status == Pin::BTermPlacementStatus::IGNORED ? "IGNORED"
-                                                         : "UNKNOWN";
+    const char* label;
+    if (status == Pin::BTermPlacementStatus::ODB_PLACED) {
+      label = "PLACED";
+    } else if (status == Pin::BTermPlacementStatus::ODB_FIXED) {
+      label = "FIXED";
+    } else if (status == Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
+      label = "CONSTRAINT_REGION";
+    } else if (status == Pin::BTermPlacementStatus::PROJECTED) {
+      label = "PROJECTED";
+    } else if (status == Pin::BTermPlacementStatus::IGNORED) {
+      label = "IGNORED";
+    } else {
+      label = "UNKNOWN";
+    }
 
     log_->report("BTerm placement status: {:<25} = {}", label, count);
   }
@@ -891,6 +897,7 @@ void PlacerBaseCommon::init()
   }
 
   int placed_count = 0;
+  int fixed_count = 0;
   int unplaced_constrained_count = 0;
   int unplaced_unconstrained_count = 0;
   int ignored_count = 0;
@@ -903,45 +910,19 @@ void PlacerBaseCommon::init()
     // escape nets with VDD/VSS/reset nets
     if (net_type == dbSigType::SIGNAL || net_type == dbSigType::CLOCK) {
 
+      // Check for dangling IO pin
+      auto db_net_iTerms = db_net->getITerms();
+      auto db_net_bTerms = db_net->getBTerms();
+      int num_iTerms = std::distance(db_net_iTerms.begin(), db_net_iTerms.end());
+      int num_bTerms = std::distance(db_net_bTerms.begin(), db_net_bTerms.end());
 
-      //Detect dangling net of a bterm
-      // auto db_net_iTerms = db_net->getITerms();
-      // auto bTerms = db_net->getBTerms();
-      // int num_iTerms = std::distance(db_net_iTerms.begin(), db_net_iTerms.end());
-      // int num_bTerms = std::distance(bTerms.begin(), bTerms.end());      
-      // if (num_iTerms == 1 && num_bTerms == 1) {
-      //   dbITerm* only_iTerm = *db_net_iTerms.begin();
-      //   dbInst* inst = only_iTerm->getInst();
-        
-      //   int connected_nets = 0;
-      //   for (dbITerm* term : inst->getITerms()) {
-      //     odb::dbNet* net = term->getNet();
-      //     if (net) {
-      //       const std::string net_name = net->getName();
-      //       //TODO use net_type instead of name
-      //       if (net_name == "VDD" || net_name == "VSS") {
-      //         continue;
-      //       }
-      //       connected_nets++;
-      //     }
-      //   }
-
-      //   // if (std::string(inst->getName()) == "_11635__23") 
-      //   {
-      //     log_->report("DEBUG: Instance {} has {} connected nets (net: {})",
-      //                 inst->getName(),
-      //                 connected_nets,
-      //                 db_net->getName());
-      //   }
-
-      //   if (connected_nets == 1) {
-      //     log_->report("Skipping net {}: 1:1 connection to instance {}",
-      //                 db_net->getName(),
-      //                 inst->getName());
-      //     continue;  // Skip instantiating net and bterm
-      //   }
-      // }
-
+      if (num_iTerms == 0 && num_bTerms > 0) {
+      for (dbBTerm* bTerm : db_net_bTerms) {
+        log_->report("Skipping BTerm '{}' on net '{}': not connected to any instance", bTerm->getName(), db_net->getName());
+        ++ignored_count;
+      }
+      continue;
+      }
 
       Net temp_net(db_net);
       temp_net.updateBox(log_, true);
@@ -968,19 +949,16 @@ void PlacerBaseCommon::init()
 
         Pin temp_pin(bTerm, log_);
         temp_pin.setNet(temp_net_ptr);        
-        if (bTerm->getFirstPinPlacementStatus().isPlaced()
-            || bTerm->getFirstPinPlacementStatus().isFixed()
-            || bTerm->getConstraintRegion()) {
-
-          if (bTerm->getFirstPinPlacementStatus().isPlaced()
-              || bTerm->getFirstPinPlacementStatus().isFixed()) {
-            temp_pin.setAsPlaced();
-            temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::PLACED);
-            ++placed_count;           
-          } else {
-            temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::CONSTRAINT_REGION);
-            ++unplaced_constrained_count;
-          }
+        if (bTerm->getFirstPinPlacementStatus().isPlaced()) {
+          // temp_pin.setAsPlaced();
+          temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::ODB_PLACED);
+          ++fixed_count;
+        } else if (bTerm->getFirstPinPlacementStatus().isFixed()) {
+          temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::ODB_FIXED);
+          ++placed_count;
+        } else if (bTerm->getConstraintRegion()) {
+          temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::CONSTRAINT_REGION);
+          ++unplaced_constrained_count;
         } else {
           temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::PROJECTED);
           ++unplaced_unconstrained_count;
@@ -992,6 +970,7 @@ void PlacerBaseCommon::init()
   }
   log_->report("Ignored BTerms: {}", ignored_count);
   log_->report("Placed BTerms: {}", placed_count);
+  log_->report("Fixed BTerms: {}", fixed_count);
   log_->report("Unplaced and constrained BTerms: {}", unplaced_constrained_count);
   log_->report("Unplaced and unconstrained: {}",
                unplaced_unconstrained_count);

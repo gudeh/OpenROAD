@@ -131,7 +131,7 @@ class Pin
   bool isMaxPinX() const;
   bool isMinPinY() const;
   bool isMaxPinY() const;
-  bool isPlaced() const { return is_placed_ == 1; }
+  // bool isPlaced() const { return is_placed_ == 1; }
 
   void setITerm();
   void setBTerm();
@@ -168,13 +168,14 @@ class Pin
   enum class BTermPlacementStatus : uint8_t
   {
     UNKNOWN = 0,             // Not evaluated yet
-    PLACED,                  // Placed in odb
+    ODB_PLACED,
+    ODB_FIXED,            
     CONSTRAINT_REGION,       // Placed using IO pin constraint region
     PROJECTED,               // To die edge from net bbox center
     IGNORED                  // Unconnected
   };
 
-  void setAsPlaced() { is_placed_ = 1; }
+  // void setAsPlaced() { is_placed_ = 1; }
   void setBtermPlaceStatus(BTermPlacementStatus status) { bterm_status_ = status; }
   std::optional<BTermPlacementStatus> getBTermStatus() const
   {

@@ -543,19 +543,21 @@ void GPin::updateGPinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
   offsetCx_ = offsetCy_ = 0;
 
   odb::Rect net_bbox;
+
   if (gNet_) {
     gNet_->updateBox(logger, true);
     net_bbox = gNet_->getBBox();
     std::tie(cx_, cy_) = gpl::computeIOCoordi(bTerm,
-                                          net_bbox,
-                                          getPbPin()->isPlaced(), logger);
+                                              net_bbox,
+                                              getPbPin(),
+                                              logger);
   } else {
-      debugPrint(logger,
-                utl::GPL,
-                "io_constraint",
-                2,
-                "A: {} GPin has no GNet. Ignored.",
-                bTerm->getConstName());
+    debugPrint(logger,
+               utl::GPL,
+               "io_constraint",
+               2,
+               "A: {} GPin has no GNet. Ignored.",
+               bTerm->getConstName());
   }
 
 
