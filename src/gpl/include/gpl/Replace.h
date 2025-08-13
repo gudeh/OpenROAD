@@ -215,21 +215,16 @@ inline constexpr const char* format_label_um2_with_delta
     = "{:27} {:10.3f} um^2 ({:+.2f}%)";
 
 
+
+// Determines the appropriate coordinates for placing an IO pin based on its predefined placement,
+//  constraint region, or proximity to the net bounding box and die edges, while avoiding excluded regions.
 inline std::pair<int, int> computeIOCoordi(
       odb::dbBTerm* bTerm,
       const odb::Rect& net_bbox,
       gpl::Pin* pb_pin,
       utl::Logger* logger)
   {
-    // bool is_placed = false;
     bool is_placed = pb_pin->isBTermPredefinedPlacement();
-    // auto status_opt = pb_pin->getBTermStatus();
-    // if (status_opt.has_value()) {
-    //   auto status = status_opt.value();
-    //   if (status == Pin::BTermPlacementStatus::ODB_PLACED || status == Pin::BTermPlacementStatus::ODB_FIXED) {
-    //     is_placed = true;
-    //   }
-    // }
 
     //TODO in theory we could send back the value the pin already has, although the present function is also used for initialization.
     // maybe implement a different function only for already placed.
@@ -258,7 +253,6 @@ inline std::pair<int, int> computeIOCoordi(
 
     int net_cx = (net_bbox.xMin() + net_bbox.xMax()) / 2;
     int net_cy = (net_bbox.yMin() + net_bbox.yMax()) / 2;
-
     debugPrint(logger, utl::GPL, "io_constraint", 2,
            "Net bbox center for {} is ({}, {})",
            bTerm->getConstName(), net_cx, net_cy);
@@ -266,6 +260,11 @@ inline std::pair<int, int> computeIOCoordi(
 
     const auto& constraint_region = bTerm->getConstraintRegion();
     if (!is_placed && constraint_region) {
+      if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
+        logger->warn(utl::GPL, 9998, 
+                     "BTerm {} is not marked as CONSTRAINT_REGION, but has a constraint region defined. ",
+                     bTerm->getConstName());
+      }
       int cx = 0;
       int cy = 0;
       int target_x = 0;
@@ -314,6 +313,11 @@ inline std::pair<int, int> computeIOCoordi(
     }
 
     if(!is_placed && !constraint_region) {
+      if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::PROJECTED) {
+        logger->warn(utl::GPL, 9997, 
+                     "BTerm {} is not marked as PROJECTED, but has no constraint region defined. ",
+                     bTerm->getConstName());
+      }
       odb::Rect die = bTerm->getBlock()->getDieArea();
       const auto& excluded_regions = bTerm->getBlock()->getBlockedRegionsForPins();
 

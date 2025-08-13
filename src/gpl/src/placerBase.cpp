@@ -951,7 +951,6 @@ void PlacerBaseCommon::init()
         Pin temp_pin(bTerm, log_);
         temp_pin.setNet(temp_net_ptr);        
         if (bTerm->getFirstPinPlacementStatus().isPlaced()) {
-          // temp_pin.setAsPlaced();
           temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::ODB_PLACED);
           ++fixed_count;
         } else if (bTerm->getFirstPinPlacementStatus().isFixed()) {
