@@ -224,30 +224,19 @@ inline std::pair<int, int> computeIOCoordi(
       gpl::Pin* pb_pin,
       utl::Logger* logger)
   {
-    bool is_placed = pb_pin->isBTermPredefinedPlacement();
-
-    //TODO in theory we could send back the value the pin already has, although the present function is also used for initialization.
-    // maybe implement a different function only for already placed.
-    if (is_placed) {
-      int lx = INT_MAX, ly = INT_MAX;
-      int ux = INT_MIN, uy = INT_MIN;
-      for (odb::dbBPin* bpin : bTerm->getBPins()) {
-        odb::Rect bbox = bpin->getBBox();
-        lx = std::min(lx, bbox.xMin());
-        ly = std::min(ly, bbox.yMin());
-        ux = std::max(ux, bbox.xMax());
-        uy = std::max(uy, bbox.yMax());
-      }
-      int cx = (lx + ux) / 2;
-      int cy = (ly + uy) / 2;
+    bool is_predefined_placed = pb_pin->isBTermPredefinedPlacement();
+   
+    if (is_predefined_placed) {
+      int cx = pb_pin->cx();
+      int cy = pb_pin->cy();
       debugPrint(logger,
-                utl::GPL,
-                "io_constraint",
-                2,
-                "B: {} already placed in odb: ({}, {})",
-                bTerm->getConstName(),
-                cx,
-                cy);
+                 utl::GPL,
+                 "io_constraint",
+                 2,
+                 "A: {} already placed in odb: ({}, {})",
+                 bTerm->getConstName(),
+                 cx,
+                 cy);
       return {cx, cy};
     }
 
@@ -259,7 +248,7 @@ inline std::pair<int, int> computeIOCoordi(
 
 
     const auto& constraint_region = bTerm->getConstraintRegion();
-    if (!is_placed && constraint_region) {
+    if (!is_predefined_placed && constraint_region) {
       if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
         logger->warn(utl::GPL, 9998, 
                      "BTerm {} is not marked as CONSTRAINT_REGION, but has a constraint region defined. ",
@@ -312,7 +301,7 @@ inline std::pair<int, int> computeIOCoordi(
       return {cx, cy};
     }
 
-    if(!is_placed && !constraint_region) {
+    if(!is_predefined_placed && !constraint_region) {
       if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::PROJECTED) {
         logger->warn(utl::GPL, 9997, 
                      "BTerm {} is not marked as PROJECTED, but has no constraint region defined. ",
@@ -335,13 +324,14 @@ inline std::pair<int, int> computeIOCoordi(
       for (const auto& [x, y] : candidates) {
         bool excluded_point = false;
         for (const odb::Rect& r : excluded_regions) {
-          // If you want to allow snapping on the boundary, use strict < >
           if (r.xMin() <= x && x <= r.xMax() && r.yMin() <= y && y <= r.yMax()) {
             excluded_point = true;
             break;
           }
         }
-        if (excluded_point) continue;
+        if (excluded_point) { 
+          continue;
+  }
 
         // Manhattan distance is enough (and safe)
         int64_t dx = static_cast<int64_t>(x) - static_cast<int64_t>(net_cx);

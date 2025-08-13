@@ -540,6 +540,29 @@ void PlacerBaseCommon::initiateBtermsPosition()
   }
 }
 
+void Pin::initiatePredefinedPlacement(utl::Logger* logger) 
+{
+    int lx = INT_MAX, ly = INT_MAX;
+    int ux = INT_MIN, uy = INT_MIN;
+    for (odb::dbBPin* bpin : getDbBTerm()->getBPins()) {
+      odb::Rect bbox = bpin->getBBox();
+      lx = std::min(lx, bbox.xMin());
+      ly = std::min(ly, bbox.yMin());
+      ux = std::max(ux, bbox.xMax());
+      uy = std::max(uy, bbox.yMax());
+    }
+    cx_ = (lx + ux) / 2;
+    cy_ = (ly + uy) / 2;
+    debugPrint(logger,
+              utl::GPL,
+              "io_constraint",
+              2,
+              "B: {} already placed in odb: ({}, {})",
+              getDbBTerm()->getConstName(),
+              cx_,
+              cy_);
+  }
+
 void Pin::updateLocation(const Instance* inst)
 {
   cx_ = inst->cx() + offsetCx_;
@@ -952,9 +975,11 @@ void PlacerBaseCommon::init()
         temp_pin.setNet(temp_net_ptr);        
         if (bTerm->getFirstPinPlacementStatus().isPlaced()) {
           temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::ODB_PLACED);
+          temp_pin.initiatePredefinedPlacement(log_);
           ++fixed_count;
         } else if (bTerm->getFirstPinPlacementStatus().isFixed()) {
           temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::ODB_FIXED);
+          temp_pin.initiatePredefinedPlacement(log_);
           ++placed_count;
         } else if (bTerm->getConstraintRegion()) {
           temp_pin.setBtermPlaceStatus(Pin::BTermPlacementStatus::CONSTRAINT_REGION);

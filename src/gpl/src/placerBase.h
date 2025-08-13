@@ -189,6 +189,8 @@ class Pin
                || bterm_status_.value() == BTermPlacementStatus::ODB_FIXED);
   }
 
+  void initiatePredefinedPlacement(utl::Logger* logger);
+
  private:
   odb::dbObject* term_ = nullptr;
   Instance* inst_ = nullptr;
@@ -215,7 +217,7 @@ class Pin
   unsigned char maxPinYField_ : 1;
 
   // Track how bTerm position was handled, optional because Pin can be iTerm
-  std::optional<BTermPlacementStatus> bterm_status_;
+  std::optional<BTermPlacementStatus> bterm_status_;  
 };
 
 class Net
