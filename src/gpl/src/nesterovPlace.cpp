@@ -430,14 +430,7 @@ void NesterovPlace::runTimingDriven(const int iter,
       nb_gcells_before_td += nb->getGCells().size();
     }
 
-    // nbc_->printGPins();
-    // log_->report("call executeTimingDriven");
-    // nbc_->printGPins();
-    // nbc_->printGNets();
     bool shouldTdProceed = tb_->executeTimingDriven(virtual_td_iter);
-    // log_->report("finished executeTimingDriven");
-    // nbc_->printGPins();
-    // nbc_->printGNets();
     nbVec_[0]->setTrueReprintIterHeader();
     ++timing_driven_count;
 
@@ -679,7 +672,6 @@ void NesterovPlace::runRoutability(const int iter,
                                    float& curA,
                                    int64_t& end_routability_area)
 {
-  updateDb();
   // check routability using RUDY or GR
   if (npVars_.routability_driven_mode && is_routability_need_
       && average_overflow_unscaled_ <= npVars_.routability_end_overflow) {
@@ -831,7 +823,6 @@ void NesterovPlace::doBackTracking(const float coeff)
       nb->nesterovUpdateCoordinates(coeff);
     }
 
-    // nbc_->reloadGPinIOLocations();
     nbc_->updateWireLengthForceWA(wireLengthCoefX_, wireLengthCoefY_);
 
     num_region_diverged_ = 0;
@@ -1061,7 +1052,6 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
     if (isConverged(nesterov_iter, routability_gpl_iter_count_)) {
       break;
     }
-    // log_->report("main loop end iter");
   }
 
   reportResults(nesterov_iter,
@@ -1198,7 +1188,6 @@ void NesterovPlace::createGNet(odb::dbNet* db_net)
   if (!isValidSigType(netType)) {
     return;
   }
-  // nbc_->createCbkGNet(db_net, pbc_->skipIoMode());
   nbc_->createCbkGNet(db_net);
 }
 

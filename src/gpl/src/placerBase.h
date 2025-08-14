@@ -131,7 +131,6 @@ class Pin
   bool isMaxPinX() const;
   bool isMinPinY() const;
   bool isMaxPinY() const;
-  // bool isPlaced() const { return is_placed_ == 1; }
 
   void setITerm();
   void setBTerm();
@@ -159,10 +158,8 @@ class Pin
   Net* getNet() const { return net_; }
   std::string getName() const;
 
-  // Initialization pair for iTerm and bTerm
   void updatePinCoordi(odb::dbITerm* iTerm);
   void updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger);
-  // Modify position
   void updateLocation(const Instance* inst);
 
   enum class BTermPlacementStatus : uint8_t
@@ -171,27 +168,13 @@ class Pin
     ODB_PLACED,
     ODB_FIXED,
     CONSTRAINT_REGION,  // Placed using IO pin constraint region
-    PROJECTED,          // To die edge from net bbox center
+    PROJECTED,          // Projected to die edge from net bbox center
     IGNORED             // Unconnected
   };
 
-  // void setAsPlaced() { is_placed_ = 1; }
-  void setBtermPlaceStatus(BTermPlacementStatus status)
-  {
-    bterm_status_ = status;
-  }
-  std::optional<BTermPlacementStatus> getBTermStatus() const
-  {
-    return bterm_status_;
-  }
-
-  bool isBTermPredefinedPlacement()
-  {
-    return isBTerm() && bterm_status_.has_value()
-           && (bterm_status_.value() == BTermPlacementStatus::ODB_PLACED
-               || bterm_status_.value() == BTermPlacementStatus::ODB_FIXED);
-  }
-
+  void setBtermPlaceStatus(BTermPlacementStatus status);
+  std::optional<BTermPlacementStatus> getBTermStatus() const;
+  bool isBTermPredefinedPlacement();
   void initiatePredefinedPlacement(utl::Logger* logger);
 
  private:
@@ -227,7 +210,6 @@ class Net
 {
  public:
   Net();
-  // Net(odb::dbNet* net, bool skipIoMode);
   Net(odb::dbNet* db_net);
   ~Net();
 
@@ -308,7 +290,6 @@ class PlacerBaseVars
  public:
   int padLeft;
   int padRight;
-  // bool skipIoMode;
 
   PlacerBaseVars();
   void reset();
@@ -343,7 +324,6 @@ class PlacerBaseCommon
 
   int getPadLeft() const { return pbVars_.padLeft; }
   int getPadRight() const { return pbVars_.padRight; }
-  // bool skipIoMode() const { return pbVars_.skipIoMode; }
   unsigned int getItermCount() { return itermCount_; }
   unsigned int getBtermCount() { return btermCount_; }
 

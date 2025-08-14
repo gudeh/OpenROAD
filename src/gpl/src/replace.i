@@ -256,12 +256,6 @@ set_pad_right_cmd(int pad)
   replace->setPadRight(pad);
 }
 
-// void
-// set_skip_io_mode_cmd(bool mode) 
-// {
-//   Replace* replace = getReplace();
-//   replace->setSkipIoMode(mode);
-// }
 
 void
 set_disable_revert_if_diverge(bool disable_revert_if_diverge)

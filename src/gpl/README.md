@@ -83,7 +83,6 @@ global_placement
     [-initial_place_max_fanout initial_place_max_fanout]
     [-pad_left pad_left]
     [-pad_right pad_right]
-    [-skip_io]
     [-skip_nesterov_place]
     [-routability_use_grt]
     [-routability_target_rc_metric routability_target_rc_metric]
@@ -120,7 +119,6 @@ global_placement
 | `-initial_place_max_fanout` | Set net escape condition in initial place when $fanout \geq initial\_place\_max\_fanout$. The default value is 200. Allowed values are integers `[1, MAX_INT]`. |
 | `-pad_left` | Set left padding in terms of number of sites. The default value is 0, and the allowed values are integers `[1, MAX_INT]` |
 | `-pad_right` | Set right padding in terms of number of sites. The default value is 0, and the allowed values are integers `[1, MAX_INT]` |
-| `-skip_io` | Flag to ignore the IO ports when computing wirelength during placement. The default value is False, allowed values are boolean. |
 | `-disable_revert_if_diverge` | Flag to make gpl store the placement state along iterations, if a divergence is detected, gpl reverts to the snapshot state. The default value is disabled. |
 | `-enable_routing_congestion` | Flag to run global routing after global placement, enabling the Routing Congestion Heatmap.|
 
@@ -257,7 +255,6 @@ Here is an example of some options / configurations to the global placer.
 
 ```python
 gpl.setInitialPlaceMaxIter(iter)
-gpl.setSkipIoMode(skip_io)
 gpl.setTimingDrivenMode(timing_driven)
 gpl.setTimingNetWeightMax(weight)
 ```

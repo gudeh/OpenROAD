@@ -565,6 +565,23 @@ void Pin::initiatePredefinedPlacement(utl::Logger* logger)
              cy_);
 }
 
+void Pin::setBtermPlaceStatus(BTermPlacementStatus status)
+{
+  bterm_status_ = status;
+}
+
+std::optional<Pin::BTermPlacementStatus> Pin::getBTermStatus() const
+{
+  return bterm_status_;
+}
+
+bool Pin::isBTermPredefinedPlacement()
+{
+  return isBTerm() && bterm_status_.has_value()
+         && (bterm_status_.value() == BTermPlacementStatus::ODB_PLACED
+             || bterm_status_.value() == BTermPlacementStatus::ODB_FIXED);
+}
+
 void Pin::updateLocation(const Instance* inst)
 {
   cx_ = inst->cx() + offsetCx_;

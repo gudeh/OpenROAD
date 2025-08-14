@@ -79,12 +79,6 @@ proc global_placement { args } {
     utl::warn "GPL" 152 "-force_cpu is deprecated."
   }
 
-  # set skip_io [info exists flags(-skip_io)]
-  # gpl::set_skip_io_mode_cmd $skip_io
-  # if { $skip_io } {
-  #   gpl::set_initial_place_max_iter_cmd 0
-  # }
-
   set timing_driven [info exists flags(-timing_driven)]
   gpl::set_timing_driven_mode $timing_driven
   if { $timing_driven } {
@@ -92,10 +86,6 @@ proc global_placement { args } {
       utl::error GPL 121 "No liberty libraries found."
     }
 
-    # if { $skip_io } {
-    #   utl::warn "GPL" 150 "-skip_io will disable timing driven mode."
-    #   gpl::set_timing_driven_mode 0
-    # }
 
     if { [info exists keys(-timing_driven_net_reweight_overflow)] } {
       set overflow_list $keys(-timing_driven_net_reweight_overflow)
@@ -129,12 +119,6 @@ proc global_placement { args } {
 
   set routability_driven [info exists flags(-routability_driven)]
   gpl::set_routability_driven_mode $routability_driven
-  if { $routability_driven } {
-    # if { $skip_io } {
-    #   utl::warn "GPL" 151 "-skip_io will disable routability driven mode."
-    #   gpl::set_routability_driven_mode 0
-    # }
-  }
   if { [info exists flags(-disable_routability_driven)] } {
     utl::warn "GPL" 116 "-disable_routability_driven is deprecated."
   }

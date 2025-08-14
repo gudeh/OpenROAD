@@ -123,7 +123,9 @@ void Graphics::drawBounds(gui::Painter& painter)
   painter.drawLine(die.coreLx(), die.coreUy(), die.coreLx(), die.coreLy());
 }
 
-void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode)
+void Graphics::drawBTermPins(gui::Painter& painter,
+                             bool nbc_mode,
+                             bool draw_bterm_connections)
 {
   const int radius = 2000;
 
@@ -218,30 +220,32 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode)
       drawBTermCircle(pin->cx(), pin->cy(), getBTermColor(pin));
     }
 
-    // Draw net connections for BTerm Pins (PlacerBase)
-    // painter.setPen(gui::Painter::kCyan, true);
-    // for (const auto& pin : pbc_->getPins()) {
-    //   if (!pin->isBTerm()) {
-    //     continue;
-    //   }
+    if (draw_bterm_connections) {
+      // Draw net connections for BTerm Pins (PlacerBase)
+      painter.setPen(gui::Painter::kCyan, true);
+      for (const auto& pin : pbc_->getPins()) {
+        if (!pin->isBTerm()) {
+          continue;
+        }
 
-    //   odb::dbNet* net = pin->getDbBTerm()->getNet();
-    //   if (!net) {
-    //     continue;
-    //   }
+        odb::dbNet* net = pin->getDbBTerm()->getNet();
+        if (!net) {
+          continue;
+        }
 
-    //   for (odb::dbITerm* iterm : net->getITerms()) {
-    //     odb::dbInst* inst = iterm->getInst();
-    //     if (!inst || !inst->isPlaced()) {
-    //       continue;
-    //     }
+        for (odb::dbITerm* iterm : net->getITerms()) {
+          odb::dbInst* inst = iterm->getInst();
+          if (!inst || !inst->isPlaced()) {
+            continue;
+          }
 
-    //     // Draw line from BTerm pin to instance center
-    //     int inst_cx = inst->getBBox()->xMin() + inst->getBBox()->getDX() / 2;
-    //     int inst_cy = inst->getBBox()->yMin() + inst->getBBox()->getDY() / 2;
-    //     painter.drawLine(pin->cx(), pin->cy(), inst_cx, inst_cy);
-    //   }
-    // }
+          // Draw line from BTerm pin to instance center
+          int inst_cx = inst->getBBox()->xMin() + inst->getBBox()->getDX() / 2;
+          int inst_cy = inst->getBBox()->yMin() + inst->getBBox()->getDY() / 2;
+          painter.drawLine(pin->cx(), pin->cy(), inst_cx, inst_cy);
+        }
+      }
+    }
   }
 
   // Draw GPin mode (Nesterov)
@@ -254,23 +258,25 @@ void Graphics::drawBTermPins(gui::Painter& painter, bool nbc_mode)
       drawBTermCircle(gpin->cx(), gpin->cy(), getBTermColor(gpin->getPbPin()));
     }
 
-    // Draw net connections for BTerm GPins
-    // painter.setPen(gui::Painter::kCyan, true);
-    // for (GPin* gpin : nbc_->getGPins()) {
-    //   if (!gpin || !gpin->getPbPin() || !gpin->getPbPin()->isBTerm() ||
-    //   !gpin->getGNet()) {
-    //     continue;
-    //   }
+    if (draw_bterm_connections) {
+      // Draw net connections for BTerm GPins
+      painter.setPen(gui::Painter::kCyan, true);
+      for (GPin* gpin : nbc_->getGPins()) {
+        if (!gpin || !gpin->getPbPin() || !gpin->getPbPin()->isBTerm()
+            || !gpin->getGNet()) {
+          continue;
+        }
 
-    //   for (GPin* other_pin : gpin->getGNet()->getGPins()) {
-    //     if (other_pin == nullptr || other_pin == gpin) {
-    //       continue;
-    //     }
+        for (GPin* other_pin : gpin->getGNet()->getGPins()) {
+          if (other_pin == nullptr || other_pin == gpin) {
+            continue;
+          }
 
-    //     painter.drawLine(gpin->cx(), gpin->cy(), other_pin->cx(),
-    //     other_pin->cy());
-    //   }
-    // }
+          painter.drawLine(
+              gpin->cx(), gpin->cy(), other_pin->cx(), other_pin->cy());
+        }
+      }
+    }
   }
 
   // Draw constraint regions
@@ -511,11 +517,13 @@ void Graphics::drawObjects(gui::Painter& painter)
       break;
     case Nesterov:
       drawNesterov(painter);
-      drawBTermPins(painter, true);
+      drawBTermPins(
+          painter, /*nbc_mode=*/true, /*draw_bterm_connections=*/false);
       break;
     case Initial:
       drawInitial(painter);
-      drawBTermPins(painter, false);
+      drawBTermPins(
+          painter, /*nbc_mode=*/false, /*draw_bterm_connections=*/false);
       break;
   }
 }
