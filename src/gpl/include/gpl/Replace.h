@@ -6,9 +6,10 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "../src/placerBase.h"
 #include "odb/db.h"
 #include "odb/geom.h"
-#include "../src/placerBase.h"
 
 namespace odb {
 class dbDatabase;
@@ -212,165 +213,171 @@ inline constexpr const char* format_label_percent = "{:27} {:10.2f} %";
 inline constexpr const char* format_label_um2_with_delta
     = "{:27} {:10.3f} um^2 ({:+.2f}%)";
 
+// Determines the appropriate coordinates for placing an IO pin based on its
+// predefined placement,
+//  constraint region, or proximity to the net bounding box and die edges, while
+//  avoiding excluded regions.
+inline std::pair<int, int> computeIOCoordi(odb::dbBTerm* bTerm,
+                                           const odb::Rect& net_bbox,
+                                           gpl::Pin* pb_pin,
+                                           utl::Logger* logger)
+{
+  bool is_predefined_placed = pb_pin->isBTermPredefinedPlacement();
 
-
-// Determines the appropriate coordinates for placing an IO pin based on its predefined placement,
-//  constraint region, or proximity to the net bounding box and die edges, while avoiding excluded regions.
-inline std::pair<int, int> computeIOCoordi(
-      odb::dbBTerm* bTerm,
-      const odb::Rect& net_bbox,
-      gpl::Pin* pb_pin,
-      utl::Logger* logger)
-  {
-    bool is_predefined_placed = pb_pin->isBTermPredefinedPlacement();
-   
-    if (is_predefined_placed) {
-      int cx = pb_pin->cx();
-      int cy = pb_pin->cy();
-      debugPrint(logger,
-                 utl::GPL,
-                 "io_constraint",
-                 2,
-                 "A: {} already placed in odb: ({}, {})",
-                 bTerm->getConstName(),
-                 cx,
-                 cy);
-      return {cx, cy};
-    }
-
-    int net_cx = (net_bbox.xMin() + net_bbox.xMax()) / 2;
-    int net_cy = (net_bbox.yMin() + net_bbox.yMax()) / 2;
-    debugPrint(logger, utl::GPL, "io_constraint", 2,
-           "Net bbox center for {} is ({}, {})",
-           bTerm->getConstName(), net_cx, net_cy);
-
-
-    const auto& constraint_region = bTerm->getConstraintRegion();
-    if (!is_predefined_placed && constraint_region) {
-      if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
-        logger->warn(utl::GPL, 9998, 
-                     "BTerm {} is not marked as CONSTRAINT_REGION, but has a constraint region defined. ",
-                     bTerm->getConstName());
-      }
-      int cx = 0;
-      int cy = 0;
-      int target_x = 0;
-      int target_y = 0;
-      target_x = (net_bbox.xMin() + net_bbox.xMax()) / 2;
-      target_y = (net_bbox.yMin() + net_bbox.yMax()) / 2;
-
-      int xMin = constraint_region->xMin();
-      int xMax = constraint_region->xMax();
-      int yMin = constraint_region->yMin();
-      int yMax = constraint_region->yMax();
-
-      debugPrint(logger,
-                 utl::GPL,
-                 "io_constraint",
-                 2,
-                 "target for {}: ({}, {})",
-                 bTerm->getConstName(),
-                 target_x,
-                 target_y);
-
-      debugPrint(logger,
-                 utl::GPL,
-                 "io_constraint",
-                 2,
-                 "Constraint region for {}: [({}, {}) --> ({}, {})]",
-                 bTerm->getConstName(),
-                 xMin,
-                 yMin,
-                 xMax,
-                 yMax);
-
-      cx = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
-      cy = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
-
-      debugPrint(logger,
-                 utl::GPL,
-                 "io_constraint",
-                 2,
-                 "Final clamped coord for {}: ({}, {})",
-                 bTerm->getConstName(),
-                 cx,
-                 cy);
-
-      return {cx, cy};
-    }
-
-    if(!is_predefined_placed && !constraint_region) {
-      if(pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::PROJECTED) {
-        logger->warn(utl::GPL, 9997, 
-                     "BTerm {} is not marked as PROJECTED, but has no constraint region defined. ",
-                     bTerm->getConstName());
-      }
-      odb::Rect die = bTerm->getBlock()->getDieArea();
-      const auto& excluded_regions = bTerm->getBlock()->getBlockedRegionsForPins();
-
-      std::vector<std::pair<int, int>> candidates = {
-          {die.xMin(), net_cy},
-          {die.xMax(), net_cy},
-          {net_cx, die.yMin()},
-          {net_cx, die.yMax()}
-      };
-
-      int64_t best_dist = std::numeric_limits<int64_t>::max();
-      int best_x = std::numeric_limits<int>::min();
-      int best_y = std::numeric_limits<int>::min();
-
-      for (const auto& [x, y] : candidates) {
-        bool excluded_point = false;
-        for (const odb::Rect& r : excluded_regions) {
-          if (r.xMin() <= x && x <= r.xMax() && r.yMin() <= y && y <= r.yMax()) {
-            excluded_point = true;
-            break;
-          }
-        }
-        if (excluded_point) { 
-          continue;
-  }
-
-        // Manhattan distance
-        int64_t dx = static_cast<int64_t>(x) - static_cast<int64_t>(net_cx);
-        int64_t dy = static_cast<int64_t>(y) - static_cast<int64_t>(net_cy);
-        int64_t dist = std::llabs(dx) + std::llabs(dy);
-
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_x = x;
-          best_y = y;
-        }
-      }
-
-
-      if (best_x >= 0) {
-        debugPrint(logger,
-                  utl::GPL,
-                  "io_constraint",
-                  2,
-                  "D: {} projected to die edge avoiding excluded: ({}, {})",
-                  bTerm->getConstName(),
-                  best_x,
-                  best_y);
-        return {best_x, best_y};
-      } else {
-        debugPrint(logger,
-                  utl::GPL,
-                  "io_constraint",
-                  2,
-                  "E: {} unconstrained but no valid edge available → Ignored.",
-                  bTerm->getConstName());
-        return {0, 0};
-      }
-    }
-    
+  if (is_predefined_placed) {
+    int cx = pb_pin->cx();
+    int cy = pb_pin->cy();
     debugPrint(logger,
-            utl::GPL,
-            "io_constraint",
-            2,
-            "F: {} This should never happen.",
-            bTerm->getConstName());
-    return {0, 0};
+               utl::GPL,
+               "io_constraint",
+               2,
+               "A: {} already placed in odb: ({}, {})",
+               bTerm->getConstName(),
+               cx,
+               cy);
+    return {cx, cy};
   }
+
+  int net_cx = (net_bbox.xMin() + net_bbox.xMax()) / 2;
+  int net_cy = (net_bbox.yMin() + net_bbox.yMax()) / 2;
+  debugPrint(logger,
+             utl::GPL,
+             "io_constraint",
+             2,
+             "Net bbox center for {} is ({}, {})",
+             bTerm->getConstName(),
+             net_cx,
+             net_cy);
+
+  const auto& constraint_region = bTerm->getConstraintRegion();
+  if (!is_predefined_placed && constraint_region) {
+    if (pb_pin->getBTermStatus()
+        != Pin::BTermPlacementStatus::CONSTRAINT_REGION) {
+      logger->warn(utl::GPL,
+                   317,
+                   "BTerm {} is not marked as CONSTRAINT_REGION, but has a "
+                   "constraint region defined. ",
+                   bTerm->getConstName());
+    }
+    int cx = 0;
+    int cy = 0;
+    int target_x = 0;
+    int target_y = 0;
+    target_x = (net_bbox.xMin() + net_bbox.xMax()) / 2;
+    target_y = (net_bbox.yMin() + net_bbox.yMax()) / 2;
+
+    int xMin = constraint_region->xMin();
+    int xMax = constraint_region->xMax();
+    int yMin = constraint_region->yMin();
+    int yMax = constraint_region->yMax();
+
+    debugPrint(logger,
+               utl::GPL,
+               "io_constraint",
+               2,
+               "target for {}: ({}, {})",
+               bTerm->getConstName(),
+               target_x,
+               target_y);
+
+    debugPrint(logger,
+               utl::GPL,
+               "io_constraint",
+               2,
+               "Constraint region for {}: [({}, {}) --> ({}, {})]",
+               bTerm->getConstName(),
+               xMin,
+               yMin,
+               xMax,
+               yMax);
+
+    cx = (xMin == xMax) ? xMin : std::clamp(target_x, xMin, xMax);
+    cy = (yMin == yMax) ? yMin : std::clamp(target_y, yMin, yMax);
+
+    debugPrint(logger,
+               utl::GPL,
+               "io_constraint",
+               2,
+               "Final clamped coord for {}: ({}, {})",
+               bTerm->getConstName(),
+               cx,
+               cy);
+
+    return {cx, cy};
+  }
+
+  if (!is_predefined_placed && !constraint_region) {
+    if (pb_pin->getBTermStatus() != Pin::BTermPlacementStatus::PROJECTED) {
+      logger->warn(utl::GPL,
+                   318,
+                   "BTerm {} is not marked as PROJECTED, but has no constraint "
+                   "region defined. ",
+                   bTerm->getConstName());
+    }
+    odb::Rect die = bTerm->getBlock()->getDieArea();
+    const auto& excluded_regions
+        = bTerm->getBlock()->getBlockedRegionsForPins();
+
+    std::vector<std::pair<int, int>> candidates = {{die.xMin(), net_cy},
+                                                   {die.xMax(), net_cy},
+                                                   {net_cx, die.yMin()},
+                                                   {net_cx, die.yMax()}};
+
+    int64_t best_dist = std::numeric_limits<int64_t>::max();
+    int best_x = std::numeric_limits<int>::min();
+    int best_y = std::numeric_limits<int>::min();
+
+    for (const auto& [x, y] : candidates) {
+      bool excluded_point = false;
+      for (const odb::Rect& r : excluded_regions) {
+        if (r.xMin() <= x && x <= r.xMax() && r.yMin() <= y && y <= r.yMax()) {
+          excluded_point = true;
+          break;
+        }
+      }
+      if (excluded_point) {
+        continue;
+      }
+
+      // Manhattan distance
+      int64_t dx = static_cast<int64_t>(x) - static_cast<int64_t>(net_cx);
+      int64_t dy = static_cast<int64_t>(y) - static_cast<int64_t>(net_cy);
+      int64_t dist = std::llabs(dx) + std::llabs(dy);
+
+      if (dist < best_dist) {
+        best_dist = dist;
+        best_x = x;
+        best_y = y;
+      }
+    }
+
+    if (best_x >= 0) {
+      debugPrint(logger,
+                 utl::GPL,
+                 "io_constraint",
+                 2,
+                 "D: {} projected to die edge avoiding excluded: ({}, {})",
+                 bTerm->getConstName(),
+                 best_x,
+                 best_y);
+      return {best_x, best_y};
+    } else {
+      debugPrint(logger,
+                 utl::GPL,
+                 "io_constraint",
+                 2,
+                 "E: {} unconstrained but no valid edge available → Ignored.",
+                 bTerm->getConstName());
+      return {0, 0};
+    }
+  }
+
+  debugPrint(logger,
+             utl::GPL,
+             "io_constraint",
+             2,
+             "F: {} This should never happen.",
+             bTerm->getConstName());
+  return {0, 0};
+}
 }  // namespace gpl
