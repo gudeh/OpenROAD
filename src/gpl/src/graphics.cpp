@@ -135,10 +135,9 @@ void Graphics::drawBTermPins(gui::Painter& painter,
       = {gui::Painter::kGreen,
          gui::Painter::kBlue,
          gui::Painter::kCyan,
-         gui::Painter::kMagenta,
          gui::Painter::kTeal,
          gui::Painter::kPink,
-         gui::Painter::kTurquoise};
+         gui::Painter::kIndigo};
 
   size_t color_idx = 0;
 
@@ -186,7 +185,7 @@ void Graphics::drawBTermPins(gui::Painter& painter,
       case Status::ODB_PLACED:
         return gui::Painter::kWhite;
       case Status::PROJECTED:
-        return gui::Painter::kDarkMagenta;
+        return gui::Painter::kOrange;
       case Status::CONSTRAINT_REGION: {
         auto region_constraint = pin->getDbBTerm()->getConstraintRegion();
         if (region_constraint.has_value()) {
