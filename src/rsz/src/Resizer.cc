@@ -1148,6 +1148,17 @@ Instance* Resizer::bufferInput(const Pin* top_pin,
   Instance* parent = db_network_->topInstance();
   Net* buffer_out = db_network_->makeNet(parent);
   dbNet* buffer_out_flat_net = db_network_->flatNet(buffer_out);
+  
+  if (!db_network_->isPlaced(top_pin)) {
+    if (verbose) {
+      logger_->info(RSZ,
+                    216,
+                    "Skipping input port {} buffering: unplaced I/O bterm.",
+                    network_->name(top_pin));
+    }
+    return nullptr;
+  }
+
   Point pin_loc = db_network_->location(top_pin);
   Instance* buffer = makeBuffer(buffer_cell, "input", parent, pin_loc);
   inserted_buffer_count_++;
@@ -1311,6 +1322,17 @@ void Resizer::bufferOutput(const Pin* top_pin,
 
   db_network_->staToDb(
       top_pin, top_pin_op_iterm, top_pin_op_bterm, top_pin_op_moditerm);
+
+
+  if (!db_network_->isPlaced(top_pin)) {
+    if (verbose) {
+      logger_->info(RSZ,
+                    217,
+                    "Skipping output port {} buffering: unplaced I/O bterm.",
+                    network_->name(top_pin));
+    }
+    return;
+  }
 
   odb::dbNet* flat_op_net = top_pin_op_bterm->getNet();
   odb::dbModNet* hier_op_net = top_pin_op_bterm->getModNet();
