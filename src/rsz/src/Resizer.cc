@@ -1149,17 +1149,10 @@ Instance* Resizer::bufferInput(const Pin* top_pin,
   Net* buffer_out = db_network_->makeNet(parent);
   dbNet* buffer_out_flat_net = db_network_->flatNet(buffer_out);
   
-  if (!db_network_->isPlaced(top_pin)) {
-    if (verbose) {
-      logger_->info(RSZ,
-                    216,
-                    "Skipping input port {} buffering: unplaced I/O bterm.",
-                    network_->name(top_pin));
-    }
-    return nullptr;
+  std::optional<Point> pin_loc;
+  if (db_network_->isPlaced(top_pin)) {
+    pin_loc = db_network_->location(top_pin);
   }
-
-  Point pin_loc = db_network_->location(top_pin);
   Instance* buffer = makeBuffer(buffer_cell, "input", parent, pin_loc);
   inserted_buffer_count_++;
 
@@ -1323,17 +1316,6 @@ void Resizer::bufferOutput(const Pin* top_pin,
   db_network_->staToDb(
       top_pin, top_pin_op_iterm, top_pin_op_bterm, top_pin_op_moditerm);
 
-
-  if (!db_network_->isPlaced(top_pin)) {
-    if (verbose) {
-      logger_->info(RSZ,
-                    217,
-                    "Skipping output port {} buffering: unplaced I/O bterm.",
-                    network_->name(top_pin));
-    }
-    return;
-  }
-
   odb::dbNet* flat_op_net = top_pin_op_bterm->getNet();
   odb::dbModNet* hier_op_net = top_pin_op_bterm->getModNet();
 
@@ -1346,7 +1328,10 @@ void Resizer::bufferOutput(const Pin* top_pin,
   Instance* parent = network->topInstance();
   Net* buffer_out = db_network_->makeNet(parent);
 
-  Point pin_loc = db_network_->location(top_pin);
+  std::optional<Point> pin_loc;
+  if (db_network_->isPlaced(top_pin)) {
+    pin_loc = db_network_->location(top_pin);
+  }
   // buffer made in top level.
   Instance* buffer = makeBuffer(buffer_cell, "output", parent, pin_loc);
   inserted_buffer_count_++;
@@ -4423,7 +4408,7 @@ void Resizer::getBufferPins(Instance* buffer, Pin*& ip, Pin*& op)
 Instance* Resizer::makeBuffer(LibertyCell* cell,
                               const char* name,
                               Instance* parent,
-                              const Point& loc)
+                              std::optional<Point> loc)
 {
   Instance* inst = makeInstance(cell, name, parent, loc);
   journalMakeBuffer(inst);
@@ -4435,9 +4420,8 @@ Instance* Resizer::makeBuffer(LibertyCell* cell,
 Instance* Resizer::makeInstance(LibertyCell* cell,
                                 const char* name,
                                 Instance* parent,
-                                const Point& loc,
-                                const odb::dbNameUniquifyType& uniquify)
-{
+                                std::optional<Point> loc,
+                                const odb::dbNameUniquifyType& uniquify) {
   debugPrint(logger_, RSZ, "make_instance", 1, "make instance {}", name);
 
   // make new instance name
@@ -4449,14 +4433,18 @@ Instance* Resizer::makeInstance(LibertyCell* cell,
   Instance* inst = db_network_->makeInstance(cell, full_name.c_str(), parent);
   dbInst* db_inst = db_network_->staToDb(inst);
   db_inst->setSourceType(odb::dbSourceType::TIMING);
-  setLocation(db_inst, loc);
-  // Legalize the position of the instance in case it leaves the die
-  if (estimate_parasitics_->getParasiticsSrc()
-          == est::ParasiticsSrc::global_routing
-      || estimate_parasitics_->getParasiticsSrc()
-             == est::ParasiticsSrc::detailed_routing) {
-    opendp_->legalCellPos(db_inst);
+
+  if (loc.has_value()) {
+    setLocation(db_inst, *loc);
+    // Legalize only if we actually set a location.
+    if (estimate_parasitics_->getParasiticsSrc() == est::ParasiticsSrc::global_routing ||
+        estimate_parasitics_->getParasiticsSrc() == est::ParasiticsSrc::detailed_routing) {
+      opendp_->legalCellPos(db_inst);
+    }
+  } else {
+    db_inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
   }
+
   designAreaIncr(area(db_inst->getMaster()));
   return inst;
 }

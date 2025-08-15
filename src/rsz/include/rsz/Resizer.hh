@@ -626,7 +626,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   Instance* makeInstance(LibertyCell* cell,
                          const char* name,
                          Instance* parent,
-                         const Point& loc,
+                         std::optional<Point> loc,
                          const odb::dbNameUniquifyType& uniquify
                          = odb::dbNameUniquifyType::ALWAYS);
   void getBufferPins(Instance* buffer, Pin*& ip_pin, Pin*& op_pin);
@@ -634,7 +634,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   Instance* makeBuffer(LibertyCell* cell,
                        const char* name,
                        Instance* parent,
-                       const Point& loc);
+                       std::optional<Point> loc);
   void setLocation(dbInst* db_inst, const Point& pt);
   LibertyCell* findTargetCell(LibertyCell* cell,
                               float load_cap,
