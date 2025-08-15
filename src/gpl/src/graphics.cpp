@@ -127,7 +127,14 @@ void Graphics::drawBTermPins(gui::Painter& painter,
                              bool nbc_mode,
                              bool draw_bterm_connections)
 {
-  const int radius = 2000;
+  // Make bterm_radius dynamic as a proportion of the die area
+  const auto& die = pbc_->getDie();
+  int die_width = die.coreUx() - die.coreLx();
+  int die_height = die.coreUy() - die.coreLy();
+  double die_area = static_cast<double>(die_width) * die_height;
+  // Use a small proportion (e.g., 0.001) of the average die dimension
+  int bterm_radius = static_cast<int>(0.01 * std::sqrt(die_area / M_PI));
+  bterm_radius = std::max(bterm_radius, 10);  // Minimum radius for visibility
 
   // Unique constraint regions and associated color
   std::vector<std::pair<odb::Rect, gui::Painter::Color>> region_color_map;
@@ -206,7 +213,7 @@ void Graphics::drawBTermPins(gui::Painter& painter,
   auto drawBTermCircle = [&](int cx, int cy, gui::Painter::Color color) {
     painter.setPen(color, true);
     painter.setBrush(color);
-    painter.drawCircle(cx, cy, radius);
+    painter.drawCircle(cx, cy, bterm_radius);
   };
 
   // Draw Pin (PlacerBase)
