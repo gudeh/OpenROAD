@@ -157,7 +157,19 @@ void InitialPlace::placeInstsCenter()
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
     } else {
-      inst->setCenterLocation(center_x, center_y);
+      // inst->setCenterLocation(center_x, center_y);
+      // ++count_core_center;
+
+            //TODO for now center is actually random
+      int core_x_min = pbc_->getDie().coreLx();
+      int core_y_min = pbc_->getDie().coreLy();
+      int core_x_max = pbc_->getDie().coreUx();
+      int core_y_max = pbc_->getDie().coreUy();
+
+      int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
+      int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
+
+      inst->setCenterLocation(rand_x, rand_y);
       ++count_core_center;
     }
   }
