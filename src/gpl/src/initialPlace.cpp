@@ -124,6 +124,7 @@ void InitialPlace::placeInstsCenter()
   int count_region_center = 0;
   int count_db_location = 0;
   int count_core_center = 0;
+  int copunt_random_init = 0;
 
   for (auto& inst : pbc_->placeInsts()) {
     if (inst->isLocked()) {
@@ -156,21 +157,20 @@ void InitialPlace::placeInstsCenter()
       const auto bbox = db_inst->getBBox()->getBox();
       inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
       ++count_db_location;
-    } else {
-      // inst->setCenterLocation(center_x, center_y);
-      // ++count_core_center;
-
-            //TODO for now center is actually random
-      int core_x_min = pbc_->getDie().coreLx();
-      int core_y_min = pbc_->getDie().coreLy();
-      int core_x_max = pbc_->getDie().coreUx();
-      int core_y_max = pbc_->getDie().coreUy();
-
-      int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
-      int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
-
-      inst->setCenterLocation(rand_x, rand_y);
+    } else {    
+      inst->setCenterLocation(center_x, center_y);
       ++count_core_center;
+
+      // int core_x_min = pbc_->getDie().coreLx();
+      // int core_y_min = pbc_->getDie().coreLy();
+      // int core_x_max = pbc_->getDie().coreUx();
+      // int core_y_max = pbc_->getDie().coreUy();
+
+      // int rand_x = core_x_min + std::rand() % (core_x_max - core_x_min);
+      // int rand_y = core_y_min + std::rand() % (core_y_max - core_y_min);
+
+      // inst->setCenterLocation(rand_x, rand_y);
+      // ++copunt_random_init;
     }
   }
 
