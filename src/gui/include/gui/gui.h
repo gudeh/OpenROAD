@@ -597,7 +597,7 @@ class Gui
   void clearHighlights(int highlight_group = 0);
   void clearRulers();
 
-  //allow for pausing of gui updates to speed up select calls
+  // Allow for pausing of gui updates to speed up select calls
   void pauseGuiUpdates(int val);
   int getGuiPauseState();
 
