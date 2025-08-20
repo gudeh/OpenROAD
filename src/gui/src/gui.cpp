@@ -411,6 +411,7 @@ void Gui::deleteRuler(const std::string& name)
 void Gui::pauseGuiUpdates(int val)
 {
   main_window->setPauseSelectUpdates(val > 0);
+  main_window->redraw();
 }
 
 int Gui::getGuiPauseState()
