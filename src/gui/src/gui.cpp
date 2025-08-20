@@ -408,6 +408,17 @@ void Gui::deleteRuler(const std::string& name)
   main_window->deleteRuler(name);
 }
 
+void Gui::pauseGuiUpdates(int val)
+{
+  main_window->setPauseSelectUpdates(val > 0);
+  main_window->redraw();
+}
+
+int Gui::getGuiPauseState()
+{
+  return main_window->getPauseSelectUpdates();
+}
+
 /**
  * @brief Checks if a Qt wildcard pattern is a simple literal string.
  *

@@ -597,6 +597,10 @@ class Gui
   void clearHighlights(int highlight_group = 0);
   void clearRulers();
 
+  // Allow for pausing of gui updates to speed up select calls
+  void pauseGuiUpdates(int val);
+  int getGuiPauseState();
+
   int select(const std::string& type,
              const std::string& name_filter = "",
              const std::string& attribute = "",
