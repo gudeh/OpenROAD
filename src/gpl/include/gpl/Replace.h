@@ -30,6 +30,10 @@ namespace rsz {
 class Resizer;
 }
 
+namespace ppl {
+class IOPlacer;
+}
+
 namespace utl {
 class Logger;
 }
@@ -43,6 +47,7 @@ class NesterovBaseCommon;
 class NesterovBase;
 class RouteBase;
 class TimingBase;
+class IOPlacerBase;
 
 class InitialPlace;
 class NesterovPlace;
@@ -60,6 +65,7 @@ class Replace
             sta::dbSta* sta,
             rsz::Resizer* resizer,
             grt::GlobalRouter* router,
+            ppl::IOPlacer* ioPlacer,
             utl::Logger* logger);
   void reset();
 
@@ -134,6 +140,7 @@ class Replace
   odb::dbDatabase* db_ = nullptr;
   sta::dbSta* sta_ = nullptr;
   rsz::Resizer* rs_ = nullptr;
+  ppl::IOPlacer* ppl_ = nullptr;
   grt::GlobalRouter* fr_ = nullptr;
   utl::Logger* log_ = nullptr;
 
@@ -142,6 +149,7 @@ class Replace
   std::vector<std::shared_ptr<PlacerBase>> pbVec_;
   std::vector<std::shared_ptr<NesterovBase>> nbVec_;
   std::shared_ptr<RouteBase> rb_;
+  std::shared_ptr<IOPlacerBase> pplb_;
   std::shared_ptr<TimingBase> tb_;
 
   std::unique_ptr<InitialPlace> ip_;

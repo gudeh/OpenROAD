@@ -26,12 +26,13 @@ void initReplace(gpl::Replace* replace,
                  sta::dbSta* sta,
                  rsz::Resizer* resizer,
                  grt::GlobalRouter* global_route,
+                 ppl::IOPlacer* ppl,
                  utl::Logger* logger,
                  Tcl_Interp* tcl_interp)
 {
   Gpl_Init(tcl_interp);
   utl::evalTclInit(tcl_interp, gpl::gpl_tcl_inits);
-  replace->init(db, sta, resizer, global_route, logger);
+  replace->init(db, sta, resizer, global_route, ppl, logger);
 }
 
 void deleteReplace(gpl::Replace* replace)

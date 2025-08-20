@@ -19,6 +19,7 @@
 #include "routeBase.h"
 #include "timingBase.h"
 #include "utl/Logger.h"
+#include "ppl/IOPlacer.h"
 
 namespace gpl {
 using utl::GPL;
@@ -32,6 +33,7 @@ NesterovPlace::NesterovPlace(const NesterovPlaceVars& npVars,
                              std::vector<std::shared_ptr<NesterovBase>>& nbVec,
                              std::shared_ptr<RouteBase> rb,
                              std::shared_ptr<TimingBase> tb,
+                             std::shared_ptr<IOPlacerBase> pplb,
                              utl::Logger* log)
     : NesterovPlace()
 {
@@ -42,6 +44,7 @@ NesterovPlace::NesterovPlace(const NesterovPlaceVars& npVars,
   nbVec_ = nbVec;
   rb_ = std::move(rb);
   tb_ = std::move(tb);
+  pplb_ = std::move(pplb);
   log_ = log;
 
   db_cbk_ = std::make_unique<nesterovDbCbk>(this);
@@ -988,8 +991,9 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
     const float coeff = (prevA - 1.0) / curA;
 
     nbc_->reloadGPinIOLocations();
+    // TODO: make intializations for ppl, set layers for vertical and horizontal
+    // pplb_->getIOPlacer()->runHungarianMatching();
     doBackTracking(coeff);
-
     // Adjust Phi dynamically for larger designs
     for (auto& nb : nbVec_) {
       nb->nesterovAdjustPhi();

@@ -17,6 +17,11 @@ class Resizer;
 namespace grt {
 class GlobalRouter;
 }
+
+namespace ppl {
+class IOPlacer;
+}
+
 namespace utl {
 class Logger;
 }
@@ -32,6 +37,7 @@ void initReplace(gpl::Replace* replace,
                  sta::dbSta* sta,
                  rsz::Resizer* resizer,
                  grt::GlobalRouter* global_route,
+                 ppl::IOPlacer* ppl,
                  utl::Logger* logger,
                  Tcl_Interp* tcl_interp);
 

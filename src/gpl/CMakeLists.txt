@@ -59,6 +59,7 @@ target_link_libraries(gpl
     OpenSTA
     rsz
     grt
+    ppl
     ortools::ortools
     Threads::Threads
     OpenMP::OpenMP_CXX
@@ -88,6 +89,7 @@ if (Python3_FOUND AND BUILD_PYTHON)
       OpenSTA
       rsz
       grt
+      ppl
   )
 
 endif()

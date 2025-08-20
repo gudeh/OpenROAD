@@ -29,6 +29,7 @@ class Instance;
 class RouteBase;
 class TimingBase;
 class Graphics;
+class IOPlacerBase;
 
 class NesterovPlace
 {
@@ -39,8 +40,9 @@ class NesterovPlace
                 const std::shared_ptr<NesterovBaseCommon>& nbc,
                 std::vector<std::shared_ptr<PlacerBase>>& pbVec,
                 std::vector<std::shared_ptr<NesterovBase>>& nbVec,
-                std::shared_ptr<RouteBase> rb,
+                std::shared_ptr<RouteBase> rb,                
                 std::shared_ptr<TimingBase> tb,
+                std::shared_ptr<IOPlacerBase> pplb,
                 utl::Logger* log);
   ~NesterovPlace();
 
@@ -127,6 +129,7 @@ class NesterovPlace
   utl::Logger* log_ = nullptr;
   std::shared_ptr<RouteBase> rb_;
   std::shared_ptr<TimingBase> tb_;
+  std::shared_ptr<IOPlacerBase> pplb_;
   NesterovPlaceVars npVars_;
   std::unique_ptr<Graphics> graphics_;
 
@@ -194,6 +197,31 @@ class nesterovDbCbk : public odb::dbBlockCallBackObj
 
  private:
   NesterovPlace* nesterov_place_;
+};
+
+class IOPlacerBase
+{
+ public:
+  IOPlacerBase(odb::dbDatabase* db, ppl::IOPlacer* io_placer, utl::Logger* logger)
+      : db_(db), io_placer_(io_placer), log_(logger)
+  {
+    if (log_) {
+      log_->info(utl::GPL, 9999, "Initializing IOPlacerBase.");
+    }
+  }
+
+  ~IOPlacerBase()
+  {
+    if (log_) {
+      log_->info(utl::GPL, 9998, "Destroying IOPlacerBase.");
+    }
+  }
+  ppl::IOPlacer* getIOPlacer() { return io_placer_; }
+
+ private:
+  odb::dbDatabase* db_ = nullptr;
+  ppl::IOPlacer* io_placer_ = nullptr;
+  utl::Logger* log_ = nullptr;
 };
 
 }  // namespace gpl

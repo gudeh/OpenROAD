@@ -35,12 +35,14 @@ void Replace::init(odb::dbDatabase* odb,
                    sta::dbSta* sta,
                    rsz::Resizer* resizer,
                    grt::GlobalRouter* router,
+                   ppl::IOPlacer* io_placer,
                    utl::Logger* logger)
 {
   db_ = odb;
   sta_ = sta;
   rs_ = resizer;
   fr_ = router;
+  ppl_ = io_placer;
   log_ = logger;
 }
 
@@ -300,6 +302,10 @@ bool Replace::initNesterovPlace(int threads)
     rb_ = std::make_shared<RouteBase>(rbVars, db_, fr_, nbc_, nbVec_, log_);
   }
 
+  if(!pplb_) {
+    pplb_ = std::make_shared<IOPlacerBase>(db_, ppl_, log_);
+  }
+
   if (!tb_) {
     tb_ = std::make_shared<TimingBase>(nbc_, rs_, log_);
     tb_->setTimingNetWeightOverflows(timingNetWeightOverflows_);
@@ -335,7 +341,7 @@ bool Replace::initNesterovPlace(int threads)
     }
 
     std::unique_ptr<NesterovPlace> np(
-        new NesterovPlace(npVars, pbc_, nbc_, pbVec_, nbVec_, rb_, tb_, log_));
+        new NesterovPlace(npVars, pbc_, nbc_, pbVec_, nbVec_, rb_, tb_, pplb_, log_));
 
     np_ = std::move(np);
   }
