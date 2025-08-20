@@ -141,9 +141,12 @@ void Instance::setLocation(int x, int y)
   lx_ = x;
   ly_ = y;
 
-  // pins update
+  // pins update  
   for (auto& pin : pins_) {
-    pin->updateLocation(this);
+    //TODO instances should not have bterms anyway, so this might not be needed
+    if(!pin->isBTerm()) {
+      pin->updateLocation(this);
+    }
   }
 }
 
@@ -158,7 +161,10 @@ void Instance::setCenterLocation(int x, int y)
 
   // pins update
   for (auto& pin : pins_) {
-    pin->updateLocation(this);
+    //TODO instances should not have bterms anyway, so this might not be needed
+      if(!pin->isBTerm()) {
+       pin->updateLocation(this);
+    }
   }
 }
 
@@ -482,7 +488,7 @@ void Pin::updatePinCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 
   odb::Rect net_bbox;
   if (net_) {
-    net_->updateBox(logger, true);
+    net_->updateBox(logger, /*ignore_bterms=*/true);
     net_bbox = net_->getBBox();
     std::tie(cx_, cy_) = gpl::computeIOCoordi(bTerm, net_bbox, this, logger);
   } else {
@@ -499,15 +505,15 @@ void PlacerBaseCommon::initiateBtermsPosition()
 {
   std::map<Pin::BTermPlacementStatus, int> bterm_status_counts;
 
-  for (Pin& pin : pinStor_) {
-    if (pin.isBTerm()) {
-      pin.updatePinCoordi(pin.getDbBTerm(), log_);
-      auto status = pin.getBTermStatus();
-      if (status.has_value()) {
-        bterm_status_counts[status.value()]++;
-      }
-    }
-  }
+  // for (Pin& pin : pinStor_) {
+  //   if (pin.isBTerm()) {
+  //     pin.updatePinCoordi(pin.getDbBTerm(), log_);
+  //     auto status = pin.getBTermStatus();
+  //     if (status.has_value()) {
+  //       bterm_status_counts[status.value()]++;
+  //     }
+  //   }
+  // }
 
   for (const auto& [status, count] : bterm_status_counts) {
     const char* label;
@@ -1027,9 +1033,9 @@ void PlacerBaseCommon::init()
     for (dbITerm* iTerm : pb_net.getDbNet()->getITerms()) {
       pb_net.addPin(dbToPb(iTerm));
     }
-    for (dbBTerm* bTerm : pb_net.getDbNet()->getBTerms()) {
-      pb_net.addPin(dbToPb(bTerm));
-    }
+    // for (dbBTerm* bTerm : pb_net.getDbNet()->getBTerms()) {
+    //   pb_net.addPin(dbToPb(bTerm));
+    // }
     nets_.push_back(&pb_net);
   }
 }
@@ -1056,7 +1062,7 @@ int64_t PlacerBaseCommon::getHpwl() const
 {
   int64_t hpwl = 0;
   for (auto& net : nets_) {
-    net->updateBox(log_, /*ignore_bterms =*/false);
+    net->updateBox(log_, /*ignore_bterms =*/true);
     hpwl += net->getHpwl();
   }
   return hpwl;

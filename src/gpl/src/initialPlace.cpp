@@ -124,7 +124,7 @@ void InitialPlace::placeInstsCenter()
   int count_region_center = 0;
   int count_db_location = 0;
   int count_core_center = 0;
-  int copunt_random_init = 0;
+  // int copunt_random_init = 0;
 
   for (auto& inst : pbc_->placeInsts()) {
     if (inst->isLocked()) {
@@ -215,6 +215,9 @@ void InitialPlace::updatePinInfo()
 
     // Mark B2B info on Pin structures
     for (auto& pin : net->getPins()) {
+      if (pin->isBTerm()) {
+        continue;
+      }
       if (lx > pin->cx()) {
         if (pinMinX) {
           pinMinX->unsetMinPinX();
@@ -310,9 +313,15 @@ void InitialPlace::createSparseMatrix()
     auto& pins = net->getPins();
     for (int pinIdx1 = 1; pinIdx1 < pins.size(); ++pinIdx1) {
       Pin* pin1 = pins[pinIdx1];
+      if(pin1->isBTerm()) {
+        continue;
+      }
+
       for (int pinIdx2 = 0; pinIdx2 < pinIdx1; ++pinIdx2) {
         Pin* pin2 = pins[pinIdx2];
-
+        if(pin2->isBTerm()) {
+          continue;
+        }
         // no need to fill in when instance is same
         if (pin1->getInstance() == pin2->getInstance()) {
           continue;
@@ -443,11 +452,11 @@ void InitialPlace::updateCoordi()
     }
   }
 
-  for (auto& pbc_pin : pbc_->getPins()) {
-    if (pbc_pin->isBTerm()) {
-      pbc_pin->updatePinCoordi(pbc_pin->getDbBTerm(), log_);
-    }
-  }
+  // for (auto& pbc_pin : pbc_->getPins()) {
+  //   if (pbc_pin->isBTerm()) {
+  //     pbc_pin->updatePinCoordi(pbc_pin->getDbBTerm(), log_);
+  //   }
+  // }
 }
 
 }  // namespace gpl
