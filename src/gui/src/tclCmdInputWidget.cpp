@@ -2,12 +2,15 @@
 // Copyright (c) 2021-2025, The OpenROAD Authors
 
 #include "tclCmdInputWidget.h"
+#include <qchar.h>
+#include <qnamespace.h>
 
 #include <QAbstractItemView>
 #include <QCoreApplication>
 #include <QMimeData>
 #include <QScrollBar>
 #include <QTextStream>
+#include <cstddef>
 #include <functional>
 #include <regex>
 #include <string>
@@ -80,10 +83,10 @@ void TclCmdInputWidget::setTclInterp(Tcl_Interp* interp,
     // OpenRoad is not initialized
     emit commandAboutToExecute();
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    const bool setup_tcl_result = ord::tclInit(interp_) == TCL_OK;
+    const int setup_tcl_result = ord::tclInit(interp_);
     post_or_init();
     processTclResult(setup_tcl_result);
-    emit commandFinishedExecuting(setup_tcl_result);
+    emit commandFinishedExecuting(setup_tcl_result == TCL_OK);
   } else {
     post_or_init();
   }
@@ -676,7 +679,7 @@ void TclCmdInputWidget::executeCommand(const QString& cmd,
 
   if (!silent) {
     // Show its output
-    processTclResult(is_ok);
+    processTclResult(return_code);
 
     if (is_ok) {
       // record the successful command to tcl history command
@@ -686,16 +689,33 @@ void TclCmdInputWidget::executeCommand(const QString& cmd,
   } else {
     if (!is_ok) {
       // Show output on error despite silent
-      processTclResult(is_ok);
+      processTclResult(return_code);
     }
   }
 
   emit commandFinishedExecuting(is_ok);
 }
 
-void TclCmdInputWidget::processTclResult(bool is_ok)
+void TclCmdInputWidget::processTclResult(int tcl_result)
 {
-  emit addResultToOutput(Tcl_GetString(Tcl_GetObjResult(interp_)), is_ok);
+  bool is_ok = (tcl_result == TCL_OK);
+  emit addResultToOutput(QString::fromStdString(Tcl_GetString(Tcl_GetObjResult(interp_))), is_ok);
+
+  if(!is_ok) {
+    Tcl_Obj *stackTrace = nullptr;
+    //int errline = Tcl_GetErrorLine(interp_);
+    Tcl_Obj *options = Tcl_GetReturnOptions(interp_, tcl_result);
+    Tcl_Obj *key = Tcl_NewStringObj("-errorinfo", -1);
+    Tcl_IncrRefCount(key);
+    Tcl_DictObjGet(nullptr, options, key, &stackTrace);
+    Tcl_DecrRefCount(key);
+
+    const char *result_msg = Tcl_GetString(stackTrace);
+
+    emit addTextToOutput(QString::fromStdString(result_msg), Qt::red);
+
+    Tcl_DecrRefCount(options);
+  }
 }
 
 }  // namespace gui
