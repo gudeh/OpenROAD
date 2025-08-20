@@ -1086,7 +1086,7 @@ void MainWindow::addSelected(const SelectionSet& selections, bool find_in_cts)
   }
   status(std::string("Added ")
          + std::to_string(selected_.size() - prev_selected_size));
-  if(!pause_window_updates_) {
+  if (!pause_window_updates_) {
     emit selectionChanged();
   }
 
@@ -1133,7 +1133,7 @@ void MainWindow::addHighlighted(const SelectionSet& highlights,
     }
   }
 
-  if(!pause_window_updates_) {
+  if (!pause_window_updates_) {
     emit highlightChanged();
   }
 }
