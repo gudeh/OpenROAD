@@ -309,16 +309,16 @@ int64_t Node::area() const
   dbMaster* master = getDbInst()->getMaster();
   return int64_t(master->getWidth()) * master->getHeight();
 }
-const char* Node::name() const
+std::string Node::name() const
 {
   if (type_ == CELL) {
-    return getDbInst()->getConstName();
+    return getDbInst()->getName();
   }
   if (type_ == TERMINAL) {
-    return getBTerm()->getConstName();
+    return getBTerm()->getName();
   }
   if (type_ == FILLER) {
-    return fmt::format("FILLER_{}", id_).c_str();
+    return fmt::format("FILLER_{}", id_);
   }
   return "";
 }
@@ -385,6 +385,10 @@ int Node::getGroupId() const
 Rect Node::getBBox() const
 {
   return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
+}
+uint8_t Node::getUsedLayers() const
+{
+  return used_layers_;
 }
 bool Node::isToBeRemoved() const
 {
@@ -483,6 +487,10 @@ void Node::addPin(Pin* pin)
 void Node::setGroupId(int id)
 {
   group_id_ = id;
+}
+void Node::addUsedLayer(int layer)
+{
+  used_layers_ |= 1 << layer;
 }
 void Node::setToBeRemoved(bool in)
 {

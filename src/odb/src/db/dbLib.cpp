@@ -98,7 +98,7 @@ _dbLib::_dbLib(_dbDatabase* db)
 {
   _lef_units = 0;
   _dbu_per_micron = 1000;
-  _hier_delimiter = 0;
+  _hier_delimiter = '/';
   _left_bus_delimiter = 0;
   _right_bus_delimiter = 0;
   _spare = 0;
@@ -301,8 +301,7 @@ dbLib* dbLib::create(dbDatabase* db_,
   }
   _dbDatabase* db = (_dbDatabase*) db_;
   _dbLib* lib = db->_lib_tbl->create();
-  lib->_name = strdup(name);
-  ZALLOCATED(lib->_name);
+  lib->_name = safe_strdup(name);
   lib->_hier_delimiter = hier_delimiter;
   lib->_dbu_per_micron = tech->getDbUnitsPerMicron();
   lib->_tech = tech->getId();

@@ -140,12 +140,6 @@ global_route(bool start_incremental, bool end_incremental)
   getGlobalRouter()->globalRoute(true, start_incremental, end_incremental);
 }
 
-void
-estimate_rc()
-{
-  getGlobalRouter()->estimateRC();
-}
-
 std::vector<int>
 route_layer_lengths(odb::dbNet* db_net)
 {
@@ -250,6 +244,11 @@ void write_segments(const char* file_name)
 void read_segments(const char* file_name)
 {
   getGlobalRouter()->readSegments(file_name);
+}
+
+void write_pin_locations(const char* file_name)
+{
+  getGlobalRouter()->writePinLocations(file_name);
 }
 
 } // namespace

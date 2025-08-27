@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2019-2025, The OpenROAD Authors
 
+#include <filesystem>
 #include <limits>
 #include <map>
 #include <vector>
 
-#include "grids.h"
 #include "parse.h"
 #include "rcx/extRCap.h"
 #include "rcx/extprocess.h"
+#include "rcx/grids.h"
 #include "utl/Logger.h"
 
 namespace rcx {
@@ -40,61 +41,91 @@ static double lineSegment(double X, double x1, double x2, double y1, double y2)
 
 void extDistRC::interpolate(uint d, extDistRC* rc1, extDistRC* rc2)
 {
-  _sep = d;
-  _coupling
-      = lineSegment(d, rc1->_sep, rc2->_sep, rc1->_coupling, rc2->_coupling);
-  _fringe = lineSegment(d, rc1->_sep, rc2->_sep, rc1->_fringe, rc2->_fringe);
-  _res = lineSegment(d, rc1->_sep, rc2->_sep, rc1->_res, rc2->_res);
+  sep_ = d;
+  coupling_
+      = lineSegment(d, rc1->sep_, rc2->sep_, rc1->coupling_, rc2->coupling_);
+  fringe_ = lineSegment(d, rc1->sep_, rc2->sep_, rc1->fringe_, rc2->fringe_);
+  res_ = lineSegment(d, rc1->sep_, rc2->sep_, rc1->res_, rc2->res_);
 }
 
 double extDistRC::interpolate_res(uint d, extDistRC* rc2)
 {
-  return lineSegment(d, _coupling, rc2->_coupling, _res, rc2->_res);
+  return lineSegment(d, coupling_, rc2->coupling_, res_, rc2->res_);
 }
 
 void extDistRC::set(uint d, double cc, double fr, double a, double r)
 {
-  _sep = d;
-  _coupling = cc;
-  _fringe = fr;
-  _diag = a;
-  _res = r;
+  sep_ = d;
+  coupling_ = cc;
+  fringe_ = fr;
+  diag_ = a;
+  res_ = r;
 }
 
 void extDistRC::readRC(Ath__parser* parser, double dbFactor)
 {
-  _sep = lround(dbFactor * 1000 * parser->getDouble(0));
-  _coupling = parser->getDouble(1) / dbFactor;
-  _fringe = parser->getDouble(2) / dbFactor;
-  _res = parser->getDouble(3) / dbFactor;
+  sep_ = lround(dbFactor * 1000 * parser->getDouble(0));
+  coupling_ = parser->getDouble(1) / dbFactor;
+  fringe_ = parser->getDouble(2) / dbFactor;
+  res_ = parser->getDouble(3) / dbFactor;
 }
 
 void extDistRC::readRC_res2(Ath__parser* parser, double dbFactor)
 {
-  _sep = lround(dbFactor * 1000 * parser->getDouble(1));
-  _coupling = lround(dbFactor * 1000 * parser->getDouble(0));
-  _fringe = parser->getDouble(2) / dbFactor;
-  _res = parser->getDouble(3) / dbFactor;
+  sep_ = lround(dbFactor * 1000 * parser->getDouble(1));
+  coupling_ = lround(dbFactor * 1000 * parser->getDouble(0));
+  fringe_ = parser->getDouble(2) / dbFactor;
+  res_ = parser->getDouble(3) / dbFactor;
 }
 
 double extDistRC::getCoupling()
 {
-  return _coupling;
+  return coupling_;
 }
 
 double extDistRC::getFringe()
 {
-  return _fringe;
+  return fringe_;
+}
+
+double extDistRC::getFringeW()
+{
+  return fringeW_;
 }
 
 double extDistRC::getDiag()
 {
-  return _diag;
+  return diag_;
 }
 
 double extDistRC::getRes()
 {
-  return _res;
+  return res_;
+}
+
+int extDistRC::getSep()
+{
+  return sep_;
+}
+
+void extDistRC::setCoupling(const double coupling)
+{
+  coupling_ = coupling;
+}
+
+void extDistRC::setRes(const double res)
+{
+  res_ = res;
+}
+
+void extDistRC::setFringe(double fringe)
+{
+  fringe_ = fringe;
+}
+
+void extDistRC::setFringeW(double fringew)
+{
+  fringeW_ = fringew;
 }
 
 void extDistRC::writeRC()
@@ -102,16 +133,16 @@ void extDistRC::writeRC()
   logger_->info(RCX,
                 208,
                 "{} {} {} {}  {}",
-                0.001 * _sep,
-                _coupling,
-                _fringe,
-                _res,
-                _coupling + _fringe);
+                0.001 * sep_,
+                coupling_,
+                fringe_,
+                res_,
+                coupling_ + fringe_);
 }
 
 void extDistRC::writeRC(FILE* fp, bool bin)
 {
-  fprintf(fp, "%g %g %g %g\n", 0.001 * _sep, _coupling, _fringe, _res);
+  fprintf(fp, "%g %g %g %g\n", 0.001 * sep_, coupling_, fringe_, res_);
 }
 
 void extRCTable::makeCapTableOver()
@@ -120,11 +151,9 @@ void extRCTable::makeCapTableOver()
 
   for (uint jj = 1; jj < _maxCnt1; jj++) {
     _inTable[jj] = new Ath__array1D<extDistRC*>*[jj];
-    _table[jj] = new Ath__array1D<extDistRC*>*[jj];
 
     for (uint kk = 0; kk < jj; kk++) {
       _inTable[jj][kk] = new Ath__array1D<extDistRC*>(32);
-      _table[jj][kk] = new Ath__array1D<extDistRC*>(512);
     }
   }
 }
@@ -134,15 +163,12 @@ void extRCTable::makeCapTableUnder()
   _over = false;
   for (uint jj = 1; jj < _maxCnt1; jj++) {
     _inTable[jj] = new Ath__array1D<extDistRC*>*[_maxCnt1];
-    _table[jj] = new Ath__array1D<extDistRC*>*[_maxCnt1];
 
-    for (uint ii = 0; ii < jj; ii++) {
+    for (uint ii = 0; ii <= jj; ii++) {
       _inTable[jj][ii] = nullptr;
-      _table[jj][ii] = nullptr;
     }
     for (uint kk = jj + 1; kk < _maxCnt1; kk++) {
       _inTable[jj][kk] = new Ath__array1D<extDistRC*>(32);
-      _table[jj][kk] = new Ath__array1D<extDistRC*>(512);
     }
   }
 }
@@ -150,15 +176,30 @@ void extRCTable::makeCapTableUnder()
 extDistRCTable::extDistRCTable(uint distCnt)
 {
   uint n = 16 * (distCnt / 16 + 1);
-  _measureTable = new Ath__array1D<extDistRC*>(n);
+  measureTable_ = new Ath__array1D<extDistRC*>(n);
+  measureInR_ = false;
 
-  _computeTable = nullptr;
+  computeTable_ = nullptr;
+
+  for (int i = 0; i < 16; i++) {
+    measureTableR_[i] = nullptr;
+    computeTableR_[i] = nullptr;
+  }
 }
 
 extDistRCTable::~extDistRCTable()
 {
-  delete _measureTable;
-  delete _computeTable;
+  delete measureTable_;
+  delete computeTable_;
+
+  for (int i = 0; i < 16; i++) {
+    if (measureTableR_[i] != measureTable_) {
+      delete measureTableR_[i];
+    }
+    if (computeTableR_[i] != computeTable_) {
+      delete computeTableR_[i];
+    }
+  }
 }
 
 uint extDistRCTable::mapExtrapolate(uint loDist,
@@ -168,19 +209,19 @@ uint extDistRCTable::mapExtrapolate(uint loDist,
 {
   uint cnt = 0;
   uint d1 = loDist;
-  uint d2 = rc2->_sep;
+  uint d2 = rc2->sep_;
 
   for (uint d = d1; d <= d2; d += distUnit) {
     extDistRC* rc = rcPool->alloc();
 
-    rc->_sep = d;
-    rc->_coupling = rc2->_coupling;
-    rc->_fringe = rc2->_fringe;
-    rc->_res = rc2->_res;
+    rc->sep_ = d;
+    rc->coupling_ = rc2->coupling_;
+    rc->fringe_ = rc2->fringe_;
+    rc->res_ = rc2->res_;
 
     uint n = d / distUnit;
 
-    _computeTable->set(n, rc);
+    computeTable_->set(n, rc);
 
     cnt++;
   }
@@ -194,8 +235,8 @@ uint extDistRCTable::mapInterpolate(extDistRC* rc1,
                                     AthPool<extDistRC>* rcPool)
 {
   uint cnt = 0;
-  uint d1 = rc1->_sep;
-  uint d2 = rc2->_sep;
+  uint d1 = rc1->sep_;
+  uint d2 = rc2->sep_;
 
   if ((int) d2 > maxDist) {
     d2 = maxDist;
@@ -204,12 +245,12 @@ uint extDistRCTable::mapInterpolate(extDistRC* rc1,
   for (uint d = d1; d <= d2; d += distUnit) {
     extDistRC* rc = rcPool->alloc();
 
-    rc->_sep = d;
-    rc->interpolate(rc->_sep, rc1, rc2);
+    rc->sep_ = d;
+    rc->interpolate(rc->sep_, rc1, rc2);
 
     uint n = d / distUnit;
 
-    _computeTable->set(n, rc);
+    computeTable_->set(n, rc);
 
     cnt++;
   }
@@ -220,47 +261,47 @@ uint extDistRCTable::interpolate(uint distUnit,
                                  int maxDist,
                                  AthPool<extDistRC>* rcPool)
 {
-  uint cnt = _measureTable->getCnt();
+  uint cnt = measureTable_->getCnt();
   uint Cnt = cnt;
   if (cnt == 0) {
     return 0;
   }
 
   if (maxDist < 0) {
-    extDistRC* lastRC = _measureTable->get(cnt - 1);
-    maxDist = lastRC->_sep;
+    extDistRC* lastRC = measureTable_->get(cnt - 1);
+    maxDist = lastRC->sep_;
     if (maxDist == 100000) {
-      maxDist = _measureTable->get(cnt - 2)->_sep;
+      maxDist = measureTable_->get(cnt - 2)->sep_;
       if (maxDist == 99000) {
-        maxDist = _measureTable->get(cnt - 3)->_sep;
+        maxDist = measureTable_->get(cnt - 3)->sep_;
         Cnt = cnt - 2;
       } else {
         Cnt = cnt - 1;
       }
       extDistRC* rc31 = rcPool->alloc();
       rc31->set(0, 0.0, 0.0, 0.0, 0.0);
-      _measureTable->set(31, rc31);
+      measureTable_->set(31, rc31);
     }
   }
 
   makeComputeTable(maxDist, distUnit);
 
-  mapExtrapolate(0, _measureTable->get(0), distUnit, rcPool);
+  mapExtrapolate(0, measureTable_->get(0), distUnit, rcPool);
 
   for (uint ii = 0; ii < Cnt - 1; ii++) {
-    extDistRC* rc1 = _measureTable->get(ii);
-    extDistRC* rc2 = _measureTable->get(ii + 1);
+    extDistRC* rc1 = measureTable_->get(ii);
+    extDistRC* rc2 = measureTable_->get(ii + 1);
 
     mapInterpolate(rc1, rc2, distUnit, maxDist, rcPool);
   }
   if (Cnt != cnt) {
-    extDistRC* rc1 = _measureTable->get(Cnt);
+    extDistRC* rc1 = measureTable_->get(Cnt);
     extDistRC* rc = rcPool->alloc();
-    rc->set(rc1->_sep, rc1->_coupling, rc1->_fringe, 0.0, rc1->_res);
-    _computeTable->set(_computeTable->getSize() - 1, rc);
+    rc->set(rc1->sep_, rc1->coupling_, rc1->fringe_, 0.0, rc1->res_);
+    computeTable_->set(computeTable_->getSize() - 1, rc);
   }
 
-  return _computeTable->getCnt();
+  return computeTable_->getCnt();
 }
 
 uint extDistRCTable::writeRules(FILE* fp,
@@ -274,7 +315,7 @@ uint extDistRCTable::writeRules(FILE* fp,
   if (cnt > 0) {
     extDistRC* rc1 = table->get(cnt - 1);
     if (rc1 != nullptr && modify_last_line) {
-      rc1->set(rc1->_sep, 0, rc1->_coupling + rc1->_fringe, 0.0, rc1->_res);
+      rc1->set(rc1->sep_, 0, rc1->coupling_ + rc1->fringe_, 0.0, rc1->res_);
     }
   }
 
@@ -314,9 +355,9 @@ uint extDistRCTable::writeDiagRules(FILE* fp,
 uint extDistRCTable::writeRules(FILE* fp, double w, bool compute, bool bin)
 {
   if (compute) {
-    return writeRules(fp, _computeTable, w, bin);
+    return writeRules(fp, computeTable_, w, bin);
   }
-  return writeRules(fp, _measureTable, w, bin);
+  return writeRules(fp, measureTable_, w, bin);
 }
 
 uint extDistRCTable::writeDiagRules(FILE* fp,
@@ -327,9 +368,9 @@ uint extDistRCTable::writeDiagRules(FILE* fp,
                                     bool bin)
 {
   if (compute) {
-    return writeDiagRules(fp, _computeTable, w1, w2, s, bin);
+    return writeDiagRules(fp, computeTable_, w1, w2, s, bin);
   }
-  return writeDiagRules(fp, _measureTable, w1, w2, s, bin);
+  return writeDiagRules(fp, measureTable_, w1, w2, s, bin);
 }
 
 uint extMetRCTable::readRCstats(Ath__parser* parser)
@@ -432,6 +473,11 @@ uint extDistRCTable::readRules_res2(Ath__parser* parser,
     table = new Ath__array1D<extDistRC*>(cnt);
   }
 
+  if (!measureInR_) {
+    delete measureTable_;
+  }
+  measureInR_ = false;
+
   Ath__array1D<extDistRC*>* table0 = new Ath__array1D<extDistRC*>(8);
   int cnt1 = 0;
   int kk = 0;
@@ -448,33 +494,33 @@ uint extDistRCTable::readRules_res2(Ath__parser* parser,
     extDistRC* rc = rcPool->alloc();
     rc->readRC_res2(parser, dbFactor);
     table->add(rc);
-    if (rc0 != nullptr && rc0->_coupling != rc->_coupling) {
-      _measureTable = table0;
+    if (rc0 != nullptr && rc0->coupling_ != rc->coupling_) {
+      measureTable_ = table0;
       if (table0->getCnt() > 1) {
         interpolate(4, -1, rcPool);
-        _computeTableR[kk] = _computeTable;
+        computeTableR_[kk] = computeTable_;
       }
-      _measureTableR[kk] = table0;
+      measureTableR_[kk] = table0;
       kk++;
 
       table0 = new Ath__array1D<extDistRC*>(cnt1);
       cnt1 = 0;
 
-      _maxDist = rc0->_sep;
+      maxDist_ = rc0->sep_;
     }
     if (rc0 == nullptr) {
       table0->add(rc);
     } else if (cnt1 == 0) {
       table0->add(rc);
-    } else if (rc0->_res != rc->_res) {
+    } else if (rc0->res_ != rc->res_) {
       table0->add(rc);
     }
     cnt1++;
     rc0 = rc;
   }
-  _distCnt = kk + 1;
-  _measureTableR[kk] = table0;
-  _measureTable = table;
+  distCnt_ = kk + 1;
+  measureTableR_[kk] = table0;
+  measureTable_ = table;
 
   return cnt;
 }
@@ -514,7 +560,12 @@ uint extDistRCTable::readRules(Ath__parser* parser,
     return cnt;
   }
 
-  _measureTable = table;
+  if (!measureInR_) {
+    delete measureTable_;
+  }
+  measureInR_ = false;
+
+  measureTable_ = table;
 
   if (compute) {
     interpolate(4, -1, rcPool);
@@ -535,7 +586,7 @@ void extDistRCTable::ScaleRes(double SUB_MULT_RES,
 
   for (uint jj = 0; jj < cnt; jj++) {
     extDistRC* rc = table->get(jj);
-    double delta = rc->_res - rc_last->_res;
+    double delta = rc->res_ - rc_last->res_;
     if (delta < 0) {
       delta = -delta;
     }
@@ -543,43 +594,43 @@ void extDistRCTable::ScaleRes(double SUB_MULT_RES,
       continue;
     }
 
-    rc->_res *= SUB_MULT_RES;
+    rc->res_ *= SUB_MULT_RES;
   }
 }
 
 void extDistRCTable::makeComputeTable(uint maxDist, uint distUnit)
 {
-  _unit = distUnit;  // in nm
+  unit_ = distUnit;  // in nm
   uint n = maxDist / distUnit;
   n = distUnit * (n / distUnit + 1);
 
-  _computeTable = new Ath__array1D<extDistRC*>(n + 1);
+  computeTable_ = new Ath__array1D<extDistRC*>(n + 1);
 }
 
 uint extDistRCTable::addMeasureRC(extDistRC* rc)
 {
-  return _measureTable->add(rc);
+  return measureTable_->add(rc);
 }
 
 extDistRC* extDistRCTable::getRC_99()
 {
-  if (_measureTable == nullptr) {
+  if (measureTable_ == nullptr) {
     return nullptr;
   }
 
-  uint cnt = _measureTable->getCnt();
+  uint cnt = measureTable_->getCnt();
   if (cnt < 2) {
     return nullptr;
   }
 
-  extDistRC* before_lastRC = _measureTable->get(cnt - 2);
-  if (before_lastRC->_sep == 99000) {
+  extDistRC* before_lastRC = measureTable_->get(cnt - 2);
+  if (before_lastRC->sep_ == 99000) {
     return before_lastRC;
   }
 
   extDistRC* lastRC
-      = _measureTable->getLast();  // assuming last is 100 equivalent to inf
-  if (lastRC->_sep == 99000) {
+      = measureTable_->getLast();  // assuming last is 100 equivalent to inf
+  if (lastRC->sep_ == 99000) {
     return lastRC;
   }
 
@@ -588,64 +639,64 @@ extDistRC* extDistRCTable::getRC_99()
 
 extDistRC* extDistRCTable::getComputeRC(uint dist)
 {
-  if (_measureTable == nullptr) {
+  if (measureTable_ == nullptr) {
     return nullptr;
   }
 
-  if (_measureTable->getCnt() <= 0) {
+  if (measureTable_->getCnt() <= 0) {
     return nullptr;
   }
 
-  extDistRC* firstRC = _measureTable->get(0);
-  uint firstDist = firstRC->_sep;
+  extDistRC* firstRC = measureTable_->get(0);
+  uint firstDist = firstRC->sep_;
   if (dist <= firstDist) {
     return firstRC;
   }
 
-  if (_measureTable->getLast()->_sep == 100000) {
-    extDistRC* before_lastRC = _measureTable->getLast()
+  if (measureTable_->getLast()->sep_ == 100000) {
+    extDistRC* before_lastRC = measureTable_->getLast()
                                - 1;  // assuming last is 100 equivalent to inf
-    uint lastDist = before_lastRC->_sep;
+    uint lastDist = before_lastRC->sep_;
 
     if (lastDist == 99000) {
       before_lastRC = before_lastRC - 1;
     }
 
-    lastDist = before_lastRC->_sep;
+    lastDist = before_lastRC->sep_;
     if (dist >= lastDist) {    // send Inf dist
       if (dist == lastDist) {  // send Inf dist
         return before_lastRC;
       }
       if (dist <= 2 * lastDist) {  // send Inf dist
 
-        uint cnt = _measureTable->getCnt();
-        extDistRC* rc31 = _measureTable->geti(31);
-        extDistRC* rc2 = _measureTable->get(cnt - 2);
-        extDistRC* rc3 = _measureTable->get(cnt - 3);
+        uint cnt = measureTable_->getCnt();
+        extDistRC* rc31 = measureTable_->geti(31);
+        extDistRC* rc2 = measureTable_->get(cnt - 2);
+        extDistRC* rc3 = measureTable_->get(cnt - 3);
 
-        rc31->_sep = dist;
+        rc31->sep_ = dist;
         rc31->interpolate(dist, rc3, rc2);
 
-        rc31->_coupling
-            = (before_lastRC->_coupling / dist) * before_lastRC->_sep;
-        rc31->_fringe = before_lastRC->_fringe;
+        rc31->coupling_
+            = (before_lastRC->coupling_ / dist) * before_lastRC->sep_;
+        rc31->fringe_ = before_lastRC->fringe_;
         return rc31;
       }
       if (dist > lastDist) {  // send Inf dist
-        return _measureTable->getLast();
+        return measureTable_->getLast();
       }
     }
   } else {
     extDistRC* before_lastRC
-        = _measureTable->getLast();  // assuming last is 100 equivalent to inf
-    uint lastDist = before_lastRC->_sep;
-    if (dist >= lastDist - _unit && lastDist > 0) {  // send Inf dist
-      return _measureTable->getLast();
+        = measureTable_->getLast();  // assuming last is 100 equivalent to inf
+    uint lastDist = before_lastRC->sep_;
+    if (dist >= lastDist - unit_ && lastDist > 0) {  // send Inf dist
+      return measureTable_->getLast();
     }
   }
 
-  uint n = dist / _unit;
-  return _computeTable->geti(n);
+  uint n = dist / unit_;
+  return computeTable_->geti(n);
 }
 
 uint extDistWidthRCTable::getWidthIndex(uint w)
@@ -707,22 +758,19 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
                                          uint maxWidthCnt,
                                          AthPool<extDistRC>* rcPool,
                                          bool OUREVERSEORDER)
+    : _ouReadReverse(OUREVERSEORDER),
+      _over(over),
+      _layerCnt(layerCnt),
+      _met(met),
+      _modulo(4),
+      _widthTableAllocFlag(false),
+      _metCnt(metCnt),
+      _widthCnt(maxWidthCnt),
+      _rcPoolPtr(rcPool)
 {
-  _ouReadReverse = OUREVERSEORDER;
-  _over = over;
-  _layerCnt = layerCnt;
-  _met = met;
-
   _widthTable = new Ath__array1D<int>(maxWidthCnt);
 
-  _firstWidth = 0;
   _lastWidth = std::numeric_limits<int>::max();
-  _modulo = 4;
-
-  _widthTableAllocFlag = false;
-  _widthMapTable = nullptr;
-
-  _metCnt = metCnt;
 
   _rcDistTable = new extDistRCTable**[_metCnt];
   uint jj;
@@ -732,20 +780,13 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
       _rcDistTable[jj][ii] = new extDistRCTable(10);
     }
   }
-  _rcPoolPtr = rcPool;
 
-  _firstDiagWidth = nullptr;
-  _lastDiagWidth = nullptr;
-  _firstDiagDist = nullptr;
-  _lastDiagDist = nullptr;
-
-  for (jj = 0; jj < 16; jj++) {
+  for (jj = 0; jj < diagDepth; jj++) {
     _diagWidthMapTable[jj] = nullptr;
     _diagDistMapTable[jj] = nullptr;
     _diagWidthTable[jj] = nullptr;
     _diagDistTable[jj] = nullptr;
   }
-  _rcDiagDistTable = nullptr;
   _rc31 = rcPool->alloc();
 }
 
@@ -803,20 +844,17 @@ extDistWidthRCTable::extDistWidthRCTable(bool dummy,
                                          uint layerCnt,
                                          uint widthCnt,
                                          bool OUREVERSEORDER)
+    : _ouReadReverse(OUREVERSEORDER),
+      _layerCnt(layerCnt),
+      _met(met),
+      _widthTableAllocFlag(true),
+      _metCnt(layerCnt),
+      _widthCnt(widthCnt)
 {
-  _ouReadReverse = OUREVERSEORDER;
-  _met = met;
-  _layerCnt = layerCnt;
-
   _widthTable = new Ath__array1D<int>(widthCnt);
   for (uint ii = 0; ii < widthCnt; ii++) {
     _widthTable->add(0);
   }
-
-  _widthMapTable = nullptr;
-  _widthTableAllocFlag = true;
-
-  _metCnt = layerCnt;
 
   _rcDistTable = new extDistRCTable**[_metCnt];
   uint jj;
@@ -826,18 +864,12 @@ extDistWidthRCTable::extDistWidthRCTable(bool dummy,
       _rcDistTable[jj][ii] = new extDistRCTable(1);
     }
   }
-  _firstDiagWidth = nullptr;
-  _lastDiagWidth = nullptr;
-  _firstDiagDist = nullptr;
-  _rcDiagDistTable = nullptr;
-  _lastDiagDist = nullptr;
-  for (jj = 0; jj < 32; jj++) {
+  for (jj = 0; jj < diagDepth; jj++) {
     _diagWidthMapTable[jj] = nullptr;
     _diagDistMapTable[jj] = nullptr;
     _diagWidthTable[jj] = nullptr;
     _diagDistTable[jj] = nullptr;
   }
-  _rc31 = nullptr;
 }
 
 extDistWidthRCTable::extDistWidthRCTable(bool over,
@@ -848,11 +880,18 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
                                          AthPool<extDistRC>* rcPool,
                                          bool OUREVERSEORDER,
                                          double dbFactor)
+    : _ouReadReverse(OUREVERSEORDER),
+      _over(over),
+      _layerCnt(layerCnt),
+      _met(met),
+      _metCnt(layerCnt)
 {
-  _ouReadReverse = OUREVERSEORDER;
-  _over = over;
-  _layerCnt = layerCnt;
-  _met = met;
+  for (uint jj = 0; jj < diagDepth; jj++) {
+    _diagWidthMapTable[jj] = nullptr;
+    _diagDistMapTable[jj] = nullptr;
+    _diagWidthTable[jj] = nullptr;
+    _diagDistTable[jj] = nullptr;
+  }
 
   // dkf 09202024 skip width map table when  not knowing number of widths is not
   // know in advance after reading rules of different width width mapping should
@@ -905,6 +944,7 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
     }
   }
 
+  _widthCnt = widthCnt;
   _rcDistTable = new extDistRCTable**[_metCnt];
   for (uint jj = 0; jj < _metCnt; jj++) {
     _rcDistTable[jj] = new extDistRCTable*[widthCnt];
@@ -914,17 +954,6 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
   }
   _rcPoolPtr = rcPool;
 
-  _firstDiagWidth = nullptr;
-  _lastDiagWidth = nullptr;
-  _firstDiagDist = nullptr;
-  _lastDiagDist = nullptr;
-  for (uint jj = 0; jj < 12; jj++) {
-    _diagWidthMapTable[jj] = nullptr;
-    _diagDistMapTable[jj] = nullptr;
-    _diagWidthTable[jj] = nullptr;
-    _diagDistTable[jj] = nullptr;
-  }
-  _rcDiagDistTable = nullptr;
   _rc31 = rcPool->alloc();
 }
 
@@ -938,12 +967,17 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
                                          AthPool<extDistRC>* rcPool,
                                          bool OUREVERSEORDER,
                                          double dbFactor)
+    : _ouReadReverse(OUREVERSEORDER),
+      _over(over),
+      _layerCnt(layerCnt),
+      _met(met),
+      _modulo(4),
+      _widthTableAllocFlag(true),
+      _metCnt(metCnt),
+      _diagWidthCnt(diagWidthCnt),
+      _diagDistCnt(diagDistCnt),
+      _rcPoolPtr(rcPool)
 {
-  _ouReadReverse = OUREVERSEORDER;
-  _over = over;
-  _layerCnt = layerCnt;
-  _met = met;
-
   uint widthCnt = widthTable->getCnt();
   _widthTable = new Ath__array1D<int>(widthCnt);
   for (uint ii = 0; ii < widthCnt; ii++) {
@@ -957,6 +991,13 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
     _diagDistMapTable[i] = new Ath__array1D<uint>(10 * diagDistCnt);
   }
 
+  for (uint i = layerCnt; i < diagDepth; i++) {
+    _diagWidthTable[i] = nullptr;
+    _diagDistTable[i] = nullptr;
+    _diagWidthMapTable[i] = nullptr;
+    _diagDistMapTable[i] = nullptr;
+  }
+
   _firstWidth = _widthTable->get(0);
   _lastWidth = _widthTable->get(widthCnt - 1);
   _firstDiagWidth = new Ath__array1D<int>(layerCnt);
@@ -964,9 +1005,6 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
   _firstDiagDist = new Ath__array1D<int>(layerCnt);
   _lastDiagDist = new Ath__array1D<int>(layerCnt);
 
-  _modulo = 4;
-
-  _widthTableAllocFlag = true;
   _widthMapTable = new Ath__array1D<uint>(10 * widthCnt);
   uint jj;
   for (jj = 0; jj < widthCnt - 1; jj++) {
@@ -991,7 +1029,7 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
     }
   }
 
-  _metCnt = metCnt;
+  _widthCnt = widthCnt;
   _rcDiagDistTable = new extDistRCTable****[_metCnt];
   for (jj = 0; jj < _metCnt; jj++) {
     _rcDiagDistTable[jj] = new extDistRCTable***[widthCnt];
@@ -1005,8 +1043,6 @@ extDistWidthRCTable::extDistWidthRCTable(bool over,
       }
     }
   }
-  _rcPoolPtr = rcPool;
-  _rcDistTable = nullptr;
 
   _rc31 = rcPool->alloc();
 }
@@ -1088,26 +1124,21 @@ void extDistWidthRCTable::setDiagUnderTables(
 extDistWidthRCTable::~extDistWidthRCTable()
 {
   uint ii, jj, kk, ll;
-  if (_rcDistTable) {
+  if (_rcDistTable != nullptr) {
     for (jj = 0; jj < _metCnt; jj++) {
-      for (ii = 0; ii < _widthTable->getCnt(); ii++) {
-        if (_rcDistTable[jj][ii]) {
-          delete _rcDistTable[jj][ii];
-        }
+      for (ii = 0; ii < _widthCnt; ii++) {
+        delete _rcDistTable[jj][ii];
       }
-
-      if (_rcDistTable[jj]) {
-        delete[] _rcDistTable[jj];
-      }
+      delete[] _rcDistTable[jj];
     }
     delete[] _rcDistTable;
   }
 
-  if (_rcDiagDistTable) {
+  if (_rcDiagDistTable != nullptr) {
     for (jj = 0; jj < _metCnt; jj++) {
-      for (ii = 0; ii < _widthTable->getCnt(); ii++) {
-        for (kk = 0; kk < _diagWidthTable[jj]->getCnt(); kk++) {
-          for (ll = 0; ll < _diagDistTable[jj]->getCnt(); ll++) {
+      for (ii = 0; ii < _widthCnt; ii++) {
+        for (kk = 0; kk < _diagWidthCnt; kk++) {
+          for (ll = 0; ll < _diagDistCnt; ll++) {
             delete _rcDiagDistTable[jj][ii][kk][ll];
           }
           delete[] _rcDiagDistTable[jj][ii][kk];
@@ -1496,12 +1527,24 @@ extMetRCTable::~extMetRCTable()
     delete _resOver[ii];
     delete _capOver[ii];
     delete _capOverUnder[ii];
+
+    for (uint jj = 0; jj < _wireCnt; jj++) {
+      delete _capOver_open[ii][jj];
+      delete _capUnder_open[ii][jj];
+      delete _capOverUnder_open[ii][jj];
+    }
+    delete[] _capOver_open[ii];
+    delete[] _capUnder_open[ii];
+    delete[] _capOverUnder_open[ii];
   }
   delete[] _resOver;
   delete[] _capOver;
   delete[] _capDiagUnder;
   delete[] _capUnder;
   delete[] _capOverUnder;
+  delete[] _capOver_open;
+  delete[] _capUnder_open;
+  delete[] _capOverUnder_open;
 }
 
 void extMetRCTable::allocDiagUnderTable(uint met,
@@ -1510,6 +1553,7 @@ void extMetRCTable::allocDiagUnderTable(uint met,
                                         int diagDistCnt,
                                         double dbFactor)
 {
+  delete _capDiagUnder[met];
   _capDiagUnder[met] = new extDistWidthRCTable(false,
                                                met,
                                                _layerCnt,
@@ -1536,6 +1580,7 @@ void extMetRCTable::allocDiagUnderTable(uint met,
                                         Ath__array1D<double>* wTable,
                                         double dbFactor)
 {
+  delete _capDiagUnder[met];
   _capDiagUnder[met] = new extDistWidthRCTable(false,
                                                met,
                                                _layerCnt,
@@ -1550,6 +1595,7 @@ void extMetRCTable::allocUnderTable(uint met,
                                     Ath__array1D<double>* wTable,
                                     double dbFactor)
 {
+  delete _capUnder[met];
   _capUnder[met] = new extDistWidthRCTable(false,
                                            met,
                                            _layerCnt,
@@ -1569,6 +1615,7 @@ void extMetRCTable::allocOverUnderTable(uint met,
   }
 
   int n = extRCModel::getMaxMetIndexOverUnder(met, _layerCnt);
+  delete _capOverUnder[met];
   _capOverUnder[met] = new extDistWidthRCTable(false,
                                                met,
                                                _layerCnt,
@@ -1583,13 +1630,26 @@ extRCTable::extRCTable(bool over, uint layerCnt)
 {
   _maxCnt1 = layerCnt + 1;
   _inTable = new Ath__array1D<extDistRC*>**[_maxCnt1];
-  _table = new Ath__array1D<extDistRC*>**[_maxCnt1];
 
   if (over) {
     makeCapTableOver();
   } else {
     makeCapTableUnder();
   }
+}
+
+extRCTable::~extRCTable()
+{
+  for (uint jj = 1; jj < _maxCnt1; jj++) {
+    const uint max = _over ? jj : _maxCnt1;
+
+    for (uint kk = 0; kk < max; kk++) {
+      delete _inTable[jj][kk];
+    }
+    delete[] _inTable[jj];
+  }
+
+  delete[] _inTable;
 }
 
 extDistRC* extRCTable::getCapOver(uint met, uint metUnder)
@@ -1608,16 +1668,16 @@ extDistRC* extDistRCTable::getRC_index(int n)
   if (n < 0) {
     return nullptr;
   }
-  int cnt = _measureTable->getCnt();
+  int cnt = measureTable_->getCnt();
   if (n >= cnt) {
     return nullptr;
   }
-  return _measureTable->get(n);
+  return measureTable_->get(n);
 }
 
 extDistRC* extDistRCTable::getLastRC()
 {
-  int cnt = _measureTable->getCnt();
+  int cnt = measureTable_->getCnt();
   return getRC_index(cnt - 1);
 }
 
@@ -1724,11 +1784,11 @@ extDistRC* extDistWidthRCTable::getRC_99(uint mou, uint w, uint dw, uint ds)
     return rc2;
   }
 
-  _rc31->_sep = ds;
+  _rc31->sep_ = ds;
 
   uint lastDist = _lastDiagDist->geti(mou);
   if (ds > lastDist) {  // extrapolate
-    _rc31->_fringe = (rc2->_fringe / ds) * lastDist;
+    _rc31->fringe_ = (rc2->fringe_ / ds) * lastDist;
 
     return _rc31;
   }
@@ -1742,7 +1802,7 @@ extDistRC* extDistWidthRCTable::getRC_99(uint mou, uint w, uint dw, uint ds)
   extDistRC* rc1
       = _rcDiagDistTable[mou][wIndex][dwIndex][dsIndex - 1]->getRC_99();
 
-  _rc31->_fringe = lineSegment(ds, s1, s2, rc1->_fringe, rc2->_fringe);
+  _rc31->fringe_ = lineSegment(ds, s1, s2, rc1->fringe_, rc2->fringe_);
 
   return _rc31;
 }
@@ -2022,7 +2082,7 @@ double extMeasure::getDiagUnderCC(extMetRCTable* rcModel,
       int dbUnit = _extMain->_block->getDbUnitsPerMicron();
       rc->printDebugRC_diag(_met, overMet, 0, _width, dist, dbUnit, logger_);
     }
-    return rc->_fringe;
+    return rc->fringe_;
   }
   return 0.0;
 }
@@ -2042,7 +2102,7 @@ double extMeasure::getDiagUnderCC(extMetRCTable* rcModel,
       n, _width, diagWidth, diagDist, _dist);
 
   if (rc != nullptr) {
-    return rc->_fringe;
+    return rc->fringe_;
   }
   return 0.0;
 }
@@ -2457,16 +2517,16 @@ extDistRC* extMeasure::addRC(extDistRC* rcUnit, uint len, uint jj)
   }
 
   if (_sameNetFlag) {  // TO OPTIMIZE
-    _rc[jj]->_fringe += 0.5 * rcUnit->_fringe * len;
+    _rc[jj]->fringe_ += 0.5 * rcUnit->fringe_ * len;
   } else {
-    _rc[jj]->_fringe += rcUnit->_fringe * len;
+    _rc[jj]->fringe_ += rcUnit->fringe_ * len;
 
     if (_dist > 0) {  // dist based
-      _rc[jj]->_coupling += rcUnit->_coupling * len;
+      _rc[jj]->coupling_ += rcUnit->coupling_ * len;
     }
   }
 
-  _rc[jj]->_res += rcUnit->_res * len;
+  _rc[jj]->res_ += rcUnit->res_ * len;
   if (IsDebugNet()) {
     _rc[jj]->printDebugRC_sum(len, dbUnit, logger_);
   }
@@ -2510,7 +2570,7 @@ extDistRC* extMeasure::computeR(uint len, double* valTable)
 
     rcUnit = getOverRC(rcModel);
     if (rcUnit != nullptr) {
-      _rc[ii]->_res += rcUnit->_res * len;
+      _rc[ii]->res_ += rcUnit->res_ * len;
     }
   }
   return rcUnit;
@@ -2683,14 +2743,6 @@ void extRCModel::mkNet_prefix(extMeasure* m, const char* wiresNameSuffix)
   }
 
   sprintf(_wireDirName,
-          "%s_%s_W%gW%g_S%gS%g",
-          _patternName,
-          overUnder,
-          get_nm(m, m->_w_m),
-          get_nm(m, m->_w2_m),
-          get_nm(m, m->_s_m),
-          get_nm(m, m->_s2_m));
-  sprintf(_wireDirName,
           "%s_%s_W%gW%g_S%05dS%05d",
           _patternName,
           overUnder,
@@ -2763,8 +2815,6 @@ bool extRCModel::openCapLogFile()
   }
   fclose(fp);
 
-  char cmd[4000];
-
   FILE* fp1 = nullptr;
   if (_readCapLog) {
     fp1 = openFile(buff, capLog, nullptr, "r");
@@ -2772,16 +2822,18 @@ bool extRCModel::openCapLogFile()
   } else if (_metLevel > 0) {
     _capLogFP = openFile(buff, capLog, nullptr, "a");
   } else {
-    sprintf(cmd,
-            "mv %s/%s/%s %s/%s/%s.in",
-            _topDir,
-            _patternName,
-            capLog,
-            _topDir,
-            _patternName,
-            capLog);
-    if (system(cmd) == -1) {
-      logger_->error(RCX, 489, "mv failed: {}", cmd);
+    try {
+      std::filesystem::path path0(_topDir);
+      path0 += _patternName;
+      path0 += capLog;
+      std::filesystem::path path1(_topDir);
+      path0 += _patternName;
+      path0 += std::string(capLog) + ".in";
+
+      std::filesystem::rename(path0, path1);
+    } catch (const std::filesystem::filesystem_error&) {
+      logger_->error(
+          RCX, 489, "mv failed: {}/{}/{}", _topDir, _patternName, capLog);
     }
 
     _capLogFP = openFile(buff, capLog, nullptr, "w");
@@ -2800,8 +2852,9 @@ bool extRCModel::openCapLogFile()
 
 void extRCModel::closeCapLogFile()
 {
-  if (_readCapLog)
+  if (_readCapLog) {
     fclose(_capLogFP);
+  }
 }
 
 void extRCModel::writeWires2(FILE* fp, extMeasure* measure, uint wireCnt)
@@ -3023,10 +3076,10 @@ void extRCModel::closeFiles()
 
 void extRCModel::cleanFiles()
 {
-  char cmd[4000];
-  sprintf(cmd, "rm -rf %s ", _wireDirName);
-  if (system(cmd) == -1) {
-    logger_->error(RCX, 491, "rm failed on {}", _wireDirName);
+  try {
+    std::filesystem::remove_all(_wireDirName);
+  } catch (const std::filesystem::filesystem_error& err) {
+    logger_->error(RCX, 491, "rm failed on {}: {}", _wireDirName, err.what());
   }
 }
 
@@ -3095,12 +3148,13 @@ void extMetRCTable::addRCw(extMeasure* m)
                                          _layerCnt,
                                          _capOverUnder[m->_met]->_metCnt);
     assert(n >= 0);
-    if (m->_open)
+    if (m->_open) {
       table = _capOverUnder_open[m->_met][0];
-    else if (m->_over1)
+    } else if (m->_over1) {
       table = _capOverUnder_open[m->_met][1];
-    else
+    } else {
       table = _capOverUnder[m->_met];
+    }
   } else if (m->_over) {
     n = m->_underMet;
     if (m->_res) {
@@ -3119,15 +3173,17 @@ void extMetRCTable::addRCw(extMeasure* m)
     }
   } else {
     n = m->getUnderIndex();
-    if (m->_open)
+    if (m->_open) {
       table = _capUnder_open[m->_met][0];
-    else if (m->_over1)
+    } else if (m->_over1) {
       table = _capUnder_open[m->_met][1];
-    else
+    } else {
       table = _capUnder[m->_met];
+    }
   }
-  if (table != nullptr)
+  if (table != nullptr) {
     table->addRCw(n, m->_w_nm, m->_tmpRC);
+  }
 }
 
 void extRCModel::addRC(extMeasure* m)
@@ -3361,54 +3417,58 @@ void extMetRCTable::allocateInitialTables(uint layerCnt,
   }
 }
 */
-void extMetRCTable::allocateInitialTables(uint layerCnt,
-                                          uint widthCnt,
+void extMetRCTable::allocateInitialTables(uint widthCnt,
                                           bool over,
                                           bool under,
                                           bool diag)
 {
-  _layerCnt = layerCnt;
-  _wireCnt = 2;
-
   for (uint met = 1; met < _layerCnt; met++) {
     if (over && under && (met > 1) && (met < _layerCnt - 1)) {
-      int n = extRCModel::getMaxMetIndexOverUnder(met, layerCnt);
+      int n = extRCModel::getMaxMetIndexOverUnder(met, _layerCnt);
       _capOverUnder[met] = new extDistWidthRCTable(
-          false, met, layerCnt, n + 1, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
-      for (uint jj = 0; jj < _wireCnt; jj++)
-        _capOverUnder_open[met][jj] = new extDistWidthRCTable(
-            false, met, layerCnt, n + 1, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+          false, met, _layerCnt, n + 1, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+      for (uint jj = 0; jj < _wireCnt; jj++) {
+        _capOverUnder_open[met][jj] = new extDistWidthRCTable(false,
+                                                              met,
+                                                              _layerCnt,
+                                                              n + 1,
+                                                              widthCnt,
+                                                              _rcPoolPtr,
+                                                              _OUREVERSEORDER);
+      }
     }
     if (over) {
       _capOver[met] = new extDistWidthRCTable(
-          true, met, layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+          true, met, _layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
       _resOver[met] = new extDistWidthRCTable(
-          true, met, layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
-      for (uint jj = 0; jj < _wireCnt; jj++)
+          true, met, _layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+      for (uint jj = 0; jj < _wireCnt; jj++) {
         _capOver_open[met][jj] = new extDistWidthRCTable(
-            true, met, layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+            true, met, _layerCnt, met, widthCnt, _rcPoolPtr, _OUREVERSEORDER);
+      }
     }
     if (under) {
       _capUnder[met] = new extDistWidthRCTable(false,
                                                met,
-                                               layerCnt,
+                                               _layerCnt,
                                                _layerCnt - met - 1,
                                                widthCnt,
                                                _rcPoolPtr,
                                                _OUREVERSEORDER);
-      for (uint jj = 0; jj < _wireCnt; jj++)
+      for (uint jj = 0; jj < _wireCnt; jj++) {
         _capUnder_open[met][jj] = new extDistWidthRCTable(false,
                                                           met,
-                                                          layerCnt,
+                                                          _layerCnt,
                                                           _layerCnt - met - 1,
                                                           widthCnt,
                                                           _rcPoolPtr,
                                                           _OUREVERSEORDER);
+      }
     }
     if (diag) {
       _capDiagUnder[met] = new extDistWidthRCTable(false,
                                                    met,
-                                                   layerCnt,
+                                                   _layerCnt,
                                                    _layerCnt - met - 1,
                                                    widthCnt,
                                                    _rcPoolPtr,
@@ -3552,6 +3612,7 @@ bool extRCModel::readRules_v1(char* name,
 {
   _OUREVERSEORDER = false;
   diag = false;
+  free(_ruleFileName);
   _ruleFileName = strdup(name);
   Ath__parser parser(logger_);
   parser.addSeparator("\r");
@@ -3580,7 +3641,7 @@ bool extRCModel::readRules_v1(char* name,
         _dataRateTable->add(0.0);
       }
 
-      _modelTable[0]->allocateInitialTables(_layerCnt, 10, true, true, true);
+      _modelTable[0]->allocateInitialTables(10, true, true, true);
 
       _modelTable[0]->readRCstats(&parser);
 
@@ -3759,9 +3820,10 @@ bool extRCModel::measurePatternVar(extMeasure* m,
                                    char* wiresNameSuffix,
                                    double res)
 {
-  if (m->_simVersion > 0)
+  if (m->_simVersion > 0) {
     return measurePatternVar_3D(
         m, top_width, bot_width, thickness, wireCnt, wiresNameSuffix, res);
+  }
 
   m->setEffParams(top_width, bot_width, thickness);
   double thicknessChange
@@ -3781,21 +3843,21 @@ bool extRCModel::measurePatternVar(extMeasure* m,
   if (_writeFiles) {
     FILE* wfp = mkPatternFile();
 
-    if (wfp == nullptr)
+    if (wfp == nullptr) {
       return false;  // should be an exception!! and return!
+    }
 
-    double maxHeight
-        = _process->adjustMasterDielectricsForHeight(m->_met, thicknessChange);
-    maxHeight *= 1.2;
+    _process->adjustMasterDielectricsForHeight(m->_met, thicknessChange);
 
-    if (_commentFlag)
+    if (_commentFlag) {
       fprintf(wfp, "%s\n", _commentLine);
+    }
 
     if (m->_benchFlag) {
       writeBenchWires(wfp, m);
-    } else
-
+    } else {
       fprintf(_filesFP, "%s/wires\n", _wireDirName);
+    }
 
     fclose(wfp);
   }

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,11 +21,13 @@ class dbDatabase;
 class dbInst;
 class dbBTerm;
 class dbNet;
+class dbWire;
 }  // namespace odb
 
 namespace utl {
 class Logger;
-}
+class CallBackHandler;
+}  // namespace utl
 
 namespace stt {
 class SteinerTreeBuilder;
@@ -37,7 +40,9 @@ class Distributed;
 namespace drt {
 
 class frDesign;
+class frInst;
 class DesignCallBack;
+class PACallBack;
 class FlexDR;
 class FlexPA;
 class FlexTA;
@@ -61,10 +66,9 @@ struct ParamStruct
   int drouteEndIter = -1;
   std::string viaInPinBottomLayer;
   std::string viaInPinTopLayer;
+  std::string viaAccessLayer;
   int orSeed = 0;
   double orK = 0;
-  std::string bottomRoutingLayer;
-  std::string topRoutingLayer;
   int verbose = 1;
   bool cleanPatches = false;
   bool doPa = false;
@@ -82,6 +86,7 @@ class TritonRoute
   ~TritonRoute();
   void init(odb::dbDatabase* db,
             utl::Logger* logger,
+            utl::CallBackHandler* callback_handler,
             dst::Distributed* dist,
             stt::SteinerTreeBuilder* stt_builder,
             std::unique_ptr<AbstractGraphicsFactory> graphics_factory);
@@ -111,6 +116,7 @@ class TritonRoute
 
   void setDebugDR(bool on = true);
   void setDebugDumpDR(bool on, const std::string& dumpDir);
+  void setDebugSnapshotDir(const std::string& snapshotDir);
   void setDebugMaze(bool on = true);
   void setDebugPA(bool on = true);
   void setDebugTA(bool on = true);
@@ -163,6 +169,7 @@ class TritonRoute
                  const std::list<std::unique_ptr<frMarker>>& markers,
                  const std::string& marker_name,
                  odb::Rect drcBox = odb::Rect(0, 0, 0, 0)) const;
+  std::vector<int> routeLayerLengths(odb::dbWire* wire) const;
   void checkDRC(const char* filename,
                 int x1,
                 int y1,
@@ -174,11 +181,14 @@ class TritonRoute
   void prep();
   odb::dbDatabase* getDb() const { return db_; }
   void fixMaxSpacing(int num_threads);
+  void deleteInstancePAData(frInst* inst);
+  void addInstancePAData(frInst* inst);
 
  private:
   std::unique_ptr<frDesign> design_;
   std::unique_ptr<frDebugSettings> debug_;
   std::unique_ptr<DesignCallBack> db_callback_;
+  std::unique_ptr<PACallBack> pa_callback_;
   std::unique_ptr<RouterConfiguration> router_cfg_;
   odb::dbDatabase* db_{nullptr};
   utl::Logger* logger_{nullptr};

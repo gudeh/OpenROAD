@@ -51,16 +51,16 @@ namespace dpl {
 ////////////////////////////////////////////////////////////////////////////////
 struct DetailedMis::Bucket
 {
-  void clear() { nodes_.clear(); }
+  void clear() { nodes.clear(); }
 
-  std::deque<Node*> nodes_;
-  double xmin_ = 0.0;
-  double xmax_ = 0.0;
-  double ymin_ = 0.0;
-  double ymax_ = 0.0;
-  int i_ = 0;
-  int j_ = 0;
-  int travId_ = 0;
+  std::deque<Node*> nodes;
+  double xmin = 0.0;
+  double xmax = 0.0;
+  double ymin = 0.0;
+  double ymax = 0.0;
+  int i = 0;
+  int j = 0;
+  int travId = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -131,10 +131,16 @@ void DetailedMis::run(DetailedMgr* mgrPtr, std::vector<std::string>& args)
   uint64_t hpwl_x, hpwl_y;
   int64_t curr_hpwl = Utility::hpwl(network_, hpwl_x, hpwl_y);
   const int64_t init_hpwl = curr_hpwl;
+  if (obj_ == DetailedMis::Hpwl && init_hpwl == 0) {
+    return;
+  }
 
   double tot_disp, max_disp, avg_disp;
   double curr_disp = Utility::disp_l1(network_, tot_disp, max_disp, avg_disp);
   const double init_disp = curr_disp;
+  if (obj_ == DetailedMis::Disp && init_disp == 0.0) {
+    return;
+  }
 
   // Do some things that only need to be done once regardless
   // of the number of passes.
@@ -158,13 +164,15 @@ void DetailedMis::run(DetailedMgr* mgrPtr, std::vector<std::string>& args)
     const int64_t last_hpwl = curr_hpwl;
     curr_hpwl = Utility::hpwl(network_, hpwl_x, hpwl_y);
     if (obj_ == DetailedMis::Hpwl
-        && std::abs(curr_hpwl - last_hpwl) / (double) last_hpwl <= tol) {
+        && (last_hpwl == 0
+            || std::abs(curr_hpwl - last_hpwl) / (double) last_hpwl <= tol)) {
       break;
     }
     const double last_disp = curr_disp;
     curr_disp = Utility::disp_l1(network_, tot_disp, max_disp, avg_disp);
     if (obj_ == DetailedMis::Disp
-        && std::fabs(curr_disp - last_disp) / last_disp <= tol) {
+        && (last_disp == 0
+            || std::fabs(curr_disp - last_disp) / last_disp <= tol)) {
       break;
     }
   }
@@ -341,13 +349,13 @@ void DetailedMis::buildGrid()
     grid_[i].resize(dimH_);
     for (int j = 0; j < dimH_; j++) {
       auto bucket = new Bucket;
-      bucket->xmin_ = xmin + (i) *stepX_;
-      bucket->xmax_ = xmin + (i + 1) * stepX_;
-      bucket->ymin_ = ymin + (j) *stepY_;
-      bucket->ymax_ = ymin + (j + 1) * stepY_;
-      bucket->i_ = i;
-      bucket->j_ = j;
-      bucket->travId_ = traversal_;
+      bucket->xmin = xmin + (i) *stepX_;
+      bucket->xmax = xmin + (i + 1) * stepX_;
+      bucket->ymin = ymin + (j) *stepY_;
+      bucket->ymax = ymin + (j + 1) * stepY_;
+      bucket->i = i;
+      bucket->j = j;
+      bucket->travId = traversal_;
       grid_[i][j] = bucket;
     }
   }
@@ -377,7 +385,7 @@ void DetailedMis::populateGrid()
     const int j = std::max(std::min((int) ((y - ymin) / stepY_), dimH_ - 1), 0);
     const int i = std::max(std::min((int) ((x - xmin) / stepX_), dimW_ - 1), 0);
 
-    grid_[i][j]->nodes_.push_back(ndi);
+    grid_[i][j]->nodes.push_back(ndi);
     cellToBinMap_[ndi] = grid_[i][j];
   }
 }
@@ -423,14 +431,14 @@ bool DetailedMis::gatherNeighbours(Node* ndi)
     Bucket* currPtr = Q.front();
     Q.pop();
 
-    if (currPtr->travId_ == traversal_) {
+    if (currPtr->travId == traversal_) {
       continue;
     }
-    currPtr->travId_ = traversal_;
+    currPtr->travId = traversal_;
 
     // Scan all the cells in this bucket.  If they are compatible with the
     // original cell, then add them to the neighbour list.
-    for (Node* ndj : currPtr->nodes_) {
+    for (Node* ndj : currPtr->nodes) {
       // Check to make sure the cell is not the original, that they have
       // the same region, that they have the same size (if applicable),
       // and that they have the same color (if applicable).
@@ -473,17 +481,17 @@ bool DetailedMis::gatherNeighbours(Node* ndi)
     }
 
     // Add more bins to the queue if we have not yet collected enough cells.
-    if (currPtr->i_ > 0) {
-      Q.push(grid_[currPtr->i_ - 1][currPtr->j_]);
+    if (currPtr->i > 0) {
+      Q.push(grid_[currPtr->i - 1][currPtr->j]);
     }
-    if (currPtr->i_ + 1 < dimW_) {
-      Q.push(grid_[currPtr->i_ + 1][currPtr->j_]);
+    if (currPtr->i + 1 < dimW_) {
+      Q.push(grid_[currPtr->i + 1][currPtr->j]);
     }
-    if (currPtr->j_ > 0) {
-      Q.push(grid_[currPtr->i_][currPtr->j_ - 1]);
+    if (currPtr->j > 0) {
+      Q.push(grid_[currPtr->i][currPtr->j - 1]);
     }
-    if (currPtr->j_ + 1 < dimH_) {
-      Q.push(grid_[currPtr->i_][currPtr->j_ + 1]);
+    if (currPtr->j + 1 < dimH_) {
+      Q.push(grid_[currPtr->i][currPtr->j + 1]);
     }
   }
   return true;
@@ -676,12 +684,14 @@ void DetailedMis::solveMatch()
           mgrPtr_->addCellToSegment(ndi, segId);
         }
         {
-          MoveCellAction action;
-          action.setNode(ndi);
-          action.setOrigLocation(pos[i].first, pos[i].second);
-          action.setNewLocation(pos[j].first, pos[j].second);
-          action.setOrigSegs(old_seg_ids);
-          action.setNewSegs(new_seg_ids);
+          MoveCellAction action(ndi,
+                                pos[i].first,
+                                pos[i].second,
+                                pos[j].first,
+                                pos[j].second,
+                                true,
+                                old_seg_ids,
+                                new_seg_ids);
           journal.addAction(action);
         }
       }
@@ -689,17 +699,14 @@ void DetailedMis::solveMatch()
   }
   bool viol = false;
   for (const auto node : nodes) {
-    if (mgrPtr_->hasViolation(node)) {
+    if (mgrPtr_->hasPlacementViolation(node)) {
       viol = true;
       break;
     }
   }
   if (viol) {
-    while (!journal.isEmpty()) {
-      const auto& action = journal.getLastAction();
-      journal.undo(action);
-      journal.removeLastAction();
-    }
+    journal.undo();
+    journal.clear();
   }
 }
 

@@ -232,7 +232,11 @@ bool Annealer::swapNodes(std::vector<Node*> small_nodes, Master* target_master)
         auto big_iterm = big_inst->findITerm(
             Utility::getPinName(pattern, current_bit).c_str());
         if (iterm == nullptr) {
-          logger_->error(utl::DPL, 503, "ITerm {} not found for {}", small_iterm_name, inst->getMaster()->getConstName());
+          logger_->error(utl::DPL,
+                         503,
+                         "ITerm {} not found for {}",
+                         small_iterm_name,
+                         inst->getMaster()->getConstName());
           continue;
         }
         if (big_iterm == nullptr) {
@@ -395,7 +399,7 @@ void Annealer::start()
           utl::DPL, 502, "Annealing completed: no more groups to process.");
       break;
     }
-    journal_->clearJournal();
+    journal_->clear();
     int group_idx;
     std::vector<int> sub_group;
     if (generate_neighbor(group_idx, sub_group)) {
@@ -429,10 +433,12 @@ void Annealer::start()
         }
       } else {
         // reject the new configuration
-        journal_->undoAll();
+        journal_->undo();
+        journal_->clear();
       }
     } else {
-      journal_->undoAll();
+      journal_->undo();
+      journal_->clear();
     }
     temperature_ *= alpha_;
   }

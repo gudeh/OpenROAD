@@ -10,23 +10,6 @@ package(
 )
 
 cc_library(
-    name = "types",
-    hdrs = [
-        "include/grt/GRoute.h",
-        "include/grt/GlobalRouter.h",
-        "include/grt/PinGridLocation.h",
-        "include/grt/RoutePt.h",
-    ],
-    includes = [
-        "include",
-    ],
-    deps = [
-        "//src/ant:types",
-        "//src/odb",
-    ],
-)
-
-cc_library(
     name = "abstract-fastroute",
     hdrs = [
         "src/fastroute/include/AbstractFastRouteRenderer.h",
@@ -43,6 +26,7 @@ cc_library(
     srcs = [
         "src/fastroute/src/FastRoute.cpp",
         "src/fastroute/src/FastRouteRenderer.cpp",
+        "src/fastroute/src/graph2d.cpp",
         "src/fastroute/src/RSMT.cpp",
         "src/fastroute/src/RipUp.cpp",
         "src/fastroute/src/maze.cpp",
@@ -51,16 +35,18 @@ cc_library(
         "src/fastroute/src/utility.cpp",
     ],
     hdrs = [
-        "src/fastroute/include/AbstractMakeWireParasitics.h",
+        "include/grt/GRoute.h",
         "src/fastroute/include/FastRoute.h",
         "src/fastroute/include/FastRouteRenderer.h",
+        "src/fastroute/include/Graph2D.h",
     ],
     includes = [
+        "include",
         "src/fastroute/include",
     ],
     deps = [
         ":abstract-fastroute",
-        ":types",
+        "//src/dbSta",
         "//src/gui",
         "//src/odb",
         "//src/stt",
@@ -79,11 +65,6 @@ cc_library(
         "src/GlobalRouter.cpp",
         "src/Grid.cpp",
         "src/Grid.h",
-        "src/GrouteRenderer.cpp",
-        "src/GrouteRenderer.h",
-        "src/MakeGlobalRouter.cpp",
-        "src/MakeWireParasitics.cpp",
-        "src/MakeWireParasitics.h",
         "src/Net.cpp",
         "src/Net.h",
         "src/Pin.cpp",
@@ -92,33 +73,29 @@ cc_library(
         "src/RepairAntennas.h",
         "src/RoutingTracks.h",
         "src/Rudy.cpp",
-        "src/heatMap.cpp",
-        "src/heatMap.h",
-        "src/heatMapRudy.cpp",
-        "src/heatMapRudy.h",
     ],
     hdrs = [
-        "include/grt/MakeGlobalRouter.h",
+        "include/grt/GRoute.h",
+        "include/grt/GlobalRouter.h",
+        "include/grt/PinGridLocation.h",
+        "include/grt/RoutePt.h",
         "include/grt/Rudy.h",
+    ],
+    copts = [
+        "-fopenmp",
     ],
     includes = [
         "include",
-        "include/grt",
-        "src",
-        "src/fastroute/include",
     ],
     deps = [
         ":abstract-fastroute",
         ":fastroute",
-        ":types",
-        "//:opensta_lib",
-        "//:ord",
         "//src/ant",
         "//src/dbSta",
         "//src/dpl",
         "//src/gui",
         "//src/odb",
-        "//src/rsz",
+        "//src/sta:opensta_lib",
         "//src/stt",
         "//src/utl",
         "@boost.geometry",
@@ -126,13 +103,67 @@ cc_library(
         "@boost.icl",
         "@boost.iterator",
         "@boost.polygon",
-        "@org_llvm_openmp//:openmp",
+        "@openmp",
+    ],
+)
+
+cc_library(
+    name = "ui",
+    srcs = [
+        "src/AbstractGrouteRenderer.h",
+        "src/AbstractRoutingCongestionDataSource.h",
+        "src/GrouteRenderer.cpp",
+        "src/GrouteRenderer.h",
+        "src/MakeGlobalRouter.cpp",
+        "src/Net.h",
+        "src/Pin.h",
+        "src/heatMap.cpp",
+        "src/heatMap.h",
+        "src/heatMapRudy.cpp",
+        "src/heatMapRudy.h",
+        ":swig",
+        ":tcl",
+    ],
+    hdrs = [
+        "include/grt/GRoute.h",
+        "include/grt/GlobalRouter.h",
+        "include/grt/MakeGlobalRouter.h",
+        "include/grt/PinGridLocation.h",
+        "include/grt/RoutePt.h",
+        "include/grt/Rudy.h",
+    ],
+    copts = [
+        "-Isrc/grt/src",
+        "-Wno-missing-braces",  # from TCL swigging
+        "-fopenmp",
+    ],
+    includes = [
+        "include",
+    ],
+    deps = [
+        ":abstract-fastroute",
+        ":fastroute",
+        "//:ord",
+        "//src/ant",
+        "//src/dbSta",
+        "//src/dpl",
+        "//src/gui",
+        "//src/odb",
+        "//src/sta:opensta_lib",
+        "//src/stt",
+        "//src/utl",
+        "@boost.geometry",
+        "@boost.graph",
+        "@boost.icl",
+        "@boost.iterator",
+        "@boost.stacktrace",
+        "@openmp",
         "@tk_tcl//:tcl",
     ],
 )
 
 tcl_encode(
-    name = "fastroute_tcl",
+    name = "tcl",
     srcs = [
         "src/GlobalRouter.tcl",
     ],
@@ -141,7 +172,7 @@ tcl_encode(
 )
 
 tcl_wrap_cc(
-    name = "fastroute_swig",
+    name = "swig",
     srcs = [
         "src/GlobalRouter.i",
         "//:error_swig",

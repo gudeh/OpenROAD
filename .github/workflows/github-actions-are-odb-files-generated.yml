@@ -11,6 +11,8 @@ on:
 jobs:
   Are-Odb-Files-Generated:
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+  Are-Odb-Files-Generated:
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -22,6 +24,7 @@ jobs:
           venv/bin/pip install jinja2==3.1.6
       - name: Check that ODB Generated Files Are Up To Date
         run: |
+          source venv/bin/activate
           source venv/bin/activate
           cd src/odb/src/codeGenerator/
           ./generate

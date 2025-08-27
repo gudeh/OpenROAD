@@ -1833,6 +1833,10 @@ void HTreeBuilder::createClockSubNets()
   ClockInst& rootBuffer = clock_.addClockBuffer(
       "clkbuf_0", options_->getRootBuffer(), centerX, centerY);
 
+  if (topBufferName_.empty()) {
+    topBufferName_ = rootBuffer.getName();
+  }
+
   // clang-format off
   if (center != legalCenter) {
     debugPrint(logger_, CTS, "legalizer", 2, "createClockSubNets: "
@@ -1845,6 +1849,7 @@ void HTreeBuilder::createClockSubNets()
 
   addTreeLevelBuffer(&rootBuffer);
   ClockSubNet& rootClockSubNet = clock_.addSubNet("clknet_0");
+  rootClockSubNet.setTreeLevel(0);
   rootClockSubNet.addInst(rootBuffer);
   treeBufLevels_++;
 
@@ -1946,6 +1951,11 @@ void HTreeBuilder::createClockSubNets()
                              wireSegmentUnit_,
                              this);
 
+      // Set clock tree level the first time only.
+      if (builder.getDrivingSubNet()->getTreeLevel() < 0) {
+        builder.getDrivingSubNet()->setTreeLevel(levelIdx);
+      }
+
       if (!options_->getTreeBuffer().empty()) {
         builder.build(options_->getTreeBuffer());
       } else {
@@ -2013,6 +2023,7 @@ void HTreeBuilder::createSingleBufferClockNet()
 
   addTreeLevelBuffer(&rootBuffer);
   ClockSubNet& clockSubNet = clock_.addSubNet("clknet_0");
+  clockSubNet.setTreeLevel(0);
   clockSubNet.addInst(rootBuffer);
 
   clock_.forEachSink([&](ClockInst& inst) { clockSubNet.addInst(inst); });

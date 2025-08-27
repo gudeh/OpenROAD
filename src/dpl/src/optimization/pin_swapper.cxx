@@ -44,7 +44,7 @@ PinSwapper::Swap PinSwapper::swapPins(Pin* pin1, Pin* pin2)
 bool PinSwapper::swapPins(const std::vector<Pin*>& pins1,
                           const std::vector<Pin*>& pins2)
 {
-  journal_->clearJournal();
+  journal_->clear();
   SwapGroup swaps;
   // swap pins
   for (size_t i = 0; i < pins1.size(); ++i) {
@@ -70,7 +70,8 @@ bool PinSwapper::swapPins(const std::vector<Pin*>& pins1,
     }
     return true;
   }
-  journal_->undoAll();
+  journal_->undo();
+  journal_->clear();
   return false;
 }
 

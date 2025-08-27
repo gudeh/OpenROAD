@@ -115,7 +115,7 @@ class Opendp
   int padRight(dbInst* inst) const;
 
   void checkPlacement(bool verbose, const std::string& report_file_name = "");
-  void fillerPlacement(dbMasterSeq* filler_masters,
+  void fillerPlacement(const dbMasterSeq& filler_masters,
                        const char* prefix,
                        bool verbose);
   void removeFillers();
@@ -256,9 +256,6 @@ class Opendp
   Node* checkOneSiteGaps(Node& cell) const;
   bool overlap(const Node* cell1, const Node* cell2) const;
   bool checkRegionPlacement(const Node* cell) const;
-  static bool isOverlapPadded(const Node* cell1, const Node* cell2);
-  static bool isCrWtBlClass(const Node* cell);
-  static bool isWellTap(const Node* cell);
   void reportFailures(const std::vector<Node*>& failures,
                       int msg_id,
                       const char* msg,
@@ -273,11 +270,13 @@ class Opendp
   void saveFailures(const std::vector<Node*>& placed_failures,
                     const std::vector<Node*>& in_rows_failures,
                     const std::vector<Node*>& overlap_failures,
+                    const std::vector<Node*>& padding_failures,
                     const std::vector<Node*>& one_site_gap_failures,
                     const std::vector<Node*>& site_align_failures,
                     const std::vector<Node*>& region_placement_failures,
                     const std::vector<Node*>& placement_failures,
                     const std::vector<Node*>& edge_spacing_failures,
+                    const std::vector<Node*>& blocked_layers_failures,
                     const std::vector<Node*>& abutment_conn_failures);
   void writeJsonReport(const std::string& filename);
 
@@ -294,7 +293,7 @@ class Opendp
   DbuPt initialLocation(const Node* cell, bool padded) const;
   int disp(const Node* cell) const;
   // Place fillers
-  MasterByImplant splitByImplant(dbMasterSeq* filler_masters);
+  MasterByImplant splitByImplant(const dbMasterSeq& filler_masters);
   void setGridCells();
   dbMasterSeq& gapFillers(dbTechLayer* implant,
                           GridX gap,
@@ -303,7 +302,6 @@ class Opendp
                        const std::string& prefix,
                        const MasterByImplant& filler_masters);
   void placeRowPhiCutCells(GridY row, int& phi_cut_count);
-  std::pair<odb::dbSite*, odb::dbOrientType> fillSite(Pixel* pixel);
   static bool isFiller(odb::dbInst* db_inst);
   bool isOneSiteCell(odb::dbMaster* db_master) const;
   const char* gridInstName(GridY row, GridX col);
@@ -326,7 +324,7 @@ class Opendp
   void prepareDecapAndGaps();
   void placeCell(Node* cell, GridX x, GridY y);
   void unplaceCell(Node* cell);
-  void setGridPaddedLoc(Node* cell, GridX x, GridY y);
+  void setGridLoc(Node* cell, GridX x, GridY y);
   void setMaxDisplacement(int max_displacement_x, int max_displacement_y);
   void parseCells(const std::string& cells_file);
 

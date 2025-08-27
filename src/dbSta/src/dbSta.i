@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2019-2025, The OpenROAD Authors
 
+// clang-format off
+
 %{
 
 #include "odb/db.h"
@@ -33,6 +35,7 @@ using sta::Instance;
 %include "power/Power.i"
 %include "sdc/Sdc.i"
 %include "sdf/Sdf.i"
+%include "search/Property.i"
 %include "search/Search.i"
 %include "spice/WriteSpice.i"
 %include "util/Util.i"
@@ -106,8 +109,7 @@ sta_to_db_port(Port *port)
   dbITerm *iterm;
   dbBTerm *bterm;
   dbModITerm *moditerm;
-  dbModBTerm *modbterm;
-  db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
+  db_network->staToDb(pin, iterm, bterm, moditerm);
   return bterm;
 }
 
@@ -119,8 +121,7 @@ sta_to_db_pin(Pin *pin)
   dbITerm *iterm;
   dbBTerm *bterm;
   dbModITerm *moditerm;
-  dbModBTerm* modbterm;
-  db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
+  db_network->staToDb(pin, iterm, bterm, moditerm);
   return iterm;
 }
 
@@ -214,5 +215,18 @@ replace_hier_module_cmd(odb::dbModInst* mod_inst, odb::dbModule* module)
   sta::dbNetwork *db_network = openroad->getDbNetwork();
   (void) db_network->replaceHierModule(mod_inst, module);
 }
+
+
+namespace sta {
+
+void check_axioms_cmd()
+{
+  ord::OpenRoad* openroad = ord::getOpenRoad();
+  sta::dbSta *sta = openroad->getSta();
+  sta->ensureLinked();
+  sta->getDbNetwork()->checkAxioms();
+}
+
+} // namespace sta
 
 %} // inline

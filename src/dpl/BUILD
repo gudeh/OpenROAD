@@ -15,7 +15,6 @@ cc_library(
         "src/CheckPlacement.cpp",
         "src/DecapPlacement.cpp",
         "src/FillerPlacement.cpp",
-        "src/MakeOpendp.cpp",
         "src/Opendp.cpp",
         "src/OptMirror.cpp",
         "src/Optdp.cpp",
@@ -24,8 +23,6 @@ cc_library(
         "src/PlacementDRC.h",
         "src/dbToOpendp.cpp",
         "src/graphics/DplObserver.h",
-        "src/graphics/Graphics.cpp",
-        "src/graphics/Graphics.h",
         "src/infrastructure/Coordinates.h",
         "src/infrastructure/DecapObjects.h",
         "src/infrastructure/Grid.cpp",
@@ -78,6 +75,48 @@ cc_library(
         "include/dpl/Opendp.h",
         "include/dpl/OptMirror.h",
     ],
+    copts = [
+        "-Isrc/dpl/src",
+    ],
+    includes = [
+        "include",
+    ],
+    deps = [
+        "//src/odb",
+        "//src/utl",
+        "@boost.format",
+        "@boost.geometry",
+        "@boost.icl",
+        "@boost.polygon",
+        "@boost.property_tree",
+        "@boost.random",
+        "@boost.tokenizer",
+        "@boost.utility",
+        "@com_github_quantamhd_lemon//:lemon",
+        "@tk_tcl//:tcl",
+    ],
+)
+
+cc_library(
+    name = "ui",
+    srcs = [
+        "src/MakeOpendp.cpp",
+        "src/graphics/DplObserver.h",
+        "src/graphics/Graphics.cpp",
+        "src/graphics/Graphics.h",
+        "src/infrastructure/Coordinates.h",
+        "src/infrastructure/Grid.h",
+        "src/infrastructure/Objects.h",
+        "src/infrastructure/architecture.h",
+        "src/infrastructure/network.h",
+        ":swig",
+        ":tcl",
+    ],
+    hdrs = [
+        "include/dpl/MakeOpendp.h",
+        "include/dpl/Opendp.h",
+        "include/dpl/OptMirror.h",
+    ],
     includes = [
         "include",
         "src",
@@ -87,14 +126,11 @@ cc_library(
         "//src/gui",
         "//src/odb",
         "//src/utl",
-        "@boost.format",
         "@boost.geometry",
+        "@boost.icl",
         "@boost.polygon",
-        "@boost.property_tree",
-        "@boost.random",
-        "@boost.tokenizer",
+        "@boost.stacktrace",
         "@boost.utility",
-        "@com_github_quantamhd_lemon//:lemon",
         "@tk_tcl//:tcl",
     ],
 )
@@ -119,5 +155,8 @@ tcl_wrap_cc(
     root_swig_src = "src/Opendp.i",
     swig_includes = [
         "src/dpl/src",
+    ],
+    deps = [
+        "//src/odb:swig",
     ],
 )
