@@ -4,14 +4,12 @@
 #pragma once
 
 #include <map>
-#include <optional>
 #include <vector>
 
 #include "clusterEngine.h"
 #include "object.h"
 #include "odb/geom.h"
 #include "util.h"
-#include "utl/Logger.h"
 
 namespace mpl {
 
@@ -26,7 +24,11 @@ class MplObserver
   virtual void startCoarse() {}
   virtual void startFine() {}
 
-  virtual void startSA() {}
+  virtual void startSA(const char* type,
+                       int max_num_step,
+                       int num_perturb_per_step)
+  {
+  }
   virtual void saStep(const std::vector<SoftMacro>& macros) {}
   virtual void saStep(const std::vector<HardMacro>& macros) {}
   virtual void endSA(float norm_cost) {}
@@ -54,6 +56,18 @@ class MplObserver
   virtual void setOutline(const odb::Rect& outline) {}
   virtual void setGuides(const std::map<int, Rect>& guides) {}
   virtual void setFences(const std::map<int, Rect>& fences) {}
+  virtual void setIOConstraintsMap(
+      const ClusterToBoundaryRegionMap& io_cluster_to_constraint)
+  {
+  }
+  virtual void setBlockedRegionsForPins(
+      const std::vector<odb::Rect>& blocked_regions_for_pins)
+  {
+  }
+  virtual void setAvailableRegionsForUnconstrainedPins(
+      const BoundaryRegionList& regions)
+  {
+  }
 
   virtual void setAreaPenalty(const PenaltyData& penalty) {}
   virtual void setBoundaryPenalty(const PenaltyData& penalty) {}

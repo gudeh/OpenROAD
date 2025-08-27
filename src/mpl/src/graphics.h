@@ -5,12 +5,16 @@
 
 #include <map>
 #include <optional>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "MplObserver.h"
+#include "clusterEngine.h"
 #include "gui/gui.h"
+#include "object.h"
+#include "odb/db.h"
+#include "odb/geom.h"
+#include "util.h"
 
 namespace mpl {
 class SoftMacro;
@@ -26,7 +30,9 @@ class Graphics : public gui::Renderer, public MplObserver
   void startCoarse() override;
   void startFine() override;
 
-  void startSA() override;
+  void startSA(const char* type,
+               int max_num_step,
+               int num_perturb_per_step) override;
   void saStep(const std::vector<SoftMacro>& macros) override;
   void saStep(const std::vector<HardMacro>& macros) override;
   void endSA(float norm_cost) override;
@@ -61,14 +67,20 @@ class Graphics : public gui::Renderer, public MplObserver
   void setCurrentCluster(Cluster* current_cluster) override;
   void setGuides(const std::map<int, Rect>& guides) override;
   void setFences(const std::map<int, Rect>& fences) override;
+  void setIOConstraintsMap(
+      const ClusterToBoundaryRegionMap& io_cluster_to_constraint) override;
+  void setBlockedRegionsForPins(
+      const std::vector<odb::Rect>& blocked_regions_for_pins) override;
+  void setAvailableRegionsForUnconstrainedPins(
+      const BoundaryRegionList& regions) override;
 
   void eraseDrawing() override;
 
  private:
-  void setXMarksSizeAndPosition(const std::set<Boundary>& blocked_boundaries);
+  void setXMarksSize();
   void resetPenalties();
   void drawCluster(Cluster* cluster, gui::Painter& painter);
-  void drawBlockedBoundariesIndication(gui::Painter& painter);
+  void drawBlockedRegionsIndication(gui::Painter& painter);
   void drawAllBlockages(gui::Painter& painter);
   void drawOffsetRect(const Rect& rect,
                       const std::string& center_text,
@@ -78,18 +90,9 @@ class Graphics : public gui::Renderer, public MplObserver
   template <typename T>
   void drawBundledNets(gui::Painter& painter, const std::vector<T>& macros);
   template <typename T>
-  void drawDistToIoConstraintBoundary(gui::Painter& painter,
-                                      const T& macro,
-                                      const T& io);
+  void drawDistToRegion(gui::Painter& painter, const T& macro, const T& io);
   template <typename T>
   bool isOutsideTheOutline(const T& macro) const;
-  template <typename T>
-  odb::Point getClosestBoundaryPoint(const T& macro,
-                                     const Rect& die,
-                                     Boundary closest_boundary);
-  template <typename T>
-  Boundary getClosestUnblockedBoundary(const T& macro, const Rect& die);
-  bool isBlockedBoundary(Boundary boundary);
   void addOutlineOffsetToLine(odb::Point& from, odb::Point& to);
   void setSoftMacroBrush(gui::Painter& painter, const SoftMacro& soft_macro);
   void fetchSoftAndHard(Cluster* parent,
@@ -98,6 +101,8 @@ class Graphics : public gui::Renderer, public MplObserver
                         std::vector<std::vector<odb::Rect>>& outlines,
                         int level);
   bool isTargetCluster();
+  template <typename T>
+  bool isSkippable(const T& macro);
 
   template <typename T>
   void report(const std::optional<T>& value);
@@ -111,7 +116,10 @@ class Graphics : public gui::Renderer, public MplObserver
   odb::Rect outline_;
   int target_cluster_id_{-1};
   std::vector<std::vector<odb::Rect>> outlines_;
-  std::map<Boundary, odb::Point> blocked_boundary_to_mark_;
+  std::vector<odb::Rect> blocked_regions_for_pins_;
+  BoundaryRegionList available_regions_for_unconstrained_pins_;
+  ClusterToBoundaryRegionMap io_cluster_to_constraint_;
+  gui::Chart* chart_{nullptr};
 
   // In Soft SA, we're shaping/placing the children of a certain parent,
   // so for this case, the current cluster is actually the current parent.
@@ -119,7 +127,7 @@ class Graphics : public gui::Renderer, public MplObserver
   std::map<int, Rect> guides_;  // Id -> Guidance Region
   std::map<int, Rect> fences_;  // Id -> Fence
 
-  int x_mark_size_{0};  // For blocked boundaries.
+  int x_mark_size_{0};  // For blocked regions.
 
   bool active_ = true;
   bool coarse_;
@@ -144,6 +152,7 @@ class Graphics : public gui::Renderer, public MplObserver
 
   float best_norm_cost_ = 0;
   int skipped_ = 0;
+  int iter_ = 0;
 
   Cluster* root_ = nullptr;
 };

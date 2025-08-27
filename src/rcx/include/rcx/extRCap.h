@@ -89,23 +89,29 @@ class extDistRC
   void readRC(Ath__parser* parser, double dbFactor = 1.0);
   void readRC_res2(Ath__parser* parser, double dbFactor = 1.0);
   double getFringe();
+  double getFringeW();
   double getCoupling();
   double getDiag();
   double getRes();
-  double getTotalCap() { return _coupling + _fringe + _diag; };
+  int getSep();
+  double getTotalCap() { return coupling_ + fringe_ + diag_; };
+  void setCoupling(double coupling);
+  void setFringe(double fringe);
+  void setFringeW(double fringew);
+  void setRes(double res);
   void addRC(extDistRC* rcUnit, uint len, bool addCC);
   void writeRC(FILE* fp, bool bin);
   void writeRC();
   void interpolate(uint d, extDistRC* rc1, extDistRC* rc2);
   double interpolate_res(uint d, extDistRC* rc2);
 
- public:
-  int _sep;
-  double _coupling;
-  double _fringe;
-  double _fringeW;
-  double _diag;
-  double _res;
+ private:
+  int sep_;
+  double coupling_;
+  double fringe_;
+  double fringeW_;
+  double diag_;
+  double res_;
   Logger* logger_;
 
   friend class extDistRCTable;
@@ -186,13 +192,14 @@ class extDistRCTable
   void makeCapTableOver();
   void makeCapTableUnder();
 
-  Ath__array1D<extDistRC*>* _measureTable;
-  Ath__array1D<extDistRC*>* _computeTable;
-  Ath__array1D<extDistRC*>* _measureTableR[16];
-  Ath__array1D<extDistRC*>* _computeTableR[16];  // OPTIMIZE
-  int _maxDist;
-  uint _distCnt;
-  uint _unit;
+  Ath__array1D<extDistRC*>* measureTable_;
+  Ath__array1D<extDistRC*>* computeTable_;
+  Ath__array1D<extDistRC*>* measureTableR_[16];
+  Ath__array1D<extDistRC*>* computeTableR_[16];  // OPTIMIZE
+  bool measureInR_;
+  int maxDist_;
+  uint distCnt_;
+  uint unit_;
   Logger* logger_;
 };
 
@@ -325,28 +332,33 @@ class extDistWidthRCTable
   uint _layerCnt;
   uint _met;
 
-  Ath__array1D<int>* _widthTable;
-  Ath__array1D<uint>* _widthMapTable;
-  Ath__array1D<int>* _diagWidthTable[32];
-  Ath__array1D<int>* _diagDistTable[32];
-  Ath__array1D<uint>* _diagWidthMapTable[32];
-  Ath__array1D<uint>* _diagDistMapTable[32];
+  static constexpr int diagDepth = 32;
+
+  Ath__array1D<int>* _widthTable = nullptr;
+  Ath__array1D<uint>* _widthMapTable = nullptr;
+  Ath__array1D<int>* _diagWidthTable[diagDepth];
+  Ath__array1D<int>* _diagDistTable[diagDepth];
+  Ath__array1D<uint>* _diagWidthMapTable[diagDepth];
+  Ath__array1D<uint>* _diagDistMapTable[diagDepth];
 
   uint _modulo;
   int _firstWidth = 0;
   int _lastWidth = -1;
-  Ath__array1D<int>* _firstDiagWidth;
-  Ath__array1D<int>* _lastDiagWidth;
-  Ath__array1D<int>* _firstDiagDist;
-  Ath__array1D<int>* _lastDiagDist;
+  Ath__array1D<int>* _firstDiagWidth = nullptr;
+  Ath__array1D<int>* _lastDiagWidth = nullptr;
+  Ath__array1D<int>* _firstDiagDist = nullptr;
+  Ath__array1D<int>* _lastDiagDist = nullptr;
   bool _widthTableAllocFlag;  // if false widthtable is pointer
 
-  extDistRCTable*** _rcDistTable;  // per over/under metal, per width
-  extDistRCTable***** _rcDiagDistTable;
+  extDistRCTable*** _rcDistTable = nullptr;  // per over/under metal, per width
+  extDistRCTable***** _rcDiagDistTable = nullptr;
   uint _metCnt;  // if _over==false _metCnt???
+  uint _widthCnt;
+  uint _diagWidthCnt;
+  uint _diagDistCnt;
 
-  AthPool<extDistRC>* _rcPoolPtr;
-  extDistRC* _rc31;
+  AthPool<extDistRC>* _rcPoolPtr = nullptr;
+  extDistRC* _rc31 = nullptr;
 };
 
 class extMetRCTable
@@ -394,8 +406,7 @@ class extMetRCTable
   extDistWidthRCTable*** allocTable();
   void deleteTable(extDistWidthRCTable*** table);
 
-  void allocateInitialTables(uint layerCnt,
-                             uint widthCnt,
+  void allocateInitialTables(uint widthCnt,
                              bool over,
                              bool under,
                              bool diag = false);
@@ -462,6 +473,7 @@ class extRCTable
 {
  public:
   extRCTable(bool over, uint layerCnt);
+  ~extRCTable();
   uint addCapOver(uint met, uint metUnder, extDistRC* rc);
   extDistRC* getCapOver(uint met, uint metUnder);
 
@@ -472,7 +484,6 @@ class extRCTable
   bool _over;
   uint _maxCnt1;
   Ath__array1D<extDistRC*>*** _inTable;  // per metal per width
-  Ath__array1D<extDistRC*>*** _table;
 };
 
 class extMain;
@@ -1694,8 +1705,9 @@ struct BoundaryData
     maxExtractBuffer = ccTrackDist * pitch2;
 
     iterationIncrement = iterationTrackCount * minPitch;
-    if (maxWidth > maxCouplingTracks * maxPitch)
+    if (maxWidth > maxCouplingTracks * maxPitch) {
       iterationIncrement = std::max(ur[1] - ll[1], ur[0] - ll[0]);
+    }
 
     for (uint dir = 0; dir < 2; dir++) {
       lo_gs[dir] = ll[dir];
@@ -2762,7 +2774,7 @@ class extMain
   std::vector<odb::dbBTerm*> _connectedBTerm;
   std::vector<odb::dbITerm*> _connectedITerm;
 
-  GridTable* _search = nullptr;
+  std::unique_ptr<GridTable> _search;
 
   int _noVariationIndex;
 

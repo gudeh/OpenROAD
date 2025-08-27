@@ -27,6 +27,15 @@ bool compare_by_id(const dbObject* lhs, const dbObject* rhs);
 namespace std {
 
 template <>
+struct less<odb::dbObject*>
+{
+  bool operator()(const odb::dbObject* lhs, const odb::dbObject* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
 struct less<odb::dbBoolProperty*>
 {
   bool operator()(const odb::dbBoolProperty* lhs,
@@ -67,15 +76,6 @@ struct less<odb::dbDoubleProperty*>
 };
 
 template <>
-struct less<odb::dbDatabase*>
-{
-  bool operator()(const odb::dbDatabase* lhs, const odb::dbDatabase* rhs) const
-  {
-    return odb::compare_by_id(lhs, rhs);
-  }
-};
-
-template <>
 struct less<odb::dbBox*>
 {
   bool operator()(const odb::dbBox* lhs, const odb::dbBox* rhs) const
@@ -88,15 +88,6 @@ template <>
 struct less<odb::dbSBox*>
 {
   bool operator()(const odb::dbSBox* lhs, const odb::dbSBox* rhs) const
-  {
-    return odb::compare_by_id(lhs, rhs);
-  }
-};
-
-template <>
-struct less<odb::dbChip*>
-{
-  bool operator()(const odb::dbChip* lhs, const odb::dbChip* rhs) const
   {
     return odb::compare_by_id(lhs, rhs);
   }
@@ -474,6 +465,90 @@ struct less<odb::dbCellEdgeSpacing*>
 {
   bool operator()(const odb::dbCellEdgeSpacing* lhs,
                   const odb::dbCellEdgeSpacing* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChip*>
+{
+  bool operator()(const odb::dbChip* lhs, const odb::dbChip* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipBump*>
+{
+  bool operator()(const odb::dbChipBump* lhs, const odb::dbChipBump* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipBumpInst*>
+{
+  bool operator()(const odb::dbChipBumpInst* lhs,
+                  const odb::dbChipBumpInst* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipConn*>
+{
+  bool operator()(const odb::dbChipConn* lhs, const odb::dbChipConn* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipInst*>
+{
+  bool operator()(const odb::dbChipInst* lhs, const odb::dbChipInst* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipNet*>
+{
+  bool operator()(const odb::dbChipNet* lhs, const odb::dbChipNet* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipRegion*>
+{
+  bool operator()(const odb::dbChipRegion* lhs,
+                  const odb::dbChipRegion* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbChipRegionInst*>
+{
+  bool operator()(const odb::dbChipRegionInst* lhs,
+                  const odb::dbChipRegionInst* rhs) const
+  {
+    return odb::compare_by_id(lhs, rhs);
+  }
+};
+
+template <>
+struct less<odb::dbDatabase*>
+{
+  bool operator()(const odb::dbDatabase* lhs, const odb::dbDatabase* rhs) const
   {
     return odb::compare_by_id(lhs, rhs);
   }

@@ -46,13 +46,15 @@ cc_test(
 
 cc_test(
     name = "TestPolygonalFloorplan",
-    srcs = ["TestPolygonalFloorplan.cc",
-            "nangate45_test_fixture.h"],
-    defines = [
-        'DATA_PREFIX=\\"src/odb/test/\\"',  # TODO: not needed after no cmake
+    srcs = [
+        "TestPolygonalFloorplan.cc",
+        "nangate45_test_fixture.h",
     ],
     data = [
         "//src/odb/test:regression_resources",
+    ],
+    defines = [
+        'DATA_PREFIX=\\"src/odb/test/\\"',  # TODO: not needed after no cmake
     ],
     linkstatic = True,  # TODO: remove once deps define all symbols
     deps = [
@@ -60,6 +62,19 @@ cc_test(
         "//src/utl",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "TestAccessPoint",
+    srcs = [
+        "TestAccessPoint.cpp",
+    ],
+    linkstatic = True,  # TODO: remove once deps define all symbols
+    deps = [
+        "//src/odb",
+        "//src/odb/test/cpp/helper",
+        "@boost.test",
     ],
 )
 

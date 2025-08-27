@@ -3,6 +3,7 @@
 
 _comparable = [
     "Point",
+    "Point3D",
     "Rect",
     "Polygon",
     "Line",
@@ -23,6 +24,7 @@ _comparable = [
     "string",
     "uint",
     "unint_32t",
+    "uint8_t",
 ]
 std = [
     "bool",
@@ -42,6 +44,7 @@ std = [
     "string",
     "uint",
     "unint_32t",
+    "uint8_t",
 ]
 
 _removable = ["const", "static", "unsigned"]
@@ -80,11 +83,8 @@ def components(structs, name, _type):
 
 
 def add_once_to_dict(src, target):
-    if isinstance(src, list):
-        for obj in src:
-            target.setdefault(obj, [])
-    elif src not in target:
-        target.setdefault(src, [])
+    for obj in src:
+        target.setdefault(obj, [])
     return target
 
 
@@ -98,6 +98,16 @@ def is_bit_fields(field, structs):
         if is_bit_fields(struct_field, structs):
             return True
     return False
+
+
+def get_plural_name(name):
+    # if name ends with y, replace it with ies
+    if name.endswith("y"):
+        return name[:-1] + "ies"
+    # if name ends with s, add es
+    elif name.endswith("s"):
+        return name + "es"
+    return name + "s"
 
 
 def get_functional_name(name):
@@ -132,8 +142,11 @@ def is_hash_table(type_name):
 def get_hash_table_type(type_name):
     if not is_hash_table(type_name) or len(type_name) < 13:
         return None
-
-    return type_name[12:-1] + "*"
+    types = get_template_types(type_name[12:-1])
+    for type in types:
+        if type.find("db") != -1:
+            return type + "*"
+    return None
 
 
 def is_pass_by_ref(type_name):
@@ -148,18 +161,37 @@ def is_set_by_ref(type_name):
     )
 
 
-def _is_template_type(type_name):
+def is_template_type(type_name):
     open_bracket = type_name.find("<")
     if open_bracket == -1:
         return False
-
     closed_bracket = type_name.find(">")
 
     return closed_bracket >= open_bracket
 
 
+def _is_comma_divided(type_name):
+    comma = type_name.find(",")
+    return comma != -1
+
+
+def get_template_types(type_name):
+    # extract all template types from a type name
+    if is_template_type(type_name):
+        return get_template_types(get_template_type(type_name))
+    elif _is_comma_divided(type_name):
+        # split and strip in one line
+        types = [t.strip() for t in type_name.split(",")]
+        for i in range(len(types)):
+            if types[i].isdigit() or types[i] == "true" or types[i] == "false":
+                types.pop(i)
+        return types
+    else:
+        return [type_name]
+
+
 def get_template_type(type_name):
-    if not _is_template_type(type_name):
+    if not is_template_type(type_name):
         return None
     num_brackets = 1
 
@@ -180,3 +212,13 @@ def get_ref_type(type_name):
         return None
 
     return type_name[6:-1] + "*"
+
+
+def fnv1a_32(string):
+    FNV_prime = 0x01000193
+    hash_value = 0x811C9DC5
+    for c in string:
+        hash_value ^= ord(c)
+        hash_value = (hash_value * FNV_prime) % (1 << 32)
+
+    return hash_value

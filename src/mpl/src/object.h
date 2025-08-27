@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include <algorithm>
-#include <iostream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <random>
@@ -16,12 +13,11 @@
 
 #include "odb/db.h"
 #include "odb/dbTypes.h"
-#include "odb/odb.h"
 #include "shapes.h"
+#include "util.h"
 
 namespace odb {
 class Rect;
-class Point;
 class dbInst;
 class dbModule;
 class dbDatabase;
@@ -74,24 +70,6 @@ using Point = std::pair<float, float>;
 // (fixed position, preferred locations, and others) are on macros.  This means
 // we do not accept pre-placed std cells as our inputs.
 //*****************************************************************************
-
-// Define the position of pin access blockage
-// It can be {bottom, left, top, right} boundary of the cluster
-// Each pin access blockage is modeled by a movable hard macro
-// along the corresponding { B, L, T, R } boundary
-// The size of the hard macro blockage is determined the by the
-// size of that cluster
-enum Boundary
-{
-  NONE,
-  B,
-  L,
-  T,
-  R
-};
-
-std::string toString(const Boundary& pin_access);
-Boundary opposite(const Boundary& pin_access);
 
 // Define the type for clusters
 // StdCellCluster only has std cells. In the cluster type, it
@@ -180,21 +158,18 @@ class Cluster
   void copyInstances(const Cluster& cluster);  // only based on cluster type
 
   bool isIOCluster() const;
-
-  bool isClusterOfUnplacedIOPins() const
-  {
-    return is_cluster_of_unplaced_io_pins_;
-  }
+  bool isClusterOfUnconstrainedIOPins() const;
+  bool isClusterOfUnplacedIOPins() const;
   void setAsClusterOfUnplacedIOPins(const std::pair<float, float>& pos,
                                     float width,
                                     float height,
-                                    Boundary constraint_boundary);
-  Boundary getConstraintBoundary() const { return constraint_boundary_; }
-
+                                    bool is_cluster_of_unconstrained_io_pins);
   bool isIOPadCluster() const { return is_io_pad_cluster_; }
   void setAsIOPadCluster(const std::pair<float, float>& pos,
                          float width,
                          float height);
+  bool isIOBundle() const { return is_io_bundle_; }
+  void setAsIOBundle(const Point& pos, float width, float height);
 
   void setAsArrayOfInterconnectedMacros();
   bool isArrayOfInterconnectedMacros() const;
@@ -282,10 +257,11 @@ class Cluster
   std::vector<HardMacro*> hard_macros_;
 
   bool is_cluster_of_unplaced_io_pins_{false};
+  bool is_cluster_of_unconstrained_io_pins_{false};
   bool is_io_pad_cluster_{false};
-  Boundary constraint_boundary_ = NONE;
+  bool is_io_bundle_{false};
 
-  bool is_array_of_interconnected_macros = false;
+  bool is_array_of_interconnected_macros_ = false;
 
   // Each cluster uses metrics to store its statistics
   Metrics metrics_;
@@ -347,7 +323,7 @@ class HardMacro
   void setCluster(Cluster* cluster) { cluster_ = cluster; }
   Cluster* getCluster() const { return cluster_; }
   bool isClusterOfUnplacedIOPins() const;
-  Rect getBBox() const;
+  bool isClusterOfUnconstrainedIOPins() const;
 
   // Get Physical Information
   // Note that the default X and Y include halo_width
@@ -427,7 +403,7 @@ class HardMacro
   float halo_height_ = 0.0;  // halo height
   float width_ = 0.0;        // width_ = macro_width + 2 * halo_width
   float height_ = 0.0;       // height_ = macro_height + 2 * halo_width
-  std::string name_ = "";    // macro name
+  std::string name_;         // macro name
   odb::dbOrientType orientation_ = odb::dbOrientType::R0;
 
   // we assume all the pins locate at the center of all pins
@@ -441,46 +417,30 @@ class HardMacro
   Cluster* cluster_ = nullptr;
 };
 
-// We have three types of SoftMacros
-// Type 1:  a SoftMacro corresponding to a Cluster (MixedCluster,
-// StdCellCluster, HardMacroCluster)
-// Type 2:  a SoftMacro corresponding to a IO cluster
-// Type 3:  a SoftMacro corresponding to a all kinds of blockages
-// Here (x, y) is the lower left corner of the soft macro
-// For all the soft macros, we model the bundled pin at the center
-// of the soft macro. So we do not need private variables for pin positions
-// SoftMacro is a physical abstraction for Cluster.
-// Note that constrast to classical soft macro definition,
-// we allow the soft macro to change its area.
-// For the SoftMacro corresponding to different types of clusters,
-// we allow different shape constraints:
-// For SoftMacro corresponding to MixedCluster and StdCellCluster,
-// the macro must have fixed area
-// For SoftMacro corresponding to HardMacroCluster,
-// the macro can have different sizes. In this case, the width_list and
-// height_list is not sorted. Generally speaking we can have following types of
-// SoftMacro (1) SoftMacro : MixedCluster (2) SoftMacro : StdCellCluster (3)
-// SoftMacro : HardMacroCluster (4) SoftMacro : Fixed Hard Macro (or blockage)
-// (5) SoftMacro : Hard Macro (or pin access blockage)
-// (6) SoftMacro : Fixed Terminals
-
+// This is the abstraction of the moveable objects inside the simulated
+// annealing for:
+//  1. Coarse shaping of Mixed clusters (tilings generation);
+//  2. Cluster placement.
+//
+// A SoftMacro can represent:
+//  - a "regular" Cluster (Mixed, StdCell or Macro);
+//  - an IO Cluster (PAD or group of unplaced pins) which has its position
+//    fixed;
+//  - a fixed terminal;
+//  - a blockage.
+//
+// Obs: The bundled pin of a SoftMacro is always its center.
 class SoftMacro
 {
  public:
-  // Create a SoftMacro with specified size
-  // Create a SoftMacro representing the blockage
+  SoftMacro(Cluster* cluster);
   SoftMacro(float width, float height, const std::string& name);
-
   SoftMacro(const std::pair<float, float>& location,
             const std::string& name,
             float width,
             float height,
             Cluster* cluster);
 
-  // create a SoftMacro from a cluster
-  SoftMacro(Cluster* cluster);
-
-  // name
   const std::string& getName() const;
 
   void setX(float x);
@@ -514,6 +474,7 @@ class SoftMacro
   bool isStdCellCluster() const;
   bool isMixedCluster() const;
   bool isClusterOfUnplacedIOPins() const;
+  bool isClusterOfUnconstrainedIOPins() const;
   void setLocationF(float x, float y);
   void setShapeF(float width, float height);
   int getNumMacro() const;
@@ -532,12 +493,12 @@ class SoftMacro
 
   // We define x_, y_ and orientation_ here
   // Also enable the multi-threading
-  float x_ = 0.0;          // lower left corner
-  float y_ = 0.0;          // lower left corner
-  float width_ = 0.0;      // width_
-  float height_ = 0.0;     // height_
-  float area_ = 0.0;       // area of the standard cell cluster
-  std::string name_ = "";  // macro name
+  float x_ = 0.0;       // lower left corner
+  float y_ = 0.0;       // lower left corner
+  float width_ = 0.0;   // width_
+  float height_ = 0.0;  // height_
+  float area_ = 0.0;    // area of the standard cell cluster
+  std::string name_;    // macro name
 
   // The shape curve (discrete or piecewise) of a cluster is the
   // combination of its width/height intervals.
@@ -582,97 +543,6 @@ struct BundledNet
   // Thus each net must have both src_cluster_id and target_cluster_id
   int src_cluster_id = -1;
   int target_cluster_id = -1;
-};
-
-// Here we redefine the Rect class
-// odb::Rect use database unit
-// Rect class use float type for Micron unit
-struct Rect
-{
-  Rect() = default;
-  Rect(const float lx,
-       const float ly,
-       const float ux,
-       const float uy,
-       bool fixed_flag = false)
-      : lx(lx), ly(ly), ux(ux), uy(uy), fixed_flag(fixed_flag)
-  {
-  }
-
-  float xMin() const { return lx; }
-  float yMin() const { return ly; }
-  float xMax() const { return ux; }
-  float yMax() const { return uy; }
-
-  void setXMin(float lx) { this->lx = lx; }
-  void setYMin(float ly) { this->ly = ly; }
-  void setXMax(float ux) { this->ux = ux; }
-  void setYMax(float uy) { this->uy = uy; }
-
-  float xCenter() const { return (lx + ux) / 2.0; }
-  float yCenter() const { return (ly + uy) / 2.0; }
-
-  float getWidth() const { return ux - lx; }
-  float getHeight() const { return uy - ly; }
-
-  float getPerimeter() const { return 2 * getWidth() + 2 * getHeight(); }
-  float getArea() const { return getWidth() * getHeight(); }
-
-  void moveHor(float dist)
-  {
-    lx = lx + dist;
-    ux = ux + dist;
-  }
-
-  void moveVer(float dist)
-  {
-    ly = ly + dist;
-    uy = uy + dist;
-  }
-
-  bool isValid() const { return (lx < ux) && (ly < uy); }
-
-  void mergeInit()
-  {
-    lx = std::numeric_limits<float>::max();
-    ly = lx;
-    ux = std::numeric_limits<float>::lowest();
-    uy = ux;
-  }
-
-  void merge(const Rect& rect)
-  {
-    lx = std::min(lx, rect.lx);
-    ly = std::min(ly, rect.ly);
-    ux = std::max(ux, rect.ux);
-    uy = std::max(uy, rect.uy);
-  }
-
-  void relocate(float outline_lx,
-                float outline_ly,
-                float outline_ux,
-                float outline_uy)
-  {
-    if (!isValid()) {
-      return;
-    }
-
-    lx = std::max(lx, outline_lx);
-    ly = std::max(ly, outline_ly);
-    ux = std::min(ux, outline_ux);
-    uy = std::min(uy, outline_uy);
-    lx -= outline_lx;
-    ly -= outline_ly;
-    ux -= outline_lx;
-    uy -= outline_ly;
-  }
-
-  float lx = 0.0;
-  float ly = 0.0;
-  float ux = 0.0;
-  float uy = 0.0;
-
-  bool fixed_flag = false;
 };
 
 struct SequencePair

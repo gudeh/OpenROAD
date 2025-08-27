@@ -56,6 +56,7 @@ COMPULSORY_TESTS = [
     "pad06",
     "pad07",
     "pad08",
+    "pad09",
     "regions1",
     "regions2",
     "regions3",
@@ -78,7 +79,7 @@ COMPULSORY_TESTS = [
     "multi_height1-opt",
     "edge_spacing-opt",
     "regions1-opt",
-    "regions2-opt"
+    "regions2-opt",
 ]
 
 # Disabled in CMakeLists.txt

@@ -4,7 +4,9 @@
 #include "mainWindow.h"
 
 #include <QDesktopServices>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QDesktopWidget>
+#endif
 #include <QFileDialog>
 #include <QFontDialog>
 #include <QInputDialog>
@@ -21,6 +23,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "GUIProgress.h"
@@ -69,6 +72,7 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
           selected_,
           highlighted_,
           rulers_,
+          labels_,
           Gui::get(),
           [this]() -> bool { return show_dbu_->isChecked(); },
           [this]() -> bool { return show_poly_decomp_view_->isChecked(); },
@@ -86,13 +90,10 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
       charts_widget_(new ChartsWidget(this)),
       help_widget_(new HelpWidget(this)),
       find_dialog_(new FindObjectDialog(this)),
-      goto_dialog_(new GotoLocationDialog(this, viewers_))
+      goto_dialog_(new GotoLocationDialog(this, viewers_)),
+      selection_timer_(std::make_unique<QTimer>()),
+      highlight_timer_(std::make_unique<QTimer>())
 {
-  // Size and position the window
-  QSize size = QDesktopWidget().availableGeometry(this).size();
-  resize(size * 0.8);
-  move(size.width() * 0.1, size.height() * 0.1);
-
   QFont font("Monospace");
   font.setStyleHint(QFont::Monospace);
   script_->setWidgetFont(font);
@@ -175,11 +176,25 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
         addRuler(x0, y0, x1, y1, "", "", default_ruler_style_->isChecked());
       });
 
+  connect(viewers_,
+          &LayoutTabs::focusNetsChanged,
+          inspector_,
+          &Inspector::loadActions);
+  connect(viewers_,
+          &LayoutTabs::routeGuidesChanged,
+          inspector_,
+          &Inspector::loadActions);
+  connect(viewers_,
+          &LayoutTabs::netTracksChanged,
+          inspector_,
+          &Inspector::loadActions);
+
   connect(
       this, &MainWindow::selectionChanged, viewers_, &LayoutTabs::fullRepaint);
   connect(
       this, &MainWindow::highlightChanged, viewers_, &LayoutTabs::fullRepaint);
   connect(this, &MainWindow::rulersChanged, viewers_, &LayoutTabs::fullRepaint);
+  connect(this, &MainWindow::labelsChanged, viewers_, &LayoutTabs::fullRepaint);
 
   connect(controls_, &DisplayControls::selected, [=](const Selected& selected) {
     setSelected(selected);
@@ -213,14 +228,12 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
   connect(inspector_, &Inspector::focus, viewers_, &LayoutTabs::selectionFocus);
   connect(
       drc_viewer_, &DRCWidget::focus, viewers_, &LayoutTabs::selectionFocus);
-  connect(this,
-          &MainWindow::highlightChanged,
-          inspector_,
-          &Inspector::highlightChanged);
+  connect(
+      this, &MainWindow::highlightChanged, inspector_, &Inspector::loadActions);
   connect(viewers_,
           &LayoutTabs::focusNetsChanged,
           inspector_,
-          &Inspector::focusNetsChanged);
+          &Inspector::loadActions);
   connect(inspector_,
           &Inspector::removeHighlight,
           [=](const QList<const Selected*>& selected) {
@@ -368,6 +381,13 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
           &MainWindow::displayUnitsChanged,
           goto_dialog_,
           &GotoLocationDialog::updateUnits);
+  connect(selection_timer_.get(), &QTimer::timeout, [this]() {
+    emit selectionChanged();
+  });
+  connect(highlight_timer_.get(),
+          &QTimer::timeout,
+          this,
+          &MainWindow::highlightChanged);
 
   createActions();
   createToolbars();
@@ -378,8 +398,10 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
     // Restore the settings (if none this is a no-op)
     QSettings settings("OpenRoad Project", "openroad");
     settings.beginGroup("main");
-    restoreGeometry(settings.value("geometry").toByteArray());
-    restoreState(settings.value("state").toByteArray());
+    // Save these for the showEvent as the window manager may not respect them
+    // if restore here.
+    saved_geometry_ = settings.value("geometry").toByteArray();
+    saved_state_ = settings.value("state").toByteArray();
     QApplication::setFont(
         settings.value("font", QApplication::font()).value<QFont>());
     hide_option_->setChecked(
@@ -415,6 +437,37 @@ MainWindow::MainWindow(bool load_settings, QWidget* parent)
       = [this](const std::string& value, bool* ok) -> int {
     return convertStringToDBU(value, ok);
   };
+
+  selection_timer_->setSingleShot(true);
+  highlight_timer_->setSingleShot(true);
+
+  selection_timer_->setInterval(100 /* ms */);
+  highlight_timer_->setInterval(100 /* ms */);
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+  QWidget::showEvent(event);
+
+  if (!first_show_) {
+    return;
+  }
+
+  if (saved_geometry_.has_value() && saved_state_.has_value()) {
+    restoreGeometry(saved_geometry_.value());
+    restoreState(saved_state_.value());
+  } else {
+    // Default size and position the window
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QSize size = screen()->availableGeometry().size();
+#else
+    QSize size = QDesktopWidget().availableGeometry(this).size();
+#endif
+
+    resize(size * 0.8);
+    move(size.width() * 0.1, size.height() * 0.1);
+  }
+  first_show_ = false;
 }
 
 MainWindow::~MainWindow()
@@ -422,6 +475,7 @@ MainWindow::~MainWindow()
   auto* gui = Gui::get();
   // unregister descriptors with GUI dependencies
   gui->unregisterDescriptor<Ruler*>();
+  gui->unregisterDescriptor<Label*>();
   gui->unregisterDescriptor<odb::dbNet*>();
   gui->unregisterDescriptor<DbNetDescriptor::NetWithSink>();
   gui->unregisterDescriptor<BufferTree>();
@@ -531,6 +585,7 @@ void MainWindow::init(sta::dbSta* sta, const std::string& help_path)
       new DbSiteDescriptor(db_));
   gui->registerDescriptor<odb::dbRow*>(new DbRowDescriptor(db_));
   gui->registerDescriptor<Ruler*>(new RulerDescriptor(rulers_, db_));
+  gui->registerDescriptor<Label*>(new LabelDescriptor(labels_, db_, logger_));
   gui->registerDescriptor<odb::dbBlock*>(new DbBlockDescriptor(db_));
   gui->registerDescriptor<odb::dbTech*>(new DbTechDescriptor(db_));
   gui->registerDescriptor<odb::dbMetalWidthViaMap*>(
@@ -538,6 +593,14 @@ void MainWindow::init(sta::dbSta* sta, const std::string& help_path)
   gui->registerDescriptor<odb::dbMarkerCategory*>(
       new DbMarkerCategoryDescriptor(db_));
   gui->registerDescriptor<odb::dbMarker*>(new DbMarkerDescriptor(db_));
+  gui->registerDescriptor<odb::dbScanInst*>(new DbScanInstDescriptor(db_));
+  gui->registerDescriptor<odb::dbScanList*>(new DbScanListDescriptor(db_));
+  gui->registerDescriptor<odb::dbScanPartition*>(
+      new DbScanPartitionDescriptor(db_));
+  gui->registerDescriptor<odb::dbScanChain*>(new DbScanChainDescriptor(db_));
+  gui->registerDescriptor<odb::dbBox*>(new DbBoxDescriptor(db_));
+  gui->registerDescriptor<DbBoxDescriptor::BoxWithTransform>(
+      new DbBoxDescriptor(db_));
 
   gui->registerDescriptor<sta::Corner*>(new CornerDescriptor(sta));
   gui->registerDescriptor<sta::LibertyLibrary*>(
@@ -870,14 +933,19 @@ QMenu* MainWindow::findMenu(QStringList& path, QMenu* parent)
     return parent;
   }
 
-  auto cleanupText = [](const QString& text) -> QString {
+  auto cleanup_text = [](const QString& text) -> QString {
     QString text_cpy = text;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    text_cpy.replace(QRegularExpression("&(?!&)"),
+                     "");  // remove single &, but keep &&
+#else
     text_cpy.replace(QRegExp("&(?!&)"), "");  // remove single &, but keep &&
+#endif
     return text_cpy;
   };
 
   const QString top_name = path[0];
-  const QString compare_name = cleanupText(top_name);
+  const QString compare_name = cleanup_text(top_name);
   path.pop_front();
 
   QList<QAction*> actions;
@@ -889,7 +957,7 @@ QMenu* MainWindow::findMenu(QStringList& path, QMenu* parent)
 
   QMenu* menu = nullptr;
   for (auto* action : actions) {
-    if (cleanupText(action->text()) == compare_name) {
+    if (cleanup_text(action->text()) == compare_name) {
       menu = action->menu();
     }
   }
@@ -1086,6 +1154,7 @@ void MainWindow::addSelected(const SelectionSet& selections, bool find_in_cts)
   }
   status(std::string("Added ")
          + std::to_string(selected_.size() - prev_selected_size));
+  selection_timer_->start();
   if (!pause_window_updates_) {
     emit selectionChanged();
   }
@@ -1132,9 +1201,58 @@ void MainWindow::addHighlighted(const SelectionSet& highlights,
       group.insert(highlight);
     }
   }
-
+  highlight_timer_->start();
   if (!pause_window_updates_) {
     emit highlightChanged();
+  }
+}
+
+std::string MainWindow::addLabel(int x,
+                                 int y,
+                                 const std::string& text,
+                                 std::optional<Painter::Color> color,
+                                 std::optional<int> size,
+                                 std::optional<Painter::Anchor> anchor,
+                                 std::optional<std::string> name)
+{
+  auto new_label
+      = std::make_unique<Label>(odb::Point(x, y),
+                                text,
+                                anchor.value_or(Painter::Anchor::kCenter),
+                                color.value_or(gui::Painter::kWhite),
+                                size,
+                                std::move(name));
+  std::string new_name = new_label->getName();
+
+  // check if ruler name is unique
+  for (const auto& label : labels_) {
+    if (new_name == label->getName()) {
+      logger_->warn(
+          utl::GUI, 44, "Label with name \"{}\" already exists", new_name);
+      return "";
+    }
+  }
+
+  labels_.push_back(std::move(new_label));
+  emit labelsChanged();
+  return new_name;
+}
+
+void MainWindow::deleteLabel(const std::string& name)
+{
+  auto label_find
+      = std::find_if(labels_.begin(), labels_.end(), [name](const auto& l) {
+          return l->getName() == name;
+        });
+  if (label_find != labels_.end()) {
+    // remove from selected set
+    auto remove_selected = Gui::get()->makeSelected(label_find->get());
+    if (selected_.find(remove_selected) != selected_.end()) {
+      selected_.erase(remove_selected);
+      emit selectionChanged();
+    }
+    labels_.erase(label_find);
+    emit labelsChanged();
   }
 }
 
@@ -1239,6 +1357,16 @@ void MainWindow::clearHighlighted(int highlight_group)
   }
 }
 
+void MainWindow::clearLabels()
+{
+  if (labels_.empty()) {
+    return;
+  }
+  Gui::get()->removeSelected<Label*>();
+  labels_.clear();
+  emit labelsChanged();
+}
+
 void MainWindow::clearRulers()
 {
   if (rulers_.empty()) {
@@ -1322,8 +1450,9 @@ void MainWindow::showFindDialog()
 
 void MainWindow::showGotoDialog()
 {
-  if (getBlock() == nullptr)
+  if (getBlock() == nullptr) {
     return;
+  }
 
   goto_dialog_->show_init();
 }
@@ -1657,7 +1786,7 @@ int MainWindow::convertStringToDBU(const std::string& value, bool* ok) const
   return new_value.toDouble(ok) * dbu_per_micron;
 }
 
-void MainWindow::timingCone(Gui::odbTerm term, bool fanin, bool fanout)
+void MainWindow::timingCone(Gui::Term term, bool fanin, bool fanout)
 {
   auto* renderer = timing_widget_->getConeRenderer();
 
@@ -1668,7 +1797,7 @@ void MainWindow::timingCone(Gui::odbTerm term, bool fanin, bool fanout)
   }
 }
 
-void MainWindow::timingPathsThrough(const std::set<Gui::odbTerm>& terms)
+void MainWindow::timingPathsThrough(const std::set<Gui::Term>& terms)
 {
   auto* settings = timing_widget_->getSettings();
   settings->setFromPin({});

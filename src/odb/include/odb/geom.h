@@ -57,12 +57,50 @@ class Point
   friend dbIStream& operator>>(dbIStream& stream, Point& p);
   friend dbOStream& operator<<(dbOStream& stream, const Point& p);
 
- private:
+ protected:
   int x_ = 0;
   int y_ = 0;
 };
 
 std::ostream& operator<<(std::ostream& os, const Point& pIn);
+
+class Point3D
+{
+ public:
+  Point3D() = default;
+  Point3D(int x, int y, int z) : x_(x), y_(y), z_(z) {}
+  Point3D& operator=(const Point3D&) = default;
+  Point3D(const Point3D& p) : x_(p.x()), y_(p.y()), z_(p.z()) {}
+  Point3D(const Point& p, int z) : x_(p.x()), y_(p.y()), z_(z) {}
+
+  bool operator==(const Point3D& rhs) const;
+  bool operator!=(const Point3D& rhs) const { return !(*this == rhs); }
+  bool operator<(const Point3D& rhs) const;
+  bool operator>=(const Point3D& rhs) const { return !(*this < rhs); }
+
+  int z() const { return z_; }
+  void setZ(int z) { z_ = z; }
+  int x() const { return x_; }
+  void setX(int x) { x_ = x; }
+  int y() const { return y_; }
+  void setY(int y) { y_ = y; }
+  void set(const int x, const int y, const int z)
+  {
+    setX(x);
+    setY(y);
+    setZ(z);
+  }
+
+  friend dbIStream& operator>>(dbIStream& stream, Point3D& p);
+  friend dbOStream& operator<<(dbOStream& stream, const Point3D& p);
+
+ private:
+  int x_ = 0;
+  int y_ = 0;
+  int z_ = 0;
+};
+
+std::ostream& operator<<(std::ostream& os, const Point3D& pIn);
 
 /*
 an Oct represents a 45-degree routing segment as 2 connected octagons
@@ -303,6 +341,7 @@ class Polygon
 {
  public:
   Polygon() = default;
+  Polygon& operator=(const Polygon&) = default;
   Polygon(const Polygon& r) = default;
   Polygon(const std::vector<Point>& points);
   Polygon(const Rect& rect);
@@ -325,6 +364,11 @@ class Polygon
 
   // returns a corrected Polygon with a closed form and counter-clockwise points
   Polygon bloat(int margin) const;
+
+  // Merge a collection of shapes
+  static std::vector<Polygon> merge(const std::vector<Polygon>& polys);
+  static std::vector<Polygon> merge(const std::vector<Rect>& rects);
+  static std::vector<Polygon> merge(const std::vector<Oct>& octs);
 
   // Returns the geometric difference between this polygon "a" and polygon "b"
   // results in a vector of polygons.
@@ -355,6 +399,9 @@ class Line
   std::vector<Point> getPoints() const;
   Point pt0() const;
   Point pt1() const;
+
+  void addX(int value);
+  void addY(int value);
 
   friend dbIStream& operator>>(dbIStream& stream, Line& l);
   friend dbOStream& operator<<(dbOStream& stream, const Line& l);
@@ -432,6 +479,16 @@ inline int64_t Point::manhattanDistance(Point p0, Point p1)
 inline bool Point::operator<(const Point& rhs) const
 {
   return std::tie(x_, y_) < std::tie(rhs.x_, rhs.y_);
+}
+
+inline bool Point3D::operator==(const Point3D& rhs) const
+{
+  return std::tie(x_, y_, z_) == std::tie(rhs.x_, rhs.y_, rhs.z_);
+}
+
+inline bool Point3D::operator<(const Point3D& rhs) const
+{
+  return std::tie(x_, y_, z_) < std::tie(rhs.x_, rhs.y_, rhs.z_);
 }
 
 inline bool Rect::operator<(const Rect& rhs) const
@@ -986,6 +1043,18 @@ inline Point Line::pt0() const
 inline Point Line::pt1() const
 {
   return pt1_;
+}
+
+inline void Line::addX(int value)
+{
+  pt0_.setX(pt0_.getX() + value);
+  pt1_.setX(pt1_.getX() + value);
+}
+
+inline void Line::addY(int value)
+{
+  pt0_.setY(pt0_.getY() + value);
+  pt1_.setY(pt1_.getY() + value);
 }
 
 inline bool Line::operator==(const Line& r) const

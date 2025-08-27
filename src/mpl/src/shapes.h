@@ -5,17 +5,15 @@
 
 namespace mpl {
 
-// Bounds of a certain cluster's dimension.
-// Used for either width or height.
 struct Interval
 {
+  Interval() = default;
   Interval(float min, float max) : min(min), max(max) {}
 
   float min{0.0f};
   float max{0.0f};
 };
 
-// Coarse shape of a cluster that contains macros.
 class Tiling
 {
  public:

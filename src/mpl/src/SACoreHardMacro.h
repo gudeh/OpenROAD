@@ -7,7 +7,10 @@
 
 #include "MplObserver.h"
 #include "SimulatedAnnealingCore.h"
+#include "clusterEngine.h"
 #include "object.h"
+#include "odb/db.h"
+#include "util.h"
 
 namespace utl {
 class Logger;
@@ -27,14 +30,14 @@ class SACoreHardMacro : public SimulatedAnnealingCore<HardMacro>
                   float neg_swap_prob,
                   float double_swap_prob,
                   float exchange_prob,
-                  float flip_prob,
                   // Fast SA hyperparameter
                   float init_prob,
                   int max_num_step,
                   int num_perturb_per_step,
                   unsigned seed,
                   MplObserver* graphics,
-                  utl::Logger* logger);
+                  utl::Logger* logger,
+                  odb::dbBlock* block);
 
   void run() override;
 
@@ -51,11 +54,8 @@ class SACoreHardMacro : public SimulatedAnnealingCore<HardMacro>
   void calPenalty() override;
 
   void perturb() override;
-  void restore() override;
-  // actions used
-  void flipAllMacros();
-
-  float flip_prob_ = 0.0;
+  void saveState() override;
+  void restoreState() override;
 };
 
 }  // namespace mpl

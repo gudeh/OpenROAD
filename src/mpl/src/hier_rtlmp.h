@@ -3,24 +3,20 @@
 
 #pragma once
 
-#include <limits>
 #include <map>
 #include <memory>
-#include <set>
+#include <queue>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "MplObserver.h"
 #include "clusterEngine.h"
+#include "object.h"
+#include "odb/db.h"
+#include "odb/dbTypes.h"
+#include "odb/geom.h"
+#include "shapes.h"
 #include "util.h"
-
-namespace odb {
-class dbBlock;
-class dbDatabase;
-class dbInst;
-class dbModule;
-}  // namespace odb
 
 namespace sta {
 class dbNetwork;
@@ -44,6 +40,8 @@ class SoftMacro;
 class Snapper;
 class SACoreSoftMacro;
 class SACoreHardMacro;
+
+using BoundaryToRegionsMap = std::map<Boundary, std::queue<odb::Rect>>;
 
 // The parameters necessary to compute one coordinate of the new
 // origin for aligning the macros' pins to the track-grid
@@ -120,6 +118,12 @@ class HierRTLMP
   void writeMacroPlacement(const std::string& file_name);
 
  private:
+  struct PinAccessDepthLimits
+  {
+    Interval x;
+    Interval y;
+  };
+
   using SoftSAVector = std::vector<std::unique_ptr<SACoreSoftMacro>>;
   using HardSAVector = std::vector<std::unique_ptr<SACoreHardMacro>>;
 
@@ -132,6 +136,7 @@ class HierRTLMP
   void updateMacroOnDb(const HardMacro* hard_macro);
   void commitMacroPlacementToDb();
   void clear();
+  void computeWireLength() const;
 
   // Coarse Shaping
   void runCoarseShaping();
@@ -140,13 +145,22 @@ class HierRTLMP
   void calculateMacroTilings(Cluster* cluster);
   IntervalList computeWidthIntervals(const TilingList& tilings);
   void setTightPackingTilings(Cluster* macro_array);
-  void setPinAccessBlockages();
-  std::vector<Cluster*> getClustersOfUnplacedIOPins();
-  float computePinAccessBlockagesDepth(const std::vector<Cluster*>& io_clusters,
-                                       const Rect& die);
-  void createPinAccessBlockage(Boundary constraint_boundary,
-                               float depth,
-                               const Rect& die);
+  void searchAvailableRegionsForUnconstrainedPins();
+  BoundaryToRegionsMap getBoundaryToBlockedRegionsMap(
+      const std::vector<odb::Rect>& blocked_regions_for_pins) const;
+  std::vector<odb::Rect> computeAvailableRegions(
+      BoundaryToRegionsMap& boundary_to_blocked_regions) const;
+  void createPinAccessBlockages();
+  void computePinAccessDepthLimits();
+  bool treeHasConstrainedIOs() const;
+  bool treeHasUnconstrainedIOs() const;
+  std::vector<Cluster*> getClustersOfUnplacedIOPins() const;
+  std::vector<Cluster*> getIOBundles() const;
+  void createPinAccessBlockage(const BoundaryRegion& region, float depth);
+  float computePinAccessBaseDepth(double io_span) const;
+  void createBlockagesForIOBundles();
+  void createBlockagesForAvailableRegions();
+  void createBlockagesForConstraintRegions();
   void setPlacementBlockages();
 
   // Fine Shaping
@@ -161,12 +175,13 @@ class HierRTLMP
   void placeChildren(Cluster* parent);
   void placeChildrenUsingMinimumTargetUtil(Cluster* parent);
 
-  void findOverlappingBlockages(std::vector<Rect>& blockages,
-                                std::vector<Rect>& placement_blockages,
-                                const Rect& outline);
-  void computeBlockageOverlap(std::vector<Rect>& overlapping_blockages,
-                              const Rect& blockage,
-                              const Rect& outline);
+  void findBlockagesWithinOutline(std::vector<Rect>& macro_blockages,
+                                  std::vector<Rect>& placement_blockages,
+                                  const Rect& outline) const;
+  void getBlockageRegionWithinOutline(
+      std::vector<Rect>& blockages_within_outline,
+      const Rect& blockage,
+      const Rect& outline) const;
   void createFixedTerminals(Cluster* parent,
                             std::map<std::string, int>& soft_macro_id_map,
                             std::vector<SoftMacro>& soft_macros);
@@ -203,21 +218,18 @@ class HierRTLMP
 
   void correctAllMacrosOrientation();
   float calculateRealMacroWirelength(odb::dbInst* macro);
-  Boundary getClosestBoundary(const odb::Point& from,
-                              const std::set<Boundary>& boundaries);
-  int getDistanceToBoundary(const odb::Point& from, Boundary boundary);
-  odb::Point getClosestBoundaryPoint(const odb::Point& from, Boundary boundary);
   void adjustRealMacroOrientation(const bool& is_vertical_flip);
   void flipRealMacro(odb::dbInst* macro, const bool& is_vertical_flip);
-
-  // Aux for conversion
-  odb::Rect micronsToDbu(const Rect& micron_rect);
-  Rect dbuToMicrons(const odb::Rect& dbu_rect);
 
   template <typename Macro>
   void createFixedTerminal(Cluster* cluster,
                            const Rect& outline,
                            std::vector<Macro>& macros);
+
+  odb::Rect getRect(Boundary boundary) const;
+
+  std::vector<odb::Rect> subtractOverlapRegion(const odb::Rect& base,
+                                               const odb::Rect& overlay) const;
 
   // For debugging
   template <typename SACore>
@@ -257,8 +269,8 @@ class HierRTLMP
   float notch_v_th_ = 10.0;
   float notch_h_th_ = 10.0;
 
-  // For cluster and macro placement.
-  SACoreWeights placement_core_weights_;
+  SACoreWeights placement_core_weights_;  // For cluster and macro placement.
+  SASoftWeights cluster_placement_weights_;
 
   // For generation of the coarse shape (tiling) of clusters with macros.
   const SACoreWeights shaping_core_weights_{1.0f /* area */,
@@ -267,16 +279,12 @@ class HierRTLMP
                                             0.0f /* guidance */,
                                             0.0f /* fence */};
 
-  // Soft-Especific Weights
-  float boundary_weight_ = 5.0;
-  float notch_weight_ = 1.0;  // Used inside Core, but only for Soft.
-  float macro_blockage_weight_ = 1.0;
-
   std::map<std::string, Rect> fences_;   // macro_name, fence
   std::map<odb::dbInst*, Rect> guides_;  // Macro -> Guidance Region
   std::vector<Rect> placement_blockages_;
-  std::vector<Rect> macro_blockages_;
-  std::map<Boundary, Rect> boundary_to_io_blockage_;
+  std::vector<Rect> io_blockages_;
+
+  PinAccessDepthLimits pin_access_depth_limits_;
 
   // Fast SA hyperparameter
   float init_prob_ = 0.9;
@@ -288,7 +296,6 @@ class HierRTLMP
   float neg_swap_prob_ = 0.2;
   float double_swap_prob_ = 0.2;
   float exchange_swap_prob_ = 0.2;
-  float flip_prob_ = 0.4;
   float resize_prob_ = 0.4;
 
   // since we convert from the database unit to the micrometer
@@ -307,12 +314,12 @@ class Pusher
   Pusher(utl::Logger* logger,
          Cluster* root,
          odb::dbBlock* block,
-         const std::map<Boundary, Rect>& boundary_to_io_blockage);
+         const std::vector<Rect>& io_blockages);
 
   void pushMacrosToCoreBoundaries();
 
  private:
-  void setIOBlockages(const std::map<Boundary, Rect>& boundary_to_io_blockage);
+  void setIOBlockages(const std::vector<Rect>& io_blockages);
   bool designHasSingleCentralizedMacroArray();
   void pushMacroClusterToCoreBoundaries(
       Cluster* macro_cluster,
@@ -327,7 +334,7 @@ class Pusher
   bool overlapsWithHardMacro(
       const odb::Rect& cluster_box,
       const std::vector<HardMacro*>& cluster_hard_macros);
-  bool overlapsWithIOBlockage(const odb::Rect& cluster_box, Boundary boundary);
+  bool overlapsWithIOBlockage(const odb::Rect& cluster_box) const;
 
   utl::Logger* logger_;
 
@@ -335,7 +342,7 @@ class Pusher
   odb::dbBlock* block_;
   odb::Rect core_;
 
-  std::map<Boundary, odb::Rect> boundary_to_io_blockage_;
+  std::vector<odb::Rect> io_blockages_;
   std::vector<HardMacro*> hard_macros_;
 };
 

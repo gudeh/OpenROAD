@@ -3,14 +3,16 @@
 
 #pragma once
 
+#include <limits>
 #include <map>
 #include <random>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "MplObserver.h"
 #include "clusterEngine.h"
+#include "object.h"
+#include "odb/db.h"
 #include "util.h"
 
 namespace utl {
@@ -52,13 +54,14 @@ class SimulatedAnnealingCore
                          int num_perturb_per_step,
                          unsigned seed,
                          MplObserver* graphics,
-                         utl::Logger* logger);
+                         utl::Logger* logger,
+                         odb::dbBlock* block);
 
   virtual ~SimulatedAnnealingCore() = default;
 
-  void setNumberOfMacrosToPlace(int macros_to_place)
+  void setNumberOfSequencePairMacros(int number_of_sequence_pair_macros)
   {
-    macros_to_place_ = macros_to_place;
+    number_of_sequence_pair_macros_ = number_of_sequence_pair_macros;
   };
   void setNets(const std::vector<BundledNet>& nets);
   void setFences(const std::map<int, Rect>& fences);
@@ -66,7 +69,7 @@ class SimulatedAnnealingCore
   void setInitialSequencePair(const SequencePair& sequence_pair);
 
   bool isValid() const;
-  bool isValid(const Rect& outline) const;
+  bool fitsIn(const Rect& outline) const;
   void writeCostFile(const std::string& file_name) const;
   float getNormCost() const;
   float getWidth() const;
@@ -89,6 +92,9 @@ class SimulatedAnnealingCore
  protected:
   struct Result
   {
+    bool empty() const { return sequence_pair.pos_sequence.empty(); }
+
+    float cost{std::numeric_limits<float>::max()};
     SequencePair sequence_pair;
     // [Only for SoftMacro] The same sequence pair can represent different
     // floorplan arrangements depending on the macros' shapes.
@@ -97,19 +103,20 @@ class SimulatedAnnealingCore
 
   void fastSA();
 
+  void setAvailableRegionsForUnconstrainedPins(
+      const BoundaryRegionList& regions);
   void initSequencePair();
   void setDieArea(const Rect& die_area);
-  void setBlockedBoundariesForIOs();
-  void updateBestValidResult();
-  void useBestValidResult();
+  void updateBestResult(float cost);
+  void useBestResult();
 
   virtual float calNormCost() const = 0;
   virtual void calPenalty() = 0;
   void calOutlinePenalty();
   void calWirelength();
-  void addBoundaryDistToWirelength(const T& macro,
-                                   const T& unplaced_ios,
-                                   float net_weight);
+  void computeWLForClusterOfUnplacedIOPins(const T& macro,
+                                           const T& unplaced_ios,
+                                           float net_weight);
   bool isOutsideTheOutline(const T& macro) const;
   void calGuidancePenalty();
   void calFencePenalty();
@@ -117,7 +124,8 @@ class SimulatedAnnealingCore
   // operations
   void packFloorplan();
   virtual void perturb() = 0;
-  virtual void restore() = 0;
+  virtual void saveState() = 0;
+  virtual void restoreState() = 0;
   // actions used
   void singleSeqSwap(bool pos);
   void doubleSeqSwap();
@@ -136,11 +144,10 @@ class SimulatedAnnealingCore
   Rect outline_;
   Rect die_area_;  // Offset to the current outline.
 
-  // Boundaries blocked for IO pins
-  std::set<Boundary> blocked_boundaries_;
+  BoundaryRegionList available_regions_for_unconstrained_pins_;
+  ClusterToBoundaryRegionMap io_cluster_to_constraint_;
 
-  // Number of macros that will actually be part of the sequence pair
-  int macros_to_place_ = 0;
+  int number_of_sequence_pair_macros_ = 0;
 
   std::vector<BundledNet> nets_;
   std::map<int, Rect> fences_;  // Macro Id -> Fence
@@ -203,8 +210,10 @@ class SimulatedAnnealingCore
 
   utl::Logger* logger_ = nullptr;
   MplObserver* graphics_ = nullptr;
+  odb::dbBlock* block_;
 
-  Result best_valid_result_;
+  Result best_result_;
+  bool is_best_result_valid_ = false;
 
   std::vector<float> cost_list_;  // store the cost in the list
   std::vector<float> T_list_;     // store the temperature
@@ -213,13 +222,6 @@ class SimulatedAnnealingCore
   static constexpr float acc_tolerance_ = 0.001;
 
   bool has_initial_sequence_pair_ = false;
-
-  // Blocked boundaries data is kept in bools to avoid overhead
-  // during SA steps.
-  bool left_is_blocked_ = false;
-  bool right_is_blocked_ = false;
-  bool bottom_is_blocked_ = false;
-  bool top_is_blocked_ = false;
 };
 
 // SACore wrapper function

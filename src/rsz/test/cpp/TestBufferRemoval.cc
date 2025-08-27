@@ -15,11 +15,11 @@
 #include <mutex>
 #include <set>
 
-#include "AbstractSteinerRenderer.h"
 #include "db_sta/MakeDbSta.hh"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
 #include "dpl/MakeOpendp.h"
+#include "est/EstimateParasitics.h"
 #include "gmock/gmock.h"
 #include "grt/GlobalRouter.h"
 #include "gtest/gtest.h"
@@ -35,6 +35,7 @@
 #include "sta/Sta.hh"
 #include "sta/Units.hh"
 #include "stt/SteinerTreeBuilder.h"
+#include "utl/CallBackHandler.h"
 #include "utl/Logger.h"
 #include "utl/deleter.h"
 
@@ -215,7 +216,10 @@ TEST_F(BufRemTest, SlackImproves)
   stt::SteinerTreeBuilder* stt = new stt::SteinerTreeBuilder;
   grt::GlobalRouter* grt = new grt::GlobalRouter;
   dpl::Opendp* dp = new dpl::Opendp;
-  resizer_->init(&logger_, db_.get(), sta_.get(), stt, grt, dp, nullptr);
+  est::EstimateParasitics* ep = new est::EstimateParasitics;
+  utl::CallBackHandler* callback_handler_ = new utl::CallBackHandler(&logger_);
+  ep->init(&logger_, callback_handler_, db_.get(), sta_.get(), stt, grt);
+  resizer_->init(&logger_, db_.get(), sta_.get(), stt, grt, dp, ep);
 
   float origArrival
       = sta_->vertexArrival(outVertex_, sta::RiseFall::rise(), pathAnalysisPt_);
@@ -226,21 +230,25 @@ TEST_F(BufRemTest, SlackImproves)
 
   resizer_->initBlock();
   db_->setLogger(&logger_);
-  resizer_->journalBeginTest();
-  resizer_->logger()->setDebugLevel(utl::RSZ, "journal", 1);
 
-  auto insts = std::make_unique<sta::InstanceSeq>();
-  odb::dbInst* inst1 = block->findInst("b2");
-  sta::Instance* sta_inst1 = db_network_->dbToSta(inst1);
-  insts->emplace_back(sta_inst1);
+  {
+    est::IncrementalParasiticsGuard guard(ep);
 
-  odb::dbInst* inst2 = block->findInst("b3");
-  sta::Instance* sta_inst2 = db_network_->dbToSta(inst2);
-  insts->emplace_back(sta_inst2);
+    resizer_->journalBeginTest();
+    resizer_->logger()->setDebugLevel(utl::RSZ, "journal", 1);
 
-  resizer_->removeBuffers(*insts, /* recordJournal */ true);
+    auto insts = std::make_unique<sta::InstanceSeq>();
+    odb::dbInst* inst1 = block->findInst("b2");
+    sta::Instance* sta_inst1 = db_network_->dbToSta(inst1);
+    insts->emplace_back(sta_inst1);
 
-  resizer_->journalRestoreTest();
+    odb::dbInst* inst2 = block->findInst("b3");
+    sta::Instance* sta_inst2 = db_network_->dbToSta(inst2);
+    insts->emplace_back(sta_inst2);
+
+    resizer_->removeBuffers(*insts);
+    resizer_->journalRestoreTest();
+  }
 
   float newArrival
       = sta_->vertexArrival(outVertex_, sta::RiseFall::rise(), pathAnalysisPt_);

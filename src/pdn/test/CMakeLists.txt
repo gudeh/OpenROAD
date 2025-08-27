@@ -16,6 +16,8 @@ or_integration_tests(
     asap7_vias_dont_use
     asap7_vias_fixed_vias
     asap7_vias_max_rows_columns
+    asap7_M1_M3_followpins
+    asap7_M1_M3_followpins_staggered
     bpin_removal
     core_grid
     core_grid_adjacentcuts
@@ -23,6 +25,7 @@ or_integration_tests(
     core_grid_auto_domain_multiple_nets
     core_grid_bad_metal_specs
     core_grid_check_connect_layers
+    core_grid_check_connect_layers_at_setup
     core_grid_cut_pitch
     core_grid_dual_followpins
     core_grid_dual_followpins_error
@@ -45,6 +48,9 @@ or_integration_tests(
     core_grid_with_fixed_pins
     core_grid_with_rings
     core_grid_with_rings_connect
+    core_grid_with_rings_different_offset
+    core_grid_with_rings_different_width1
+    core_grid_with_rings_different_width2
     core_grid_with_rings_outside_die
     core_grid_with_rings_outside_die_allowed
     core_grid_with_rings_with_limit_straps
@@ -59,6 +65,7 @@ or_integration_tests(
     macros
     macros_add_twice
     macro_channel_with_secondary_repair
+    macros_channel_recursive_repair
     macros_cells
     macros_cells_dont_touch
     macros_cells_extend_boundary
@@ -108,6 +115,7 @@ or_integration_tests(
     report
     reset
     ripup
+    sky130_spm_floating_bpin
     sroute_test
     widthtable
 )

@@ -37,6 +37,8 @@ template class dbTable<_dbBTerm>;
 
 _dbBTerm::_dbBTerm(_dbDatabase*)
 {
+  // For pointer tagging the bottom 3 bits.
+  static_assert(alignof(_dbBTerm) % 8 == 0);
   _flags._io_type = dbIoType::INPUT;
   _flags._sig_type = dbSigType::SIGNAL;
   _flags._orient = 0;
@@ -69,8 +71,7 @@ _dbBTerm::_dbBTerm(_dbDatabase*, const _dbBTerm& b)
       _constraint_region(b._constraint_region)
 {
   if (b._name) {
-    _name = strdup(b._name);
-    ZALLOCATED(_name);
+    _name = safe_strdup(b._name);
   }
 }
 
@@ -157,8 +158,6 @@ bool _dbBTerm::operator==(const _dbBTerm& rhs) const
 
 dbOStream& operator<<(dbOStream& stream, const _dbBTerm& bterm)
 {
-  dbBlock* block = (dbBlock*) (bterm.getOwner());
-  _dbDatabase* db = (_dbDatabase*) (block->getDataBase());
   uint* bit_field = (uint*) &bterm._flags;
   stream << *bit_field;
   stream << bterm._ext_id;
@@ -167,25 +166,17 @@ dbOStream& operator<<(dbOStream& stream, const _dbBTerm& bterm)
   stream << bterm._net;
   stream << bterm._next_bterm;
   stream << bterm._prev_bterm;
-  if (db->isSchema(db_schema_update_hierarchy)) {
-    stream << bterm._mnet;
-    stream << bterm._next_modnet_bterm;
-    stream << bterm._prev_modnet_bterm;
-  }
+  stream << bterm._mnet;
+  stream << bterm._next_modnet_bterm;
+  stream << bterm._prev_modnet_bterm;
   stream << bterm._parent_block;
   stream << bterm._parent_iterm;
   stream << bterm._bpins;
   stream << bterm._ground_pin;
   stream << bterm._supply_pin;
-  if (bterm.getDatabase()->isSchema(db_schema_bterm_constraint_region)) {
-    stream << bterm._constraint_region;
-  }
-  if (bterm.getDatabase()->isSchema(db_schema_bterm_mirrored_pin)) {
-    stream << bterm._mirrored_bterm;
-  }
-  if (bterm.getDatabase()->isSchema(db_schema_bterm_is_mirrored)) {
-    stream << bterm._is_mirrored;
-  }
+  stream << bterm._constraint_region;
+  stream << bterm._mirrored_bterm;
+  stream << bterm._is_mirrored;
 
   return stream;
 }
@@ -254,8 +245,7 @@ bool dbBTerm::rename(const char* name)
 
   block->_bterm_hash.remove(bterm);
   free((void*) bterm->_name);
-  bterm->_name = strdup(name);
-  ZALLOCATED(bterm->_name);
+  bterm->_name = safe_strdup(name);
   block->_bterm_hash.insert(bterm);
 
   return true;
@@ -404,6 +394,11 @@ void dbBTerm::connect(dbNet* net_)
   _dbBTerm* bterm = (_dbBTerm*) this;
   _dbNet* net = (_dbNet*) net_;
   _dbBlock* block = (_dbBlock*) net->getOwner();
+
+  // Same net. Nothing to connect.
+  if (bterm->_net == net_->getId()) {
+    return;
+  }
 
   if (net->_flags._dont_touch) {
     net->getLogger()->error(utl::ODB,
@@ -625,8 +620,7 @@ dbBTerm* dbBTerm::create(dbNet* net_, const char* name)
   }
 
   _dbBTerm* bterm = block->_bterm_tbl->create();
-  bterm->_name = strdup(name);
-  ZALLOCATED(bterm->_name);
+  bterm->_name = safe_strdup(name);
   block->_bterm_hash.insert(bterm);
 
   // If there is a parentInst then we need to update the dbMaster's

@@ -57,7 +57,8 @@ void Opendp::importClear()
 
 void Opendp::initPlacementDRC()
 {
-  drc_engine_ = std::make_unique<PlacementDRC>(grid_.get(), db_->getTech());
+  drc_engine_ = std::make_unique<PlacementDRC>(
+      grid_.get(), db_->getTech(), padding_.get(), !odb::hasOneSiteMaster(db_));
   // TODO: remove this
   if (disallow_odd_sites_) {
     drc_engine_->disallowOddSites();
@@ -256,7 +257,7 @@ void Opendp::createArchitecture()
     }
   }
   // PADDING
-  arch_->setUsePadding(padding_.get() != nullptr);
+  arch_->setUsePadding(padding_ != nullptr);
   arch_->setPadding(padding_.get());
   arch_->setSiteWidth(grid_->getSiteWidth());
 

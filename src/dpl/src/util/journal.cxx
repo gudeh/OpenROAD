@@ -7,7 +7,7 @@
 #include "optimization/detailed_manager.h"
 
 namespace dpl {
-void Journal::clearJournal()
+void Journal::clear()
 {
   actions_.clear();
   affected_nodes_.clear();
@@ -18,10 +18,11 @@ void paintInGrid(Grid* grid, Node* node)
 {
   const auto grid_x = grid->gridX(DbuX(node->getLeft()));
   const auto grid_y = grid->gridRoundY(DbuY(node->getBottom()));
-  auto pixel = grid->gridPixel(grid_x, grid_y);
+  dbSite* site = node->getDbInst()->getMaster()->getSite();
+  const auto orientation
+      = grid->getSiteOrientation(grid_x, grid_y, site).value();
   grid->paintPixel(node, grid_x, grid_y);
-  node->adjustCurrOrient(
-      pixel->sites.at(node->getDbInst()->getMaster()->getSite()));
+  node->adjustCurrOrient(orientation);
 }
 void doSwapAction(const SwapPinsAction* swap_action)
 {
@@ -107,13 +108,12 @@ void Journal::undo(const JournalAction* action, const bool positions_only) const
   }
 }
 ////////////////////////////////////////////////////////////////////////////////
-void Journal::undoAll()
+void Journal::undo(bool positions_only) const
 {
   for (auto it = actions_.rbegin(); it != actions_.rend(); ++it) {
     auto action = (*it).get();
-    undo(action, false);
+    undo(action, positions_only);
   }
-  clearJournal();
 }
 ////////////////////////////////////////////////////////////////////////////////
 void Journal::redo(const JournalAction* action, const bool positions_only) const
@@ -160,5 +160,13 @@ void Journal::redo(const JournalAction* action, const bool positions_only) const
       break;
   }
 }
+////////////////////////////////////////////////////////////////////////////////
+void Journal::redo(bool positions_only) const
+{
+  for (const auto& action : actions_) {
+    redo(action.get(), positions_only);
+  }
+}
+////////////////////////////////////////////////////////////////////////////////
 
 }  // namespace dpl

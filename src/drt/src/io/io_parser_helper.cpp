@@ -405,21 +405,33 @@ void io::Parser::initConstraintLayerIdx()
     // diff-net
     for (auto& con : layer->getLef58CutSpacingConstraints(false)) {
       if (con->hasSecondLayer()) {
-        frLayerNum secondLayerNum = getDesign()
-                                        ->getTech()
-                                        ->getLayer(con->getSecondLayerName())
-                                        ->getLayerNum();
-        con->setSecondLayerNum(secondLayerNum);
+        frLayer* layer
+            = getDesign()->getTech()->getLayer(con->getSecondLayerName());
+        if (layer) {
+          frLayerNum secondLayerNum = layer->getLayerNum();
+          con->setSecondLayerNum(secondLayerNum);
+        } else {
+          logger_->warn(DRT,
+                        244,
+                        "Second layer {} does not exist.",
+                        con->getSecondLayerName());
+        }
       }
     }
     // same-net
     for (auto& con : layer->getLef58CutSpacingConstraints(true)) {
       if (con->hasSecondLayer()) {
-        frLayerNum secondLayerNum = getDesign()
-                                        ->getTech()
-                                        ->getLayer(con->getSecondLayerName())
-                                        ->getLayerNum();
-        con->setSecondLayerNum(secondLayerNum);
+        frLayer* layer
+            = getDesign()->getTech()->getLayer(con->getSecondLayerName());
+        if (layer) {
+          frLayerNum secondLayerNum = layer->getLayerNum();
+          con->setSecondLayerNum(secondLayerNum);
+        } else {
+          logger_->warn(DRT,
+                        251,
+                        "Second layer {} does not exist.",
+                        con->getSecondLayerName());
+        }
       }
     }
   }
@@ -844,6 +856,9 @@ void io::Parser::checkPins()
   bool hasPolys = false;
   // Check BTerms on grid
   for (const auto& bTerm : getBlock()->getTerms()) {
+    if (!bTerm->hasNet() || bTerm->getNet()->isSpecial()) {
+      continue;
+    }
     foundTracks = false;
     foundCenterTracks = false;
     hasPolys = false;
@@ -940,6 +955,9 @@ void io::Parser::initRPin()
 void io::Parser::initRPin_rpin()
 {
   for (auto& net : getBlock()->getNets()) {
+    if (net->isConnectedByAbutment()) {
+      continue;
+    }
     // instTerm
     for (auto& instTerm : net->getInstTerms()) {
       auto inst = instTerm->getInst();

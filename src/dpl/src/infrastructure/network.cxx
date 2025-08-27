@@ -76,6 +76,22 @@ Pin* Network::addPin(odb::dbITerm* term)
   upin->setPinLayer(0);    // Set to zero since not currently used.
   upin->setDbITerm(term);  // Set the database ITerm owner
   pins_.emplace_back(std::move(upin));
+
+  auto node = getNode(term->getInst());
+  for (auto pin : term->getMTerm()->getMPins()) {
+    for (auto box : pin->getGeometry()) {
+      auto layer = box->getTechLayer();
+      if (layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
+        continue;
+      }
+      if (layer->getRoutingLevel() > 3) {
+        continue;
+      }
+      node->addUsedLayer(layer->getRoutingLevel());
+      node->addUsedLayer(layer->getRoutingLevel()
+                         + 1);  // for via access from above
+    }
+  }
   return ptr;
 }
 Pin* Network::addPin(odb::dbBTerm* term)
@@ -109,7 +125,7 @@ void Network::addEdge(odb::dbNet* net)
   ////////////////////////
   net_to_edge_idx_[net] = id;
   // Name of edge.
-  setEdgeName(id, net->getName().c_str());
+  setEdgeName(id, net->getName());
 
   for (auto iterm : net->getITerms()) {
     if (!iterm->getInst()->getMaster()->isCoreAutoPlaceable()) {
@@ -463,7 +479,6 @@ void Network::addFillerNode(const DbuX left,
   ndi.setBottom(bottom);
   ndi.setLeft(left);
   nodes_.emplace_back(std::make_unique<Node>(ndi));
-  // setNodeName(id, "FILLER_" + std::to_string(filler_cnt_++));
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -481,7 +496,6 @@ void Network::clear()
   net_to_edge_idx_.clear();
   cells_cnt_ = 0;
   terminals_cnt_ = 0;
-  filler_cnt_ = 0;
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

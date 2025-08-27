@@ -9,7 +9,6 @@
 #include <QMap>
 #include <QMenu>
 #include <QMutex>
-#include <QOpenGLWidget>
 #include <QPaintEvent>
 #include <QPixmap>
 #include <QScrollArea>
@@ -26,6 +25,7 @@
 #include <vector>
 
 #include "gui/gui.h"
+#include "label.h"
 #include "options.h"
 #include "renderThread.h"
 #include "search.h"
@@ -64,41 +64,42 @@ class LayoutViewer : public QWidget
   Q_OBJECT
 
  public:
-  enum CONTEXT_MENU_ACTIONS
+  enum ContextMenuActions
   {
-    SELECT_CONNECTED_INST_ACT,
-    SELECT_OUTPUT_NETS_ACT,
-    SELECT_INPUT_NETS_ACT,
-    SELECT_ALL_NETS_ACT,
-    SELECT_ALL_BUFFER_TREES_ACT,
+    kSelectConnectedInstAct,
+    kSelectOutputNetsAct,
+    kSelectInputNetsAct,
+    kSelectAllNetsAct,
+    kSelectAllBufferTreesAct,
 
-    HIGHLIGHT_CONNECTED_INST_ACT,
-    HIGHLIGHT_OUTPUT_NETS_ACT,
-    HIGHLIGHT_INPUT_NETS_ACT,
-    HIGHLIGHT_ALL_NETS_ACT,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_0,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_1,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_2,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_3,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_4,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_5,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_6,
-    HIGHLIGHT_ALL_BUFFER_TREES_ACT_7,
+    kHighlightConnectedInstAct,
+    kHighlightOutputNetsAct,
+    kHighlightInputNetsAct,
+    kHighlightAllNetsAct,
+    kHighlightAllBufferTreesAct0,
+    kHighlightAllBufferTreesAct1,
+    kHighlightAllBufferTreesAct2,
+    kHighlightAllBufferTreesAct3,
+    kHighlightAllBufferTreesAct4,
+    kHighlightAllBufferTreesAct5,
+    kHighlightAllBufferTreesAct6,
+    kHighlightAllBufferTreesAct7,
 
-    VIEW_ZOOMIN_ACT,
-    VIEW_ZOOMOUT_ACT,
-    VIEW_ZOOMFIT_ACT,
+    kViewZoominAct,
+    kViewZoomoutAct,
+    kViewZoomfitAct,
 
-    SAVE_WHOLE_IMAGE_ACT,
-    SAVE_VISIBLE_IMAGE_ACT,
+    kSaveWholeImageAct,
+    kSaveVisibleImageAct,
 
-    CLEAR_SELECTIONS_ACT,
-    CLEAR_HIGHLIGHTS_ACT,
-    CLEAR_RULERS_ACT,
-    CLEAR_FOCUS_ACT,
-    CLEAR_GUIDES_ACT,
-    CLEAR_NET_TRACKS_ACT,
-    CLEAR_ALL_ACT
+    kClearSelectionsAct,
+    kClearHighlightsAct,
+    kClearRulersAct,
+    kClearLabelsAct,
+    kClearFocusAct,
+    kClearGuidesAct,
+    kClearNetTracksAct,
+    kClearAllAct
   };
 
   struct ModuleSettings
@@ -117,14 +118,15 @@ class LayoutViewer : public QWidget
                const SelectionSet& selected,
                const HighlightSet& highlighted,
                const Rulers& rulers,
+               const Labels& labels,
                const std::map<odb::dbModule*, ModuleSettings>& module_settings,
                const std::set<odb::dbNet*>& focus_nets,
                const std::set<odb::dbNet*>& route_guides,
                const std::set<odb::dbNet*>& net_tracks,
                Gui* gui,
-               const std::function<bool()>& usingDBU,
-               const std::function<bool()>& showRulerAsEuclidian,
-               const std::function<bool()>& showDBView,
+               const std::function<bool()>& using_dbu,
+               const std::function<bool()>& show_ruler_as_euclidian,
+               const std::function<bool()>& show_db_view,
                QWidget* parent = nullptr);
 
   odb::dbBlock* getBlock() const { return block_; }
@@ -145,6 +147,9 @@ class LayoutViewer : public QWidget
                  const odb::Rect& region = odb::Rect(),
                  int width_px = 0,
                  double dbu_per_pixel = 0);
+  QImage createImage(const odb::Rect& region = odb::Rect(),
+                     int width_px = 0,
+                     double dbu_per_pixel = 0);
 
   // From QWidget
   void paintEvent(QPaintEvent* event) override;
@@ -166,7 +171,7 @@ class LayoutViewer : public QWidget
   void location(int x, int y);
 
   // indicates a new object has been selected
-  void selected(const Selected& selected, bool showConnectivity = false);
+  void selected(const Selected& selected, bool show_connectivity = false);
 
   // add additional object to selected set
   void addSelected(const Selected& selected);
@@ -238,10 +243,10 @@ class LayoutViewer : public QWidget
   void selection(const Selected& selection);
   void selectionFocus(const Selected& focus);
   void selectionAnimation(const Selected& selection,
-                          int repeats = animation_repeats_,
-                          int update_interval = animation_interval_);
-  void selectionAnimation(int repeats = animation_repeats_,
-                          int update_interval = animation_interval_)
+                          int repeats = kAnimationRepeats,
+                          int update_interval = kAnimationInterval);
+  void selectionAnimation(int repeats = kAnimationRepeats,
+                          int update_interval = kAnimationInterval)
   {
     selectionAnimation(inspector_selection_, repeats, update_interval);
   }
@@ -342,6 +347,7 @@ class LayoutViewer : public QWidget
   const SelectionSet& selected_;
   const HighlightSet& highlighted_;
   const Rulers& rulers_;
+  const Labels& labels_;
   LayoutScroll* scroller_;
 
   // Use to avoid painting while a command is executing unless paused.
@@ -366,9 +372,9 @@ class LayoutViewer : public QWidget
   bool is_view_dragging_;
   Gui* gui_;
 
-  std::function<bool()> usingDBU_;
-  std::function<bool()> showRulerAsEuclidian_;
-  std::function<bool()> showDBView_;
+  std::function<bool()> using_dbu_;
+  std::function<bool()> show_ruler_as_euclidian_;
+  std::function<bool()> show_db_view_;
 
   const std::map<odb::dbModule*, ModuleSettings>& modules_;
 
@@ -397,8 +403,8 @@ class LayoutViewer : public QWidget
   utl::Logger* logger_;
 
   QMenu* layout_context_menu_;
-  QMenu* highlight_color_menu;
-  QMap<CONTEXT_MENU_ACTIONS, QAction*> menu_actions_;
+  QMenu* highlight_color_menu_;
+  QMap<ContextMenuActions, QAction*> menu_actions_;
 
   // shift required when drawing the layout to center the layout in the window
   // (units: pixels)
@@ -424,11 +430,11 @@ class LayoutViewer : public QWidget
   QTimer* loading_timer_;
   std::string loading_indicator_;
 
-  static constexpr qreal zoom_scale_factor_ = 1.2;
+  static constexpr qreal kZoomScaleFactor = 1.2;
 
   // parameters used to animate the selection of objects
-  static constexpr int animation_repeats_ = 6;
-  static constexpr int animation_interval_ = 300;
+  static constexpr int kAnimationRepeats = 6;
+  static constexpr int kAnimationInterval = 300;
 
   friend class RenderThread;
 };

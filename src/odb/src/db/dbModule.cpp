@@ -5,6 +5,7 @@
 #include "dbModule.h"
 
 #include "dbBlock.h"
+#include "dbCommon.h"
 #include "dbDatabase.h"
 #include "dbHashTable.hpp"
 #include "dbInst.h"
@@ -102,12 +103,8 @@ dbOStream& operator<<(dbOStream& stream, const _dbModule& obj)
   stream << obj._insts;
   stream << obj._mod_inst;
   stream << obj._modinsts;
-  if (obj.getDatabase()->isSchema(db_schema_update_hierarchy)) {
-    stream << obj._modnets;
-  }
-  if (obj.getDatabase()->isSchema(db_schema_update_hierarchy)) {
-    stream << obj._modbterms;
-  }
+  stream << obj._modnets;
+  stream << obj._modbterms;
   return stream;
 }
 
@@ -335,7 +332,7 @@ dbSet<dbModBTerm> dbModule::getPorts()
 // The modbterms are the leaf level connections
 //"flat view"
 //
-dbSet<dbModBTerm> dbModule::getModBTerms()
+dbSet<dbModBTerm> dbModule::getModBTerms() const
 {
   _dbModule* module = (_dbModule*) this;
   _dbBlock* block = (_dbBlock*) module->getOwner();
@@ -363,8 +360,7 @@ dbModule* dbModule::create(dbBlock* block, const char* name)
     return nullptr;
   }
   _dbModule* module = _block->_module_tbl->create();
-  module->_name = strdup(name);
-  ZALLOCATED(module->_name);
+  module->_name = safe_strdup(name);
   _block->_module_hash.insert(module);
 
   if (_block->_journal) {
@@ -507,14 +503,14 @@ std::vector<dbInst*> dbModule::getLeafInsts()
 dbModBTerm* dbModule::findModBTerm(const char* name)
 {
   std::string modbterm_name(name);
-  // TODO: use proper hierarchy limiter from _dbBlock->_hier_delimiter
-  size_t last_idx = modbterm_name.find_last_of('/');
+  char hier_delimiter = getOwner()->getHierarchyDelimiter();
+  size_t last_idx = modbterm_name.find_last_of(hier_delimiter);
   if (last_idx != std::string::npos) {
     modbterm_name = modbterm_name.substr(last_idx + 1);
   }
   _dbModule* obj = (_dbModule*) this;
   _dbBlock* par = (_dbBlock*) obj->getOwner();
-  auto it = obj->_modbterm_hash.find(name);
+  auto it = obj->_modbterm_hash.find(modbterm_name);
   if (it != obj->_modbterm_hash.end()) {
     auto db_id = (*it).second;
     return (dbModBTerm*) par->_modbterm_tbl->getPtr(db_id);
@@ -564,14 +560,68 @@ dbModule* dbModule::makeUniqueDbModule(const char* cell_name,
   return module;
 }
 
+// Check if two hierarchical modules are swappable.
+// Two modules must have identical number of ports and port names need to match.
+// Functional equivalence is not required.
+bool dbModule::canSwapWith(dbModule* new_module) const
+{
+  const _dbModule* module_impl = reinterpret_cast<const _dbModule*>(this);
+  const std::string old_module_name = getName();
+  const std::string new_module_name = new_module->getName();
+
+  // Check if module names differ
+  if (old_module_name == new_module_name) {
+    module_impl->getLogger()->warn(
+        utl::ODB,
+        470,
+        "The modules cannot be swapped because the new module name {} is "
+        "identical to the existing module name.",
+        new_module_name);
+    return false;
+  }
+
+  // Check if number of module ports match
+  dbSet<dbModBTerm> old_bterms = getModBTerms();
+  dbSet<dbModBTerm> new_bterms = new_module->getModBTerms();
+  if (old_bterms.size() != new_bterms.size()) {
+    module_impl->getLogger()->warn(
+        utl::ODB,
+        453,
+        "The modules cannot be swapped because module {} has {} ports but "
+        "module {} has {} ports.",
+        old_module_name,
+        old_bterms.size(),
+        new_module_name,
+        new_bterms.size());
+    return false;
+  }
+
+  // Check if module port names match
+  for (dbModBTerm* old_bterm : old_bterms) {
+    if (new_module->findModBTerm(old_bterm->getName()) == nullptr) {
+      module_impl->getLogger()->warn(utl::ODB,
+                                     454,
+                                     "The modules cannot be swapped because "
+                                     "module {} has port {} which is "
+                                     "not in module {}.",
+                                     old_module_name,
+                                     old_bterm->getName(),
+                                     new_module_name);
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Do a "deep" copy of old_module based on its instance context into new_module.
 // All ports, instances, mod nets and parent/child IO will be copied.
 // Connections that span multiple modules needs to be done outside this API.
 // new_mod_inst is needed to create module instances for instance name
 // uniquification.
-void dbModule::copy(dbModule* old_module,
-                    dbModule* new_module,
-                    dbModInst* new_mod_inst)
+void _dbModule::copy(dbModule* old_module,
+                     dbModule* new_module,
+                     dbModInst* new_mod_inst)
 {
   // Copy module ports including bus members
   modBTMap mod_bt_map;  // map old mbterm to new mbterm
@@ -593,9 +643,9 @@ void dbModule::copy(dbModule* old_module,
 // A bus with N members have N+1 modbterms.  The first one is the "bus port"
 // sentinel.   The sentinel has reference to the member size, direction and
 // list of member modbterms.
-void dbModule::copyModulePorts(dbModule* old_module,
-                               dbModule* new_module,
-                               modBTMap& mod_bt_map)
+void _dbModule::copyModulePorts(dbModule* old_module,
+                                dbModule* new_module,
+                                modBTMap& mod_bt_map)
 {
   utl::Logger* logger = old_module->getImpl()->getLogger();
   for (dbModBTerm* old_port : old_module->getModBTerms()) {
@@ -708,10 +758,10 @@ void dbModule::copyModulePorts(dbModule* old_module,
              mod_bt_map.size());
 }
 
-void dbModule::copyModuleInsts(dbModule* old_module,
-                               dbModule* new_module,
-                               dbModInst* new_mod_inst,
-                               ITMap& it_map)
+void _dbModule::copyModuleInsts(dbModule* old_module,
+                                dbModule* new_module,
+                                dbModInst* new_mod_inst,
+                                ITMap& it_map)
 {
   utl::Logger* logger = old_module->getImpl()->getLogger();
   // Add insts to new module
@@ -812,10 +862,10 @@ void dbModule::copyModuleInsts(dbModule* old_module,
   }
 }
 
-void dbModule::copyModuleModNets(dbModule* old_module,
-                                 dbModule* new_module,
-                                 modBTMap& mod_bt_map,
-                                 ITMap& it_map)
+void _dbModule::copyModuleModNets(dbModule* old_module,
+                                  dbModule* new_module,
+                                  modBTMap& mod_bt_map,
+                                  ITMap& it_map)
 {
   utl::Logger* logger = old_module->getImpl()->getLogger();
   debugPrint(logger,
@@ -903,9 +953,9 @@ void dbModule::copyModuleModNets(dbModule* old_module,
   }
 }
 
-void dbModule::copyModuleBoundaryIO(dbModule* old_module,
-                                    dbModule* new_module,
-                                    dbModInst* new_mod_inst)
+void _dbModule::copyModuleBoundaryIO(dbModule* old_module,
+                                     dbModule* new_module,
+                                     dbModInst* new_mod_inst)
 {
   utl::Logger* logger = old_module->getImpl()->getLogger();
   // Establish "parent/child" port connections
@@ -948,7 +998,7 @@ void dbModule::copyModuleBoundaryIO(dbModule* old_module,
 // 1. It is saved for future module swap
 // 2. Optimization avoids iterating any unused instances of the old module
 // Return true if copy is successful.
-bool dbModule::copyToChildBlock(dbModule* module)
+bool _dbModule::copyToChildBlock(dbModule* module)
 {
   utl::Logger* logger = module->getImpl()->getLogger();
 
@@ -979,7 +1029,7 @@ bool dbModule::copyToChildBlock(dbModule* module)
     }
 
     modBTMap mod_bt_map;
-    copyModulePorts(module, new_module, mod_bt_map);
+    _dbModule::copyModulePorts(module, new_module, mod_bt_map);
     ITMap it_map;
     copyModuleInsts(module, new_module, nullptr, it_map);
     copyModuleModNets(module, new_module, mod_bt_map, it_map);

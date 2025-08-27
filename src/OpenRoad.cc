@@ -24,6 +24,9 @@
 #include "dft/MakeDft.hh"
 #include "dpl/MakeOpendp.h"
 #include "dst/MakeDistributed.h"
+#include "est/EstimateParasitics.h"
+#include "est/MakeEstimateParasitics.h"
+#include "exa/MakeExample.h"
 #include "fin/MakeFinale.h"
 #include "gpl/MakeReplace.h"
 #include "grt/GlobalRouter.h"
@@ -53,6 +56,7 @@
 #include "tap/MakeTapcell.h"
 #include "triton_route/MakeTritonRoute.h"
 #include "upf/MakeUpf.h"
+#include "utl/CallBackHandler.h"
 #include "utl/Logger.h"
 #include "utl/MakeLogger.h"
 #include "utl/Progress.h"
@@ -99,6 +103,7 @@ OpenRoad::~OpenRoad()
   deleteTritonCts(tritonCts_);
   deleteTapcell(tapcell_);
   deleteMacroPlacer(macro_placer_);
+  deleteExample(example_);
   deleteOpenRCX(extractor_);
   deleteTritonRoute(detailed_router_);
   deleteReplace(replace_);
@@ -112,8 +117,10 @@ OpenRoad::~OpenRoad()
   deleteDistributed(distributer_);
   deleteSteinerTreeBuilder(stt_builder_);
   dft::deleteDft(dft_);
+  est::deleteEstimateParasitics(estimate_parasitics_);
   delete logger_;
   delete verilog_reader_;
+  delete callback_handler_;
 }
 
 sta::dbNetwork* OpenRoad::getDbNetwork()
@@ -158,6 +165,7 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   // Make components.
   utl::Progress::setBatchMode(batch_mode);
   logger_ = utl::makeLogger(log_filename, metrics_filename);
+  callback_handler_ = new utl::CallBackHandler(logger_);
   db_->setLogger(logger_);
   sta_ = sta::makeDbSta();
   verilog_network_ = makeDbVerilogNetwork();
@@ -170,6 +178,7 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   tritonCts_ = cts::makeTritonCts();
   tapcell_ = tap::makeTapcell();
   macro_placer_ = mpl::makeMacroPlacer();
+  example_ = exa::makeExample();
   extractor_ = rcx::makeOpenRCX();
   detailed_router_ = drt::makeTritonRoute();
   replace_ = gpl::makeReplace();
@@ -181,6 +190,7 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   distributer_ = dst::makeDistributed();
   stt_builder_ = stt::makeSteinerTreeBuilder();
   dft_ = dft::makeDft();
+  estimate_parasitics_ = est::makeEstimateParasitics();
 
   // Init components.
   Ord_Init(tcl_interp);
@@ -201,7 +211,8 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
               sta_,
               stt_builder_,
               global_router_,
-              opendp_);
+              opendp_,
+              estimate_parasitics_);
   initDbVerilogNetwork(verilog_network_, sta_);
   initIoplacer(ioPlacer_, db_, logger_, tcl_interp);
   initReplace(
@@ -211,11 +222,11 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   initGlobalRouter(global_router_,
                    db_,
                    sta_,
-                   resizer_,
                    antenna_checker_,
                    opendp_,
                    stt_builder_,
                    logger_,
+                   callback_handler_,
                    tcl_interp);
   initTritonCts(tritonCts_,
                 db_,
@@ -223,6 +234,7 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
                 sta_,
                 stt_builder_,
                 resizer_,
+                estimate_parasitics_,
                 logger_,
                 tcl_interp);
   initTapcell(tapcell_, db_, logger_, tcl_interp);
@@ -233,20 +245,40 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
                   logger_,
                   partitionMgr_,
                   tcl_interp);
+  initExample(example_, db_, logger_, tcl_interp);
   initOpenRCX(extractor_, db_, logger_, getVersion(), tcl_interp);
   initICeWall(icewall_, db_, logger_, tcl_interp);
-  initRestructure(restructure_, logger_, sta_, db_, resizer_, tcl_interp);
-  initTritonRoute(
-      detailed_router_, db_, logger_, distributer_, stt_builder_, tcl_interp);
-  initPDNSim(pdnsim_, logger_, db_, sta_, resizer_, opendp_, tcl_interp);
-  initAntennaChecker(
-      antenna_checker_, db_, global_router_, logger_, tcl_interp);
+  initRestructure(restructure_,
+                  logger_,
+                  sta_,
+                  db_,
+                  resizer_,
+                  estimate_parasitics_,
+                  tcl_interp);
+  initTritonRoute(detailed_router_,
+                  db_,
+                  logger_,
+                  callback_handler_,
+                  distributer_,
+                  stt_builder_,
+                  tcl_interp);
+  initPDNSim(
+      pdnsim_, logger_, db_, sta_, estimate_parasitics_, opendp_, tcl_interp);
+  initAntennaChecker(antenna_checker_, db_, logger_, tcl_interp);
   initPartitionMgr(
       partitionMgr_, db_, getDbNetwork(), sta_, logger_, tcl_interp);
   initPdnGen(pdngen_, db_, logger_, tcl_interp);
   initDistributed(distributer_, logger_, tcl_interp);
   initSteinerTreeBuilder(stt_builder_, db_, logger_, tcl_interp);
   dft::initDft(dft_, db_, sta_, logger_, tcl_interp);
+  initEstimateParasitics(estimate_parasitics_,
+                         tcl_interp,
+                         logger_,
+                         callback_handler_,
+                         db_,
+                         sta_,
+                         stt_builder_,
+                         global_router_);
 
   // Import exported commands to global namespace.
   Tcl_Eval(tcl_interp, "sta::define_sta_cmds");
@@ -345,6 +377,11 @@ static odb::defout::Version stringToDefVersion(const string& version)
   return odb::defout::Version::DEF_5_8;
 }
 
+void OpenRoad::writeDef(const char* filename, const char* version)
+{
+  writeDef(filename, std::string(version));
+}
+
 void OpenRoad::writeDef(const char* filename, const string& version)
 {
   odb::dbChip* chip = db_->getChip();
@@ -379,7 +416,7 @@ void OpenRoad::writeAbstractLef(const char* filename,
   if (!block) {
     logger_->error(ORD, 53, "No block is loaded.");
   }
-  utl::StreamHandler stream_handler(filename);
+  utl::OutStreamHandler stream_handler(filename);
   odb::lefout writer(logger_, stream_handler.getStream());
   writer.setBloatFactor(bloat_factor);
   writer.setBloatOccupiedLayers(bloat_occupied_layers);
@@ -410,18 +447,18 @@ void OpenRoad::writeLef(const char* filename)
         } else {
           name += "_" + std::to_string(cnt);
         }
-        utl::StreamHandler stream_handler(name.c_str());
+        utl::OutStreamHandler stream_handler(name.c_str());
         odb::lefout lef_writer(logger_, stream_handler.getStream());
         lef_writer.writeLib(lib);
       } else {
-        utl::StreamHandler stream_handler(filename);
+        utl::OutStreamHandler stream_handler(filename);
         odb::lefout lef_writer(logger_, stream_handler.getStream());
         lef_writer.writeTechAndLib(lib);
       }
       ++cnt;
     }
   } else if (db_->getTech()) {
-    utl::StreamHandler stream_handler(filename);
+    utl::OutStreamHandler stream_handler(filename);
     odb::lefout lef_writer(logger_, stream_handler.getStream());
     lef_writer.writeTech(db_->getTech());
   }
@@ -430,31 +467,36 @@ void OpenRoad::writeLef(const char* filename)
   }
 }
 
-void OpenRoad::writeCdl(const char* outFilename,
-                        const std::vector<const char*>& mastersFilenames,
-                        bool includeFillers)
+void OpenRoad::writeCdl(const char* out_filename,
+                        const std::vector<const char*>& masters_filenames,
+                        bool include_fillers)
 {
   odb::dbChip* chip = db_->getChip();
   if (chip) {
     odb::dbBlock* block = chip->getBlock();
     if (block) {
       odb::cdl::writeCdl(
-          getLogger(), block, outFilename, mastersFilenames, includeFillers);
+          getLogger(), block, out_filename, masters_filenames, include_fillers);
     }
   }
 }
 
 void OpenRoad::readDb(const char* filename, bool hierarchy)
 {
-  std::ifstream stream;
-  stream.open(filename, std::ios::binary);
   try {
-    readDb(stream);
+    utl::InStreamHandler handler(filename, true);
+    readDb(handler.getStream());
   } catch (const std::ios_base::failure& f) {
     logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
   }
   // treat this as a hierarchical network.
   if (hierarchy) {
+    logger_->warn(
+        ORD,
+        12,
+        "Hierarchical flow (-hier) is currently in development and may cause "
+        "multiple issues. Do not use in production environments.");
+
     sta::dbSta* sta = getSta();
     // After streaming in the last thing we do is build the hashes
     // we cannot rely on orders to do this during stream in
@@ -483,9 +525,8 @@ void OpenRoad::writeDb(std::ostream& stream)
 
 void OpenRoad::writeDb(const char* filename)
 {
-  utl::StreamHandler stream_handler(filename, true);
-
-  db_->write(stream_handler.getStream());
+  utl::OutStreamHandler stream_handler(filename, true);
+  writeDb(stream_handler.getStream());
 }
 
 void OpenRoad::readVerilog(const char* filename)
@@ -517,6 +558,12 @@ void OpenRoad::linkDesign(const char* design_name,
   }
 
   if (hierarchy) {
+    logger_->warn(
+        ORD,
+        11,
+        "Hierarchical flow (-hier) is currently in development and may cause "
+        "multiple issues. Do not use in production environments.");
+
     sta::dbSta* sta = getSta();
     sta->getDbNetwork()->setHierarchy();
   }
@@ -539,7 +586,7 @@ odb::Rect OpenRoad::getCore()
   return db_->getChip()->getBlock()->getCoreArea();
 }
 
-void OpenRoad::setThreadCount(int threads, bool printInfo)
+void OpenRoad::setThreadCount(int threads, bool print_info)
 {
   int max_threads = std::thread::hardware_concurrency();
   if (max_threads == 0) {
@@ -556,7 +603,7 @@ void OpenRoad::setThreadCount(int threads, bool printInfo)
   }
   threads_ = threads;
 
-  if (printInfo) {
+  if (print_info) {
     logger_->info(ORD, 30, "Using {} thread(s).", threads_);
   }
 
@@ -564,7 +611,7 @@ void OpenRoad::setThreadCount(int threads, bool printInfo)
   sta_->setThreadCount(threads_);
 }
 
-void OpenRoad::setThreadCount(const char* threads, bool printInfo)
+void OpenRoad::setThreadCount(const char* threads, bool print_info)
 {
   int max_threads = threads_;  // default, make no changes
 
@@ -579,7 +626,7 @@ void OpenRoad::setThreadCount(const char* threads, bool printInfo)
     }
   }
 
-  setThreadCount(max_threads, printInfo);
+  setThreadCount(max_threads, print_info);
 }
 
 int OpenRoad::getThreadCount()

@@ -4,6 +4,7 @@
 #include "RecoverPower.hh"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 
 #include "db_sta/dbNetwork.hh"
@@ -35,8 +36,11 @@ using sta::Edge;
 using sta::PathExpanded;
 using sta::VertexOutEdgeIterator;
 
-RecoverPower::RecoverPower(Resizer* resizer)
-    : resizer_(resizer), bad_vertices_(resizer->graph_)
+RecoverPower::RecoverPower(Resizer* resizer,
+                           est::EstimateParasitics* estimate_parasitics)
+    : resizer_(resizer),
+      estimate_parasitics_(estimate_parasitics),
+      bad_vertices_(resizer->graph_)
 {
 }
 
@@ -98,6 +102,7 @@ bool RecoverPower::recoverPower(const float recover_power_percent, bool verbose)
 
   int end_index = 0;
   int failed_move_threshold = 0;
+  est::IncrementalParasiticsGuard guard(estimate_parasitics_);
   for (Vertex* end : ends_with_slack) {
     resizer_->journalBegin();
     const Slack end_slack_before = sta_->vertexSlack(end, max_);
@@ -124,7 +129,7 @@ bool RecoverPower::recoverPower(const float recover_power_percent, bool verbose)
     Path* end_path = sta_->vertexWorstSlackPath(end, max_);
     Vertex* const changed = recoverPower(end_path, end_slack_before);
     if (changed) {
-      resizer_->updateParasitics(true);
+      estimate_parasitics_->updateParasitics(true);
       sta_->findRequireds();
       const Slack end_slack_after = sta_->vertexSlack(end, max_);
 
@@ -173,16 +178,7 @@ bool RecoverPower::recoverPower(const float recover_power_percent, bool verbose)
           resizer_->journalEnd();
           break;
         }
-        int resize_count = 100;
-        int inserted_buffer_count = 100;
-        int cloned_gate_count = 100;
-        int swap_pin_count = 100;
-        int removed_buffer_count = 100;
-        resizer_->journalRestore(resize_count,
-                                 inserted_buffer_count,
-                                 cloned_gate_count,
-                                 swap_pin_count,
-                                 removed_buffer_count);
+        resizer_->journalRestore();
         debugPrint(logger_,
                    RSZ,
                    "recover_power",
@@ -227,11 +223,12 @@ Vertex* RecoverPower::recoverPower(const Pin* end_pin)
   Vertex* vertex = graph_->pinLoadVertex(end_pin);
   const Slack slack = sta_->vertexSlack(vertex, max_);
   const Path* path = sta_->vertexWorstSlackPath(vertex, max_);
-  resizer_->incrementalParasiticsBegin();
-  Vertex* drvr_vertex = recoverPower(path, slack);
-  // Leave the parasitices up to date.
-  resizer_->updateParasitics();
-  resizer_->incrementalParasiticsEnd();
+  Vertex* drvr_vertex;
+
+  {
+    est::IncrementalParasiticsGuard guard(estimate_parasitics_);
+    drvr_vertex = recoverPower(path, slack);
+  }
 
   if (resize_count_ > 0) {
     logger_->info(RSZ, 3111, "Resized {} instances.", resize_count_);
@@ -474,11 +471,15 @@ void RecoverPower::printProgress(int iteration, bool force, bool end) const
 
     const double design_area = resizer_->computeDesignArea();
     const double area_growth = design_area - initial_design_area_;
+    double area_growth_percent = std::numeric_limits<double>::infinity();
+    if (std::abs(initial_design_area_) > 0.0) {
+      area_growth_percent = area_growth / initial_design_area_ * 100.0;
+    }
 
     logger_->report(
         "{: >9s} | {: >+8.1f}% | {: >8d} | {: >8s} | {}",
         itr_field,
-        area_growth / initial_design_area_ * 1e2,
+        area_growth_percent,
         resize_count_,
         delayAsString(wns, sta_, 3),
         worst_vertex != nullptr ? worst_vertex->name(network_) : "");

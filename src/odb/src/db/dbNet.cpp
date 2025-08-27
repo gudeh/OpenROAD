@@ -69,8 +69,7 @@ _dbNet::_dbNet(_dbDatabase* db, const _dbNet& n)
 
 {
   if (n._name) {
-    _name = strdup(n._name);
-    ZALLOCATED(_name);
+    _name = safe_strdup(n._name);
   }
   _drivingIterm = -1;
 }
@@ -383,8 +382,7 @@ bool dbNet::rename(const char* name)
 
   block->_net_hash.remove(net);
   free((void*) net->_name);
-  net->_name = strdup(name);
-  ZALLOCATED(net->_name);
+  net->_name = safe_strdup(name);
   block->_net_hash.insert(net);
 
   return true;
@@ -1558,13 +1556,14 @@ void dbNet::setTermExtIds(int capId)  // 1: capNodeId, 0: reset
                  1,
                  "ECO: set net {} term extId",
                  getId());
-    } else
+    } else {
       debugPrint(getImpl()->getLogger(),
                  utl::ODB,
                  "DB_ECO",
                  1,
                  "ECO: reset net {} term extId",
                  getId());
+    }
     block->_journal->beginAction(dbJournal::UPDATE_FIELD);
     block->_journal->pushParam(dbNetObj);
     block->_journal->pushParam(getId());
@@ -2102,8 +2101,7 @@ dbNet* dbNet::create(dbBlock* block_, const char* name_, bool skipExistingCheck)
     block->_journal->endAction();
   }
 
-  net->_name = strdup(name_);
-  ZALLOCATED(net->_name);
+  net->_name = safe_strdup(name_);
   block->_net_hash.insert(net);
 
   for (auto cb : block->_callbacks) {
@@ -2236,20 +2234,24 @@ void dbNet::mergeNet(dbNet* in_net)
   _dbNet* net = (_dbNet*) this;
   _dbBlock* block = (_dbBlock*) net->getOwner();
 
-  std::vector<dbITerm*> iterms;
-  for (dbITerm* iterm : in_net->getITerms()) {
-    iterms.push_back(iterm);
-  }
-
   for (auto callback : block->_callbacks) {
     callback->inDbNetPreMerge(this, in_net);
   }
 
+  // in_net->getITerms() returns a terminal iterator, and iterm->connect() can
+  // invalidate the iterator by disconnecting a dbITerm.
+  // Calling iterm->connect() during iteration with the iterator is not safe.
+  // Thus create another vector for safe iterms iteration.
+  auto iterms_set = in_net->getITerms();
+  std::vector<dbITerm*> iterms(iterms_set.begin(), iterms_set.end());
   for (dbITerm* iterm : iterms) {
     iterm->connect(this);
   }
 
-  for (dbBTerm* bterm : in_net->getBTerms()) {
+  // Create vector for safe iteration.
+  auto bterms_set = in_net->getBTerms();
+  std::vector<dbBTerm*> bterms(bterms_set.begin(), bterms_set.end());
+  for (dbBTerm* bterm : bterms) {
     bterm->connect(this);
   }
 }

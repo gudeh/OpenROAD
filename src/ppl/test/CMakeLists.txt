@@ -19,6 +19,7 @@ or_integration_tests(
     add_constraint16
     add_constraint17
     add_constraint18
+    add_constraint19
     add_constraint_debug
     add_constraint_error1
     add_constraint_error2
@@ -29,6 +30,7 @@ or_integration_tests(
     add_constraint_error7
     add_constraint_error8
     add_constraint_error9
+    add_constraint_error10
     annealing1
     annealing2
     annealing3
@@ -75,7 +77,6 @@ or_integration_tests(
     large_groups3
     large_groups4
     macro_not_placed
-    macro_not_placed_random
     min_dist_in_tracks1
     min_dist_in_tracks2
     multiple_calls
@@ -105,15 +106,8 @@ or_integration_tests(
     place_pin_error1
     place_pin_error2
     place_pin_error3
-    random1
-    random2
-    random3
-    random4
-    random5
-    random6
-    random7
-    random8
-    random9
+    random_deprecated1
+    random_deprecated2
     top_layer1
     top_layer2
     top_layer3

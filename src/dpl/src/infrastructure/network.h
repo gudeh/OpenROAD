@@ -46,6 +46,8 @@ class Network
     {
       return a->getEdge()->getId() < b->getEdge()->getId();
     }
+
+   private:
     Network* nw_ = nullptr;
   };
 
@@ -60,6 +62,8 @@ class Network
       }
       return a->getOffsetX() < b->getOffsetX();
     }
+
+   private:
     Network* nw_ = nullptr;
   };
 
@@ -75,8 +79,7 @@ class Network
   int getNumEdges() const { return (int) edges_.size(); }
   Edge* getEdge(odb::dbNet* net) const;
   Edge* getEdge(int i) const { return edges_[i].get(); }
-  void setEdgeName(int i, std::string& name) { edgeNames_[i] = name; }
-  void setEdgeName(int i, const char* name) { edgeNames_[i] = name; }
+  void setEdgeName(int i, const std::string& name) { edgeNames_[i] = name; }
   const std::string& getEdgeName(int i) const { return edgeNames_.at(i); }
 
   int getNumPins() const { return (int) pins_.size(); }
@@ -132,7 +135,6 @@ class Network
   std::unordered_map<odb::dbNet*, int> net_to_edge_idx_;
   uint cells_cnt_{0};
   uint terminals_cnt_{0};
-  uint filler_cnt_{0};
 
   // Master functions...
   std::vector<std::unique_ptr<MasterFunction>> functions_;

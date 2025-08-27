@@ -8,7 +8,10 @@
 
 #include "MplObserver.h"
 #include "SimulatedAnnealingCore.h"
+#include "clusterEngine.h"
 #include "object.h"
+#include "odb/db.h"
+#include "util.h"
 
 namespace utl {
 class Logger;
@@ -24,9 +27,7 @@ class SACoreSoftMacro : public SimulatedAnnealingCore<SoftMacro>
                   const Rect& outline,
                   const std::vector<SoftMacro>& macros,
                   const SACoreWeights& core_weights,
-                  float boundary_weight,
-                  float macro_blockage_weight,
-                  float notch_weight,
+                  const SASoftWeights& soft_weights,
                   // notch threshold
                   float notch_h_threshold,
                   float notch_v_threshold,
@@ -42,7 +43,8 @@ class SACoreSoftMacro : public SimulatedAnnealingCore<SoftMacro>
                   int num_perturb_per_step,
                   unsigned seed,
                   MplObserver* graphics,
-                  utl::Logger* logger);
+                  utl::Logger* logger,
+                  odb::dbBlock* block);
 
   void run() override;
 
@@ -74,7 +76,8 @@ class SACoreSoftMacro : public SimulatedAnnealingCore<SoftMacro>
   void calPenalty() override;
 
   void perturb() override;
-  void restore() override;
+  void saveState() override;
+  void restoreState() override;
   // actions used
   void resizeOneCluster();
 
@@ -94,6 +97,8 @@ class SACoreSoftMacro : public SimulatedAnnealingCore<SoftMacro>
   // Only for Cluster Placement:
   void attemptCentralization(float pre_cost);
   void moveFloorplan(const std::pair<float, float>& offset);
+
+  Tiling computeOverlapShape(const Rect& rect_a, const Rect& rect_b) const;
 
   std::vector<Rect> blockages_;
 

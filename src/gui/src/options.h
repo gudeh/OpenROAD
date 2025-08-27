@@ -56,17 +56,23 @@ class Options
   virtual bool areNonPrefTracksVisible() = 0;
 
   virtual bool areIOPinsVisible() const = 0;
+  virtual bool areIOPinNamesVisible() const = 0;
+  virtual QFont ioPinMarkersFont() const = 0;
+
   virtual bool areRoutingSegmentsVisible() const = 0;
   virtual bool areRoutingViasVisible() const = 0;
   virtual bool areSpecialRoutingSegmentsVisible() const = 0;
   virtual bool areSpecialRoutingViasVisible() const = 0;
   virtual bool areFillsVisible() const = 0;
-  virtual QFont pinMarkersFont() const = 0;
 
   virtual QColor rulerColor() = 0;
   virtual QFont rulerFont() = 0;
   virtual bool areRulersVisible() = 0;
   virtual bool areRulersSelectable() = 0;
+
+  virtual QFont labelFont() = 0;
+  virtual bool areLabelsVisible() = 0;
+  virtual bool areLabelsSelectable() = 0;
 
   virtual bool isDetailedVisibility() = 0;
 
@@ -81,6 +87,7 @@ class Options
   virtual bool isModuleView() const = 0;
 
   virtual bool isGCellGridVisible() const = 0;
+  virtual bool isFlywireHighlightOnly() const = 0;
 };
 
 }  // namespace gui

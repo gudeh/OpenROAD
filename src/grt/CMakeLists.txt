@@ -19,7 +19,6 @@ add_library(grt_lib
   src/Grid.cpp
   src/Net.cpp
   src/Pin.cpp
-  src/MakeWireParasitics.cpp
   src/RepairAntennas.cpp
   src/Rudy.cpp
   src/GlobalRouter.cpp
@@ -63,18 +62,10 @@ target_include_directories(grt
 
 target_link_libraries(grt
     grt_lib
-    utl_lib
-    drt_lib
-    FastRoute4.1
-    ant_lib
-    dpl_lib
     dbSta
     gui
     stt
     rsz
-    OpenSTA
-    Boost::boost
-    OpenMP::OpenMP_CXX
 )
 
 if (Python3_FOUND AND BUILD_PYTHON)
