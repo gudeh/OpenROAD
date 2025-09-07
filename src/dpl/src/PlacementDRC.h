@@ -9,6 +9,7 @@
 namespace odb {
 class dbTech;
 class dbOrientType;
+class dbMaster;
 }  // namespace odb
 
 namespace dpl {
@@ -146,7 +147,7 @@ class PlacementDRC
 
   // Set the minimum spacing required between cells with phi pins connected to
   // different phi nets
-  void setPhiSpacing(DbuX phi_spacing) { phi_spacing_ = phi_spacing; }
+  void setPhiCutCell(odb::dbMaster* master);
 
   // Get the current minimum spacing required between cells with phi pins
   // connected to different phi nets
@@ -166,6 +167,7 @@ class PlacementDRC
   bool disallow_odd_sites_ = false;
   DbuX phi_spacing_{0};  // Required spacing between cells with phi pins
                          // connected to different phi  nets
+  odb::dbMaster* phi_cut_cell_{nullptr};
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;

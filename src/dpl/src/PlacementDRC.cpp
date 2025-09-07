@@ -82,6 +82,12 @@ PlacementDRC::PlacementDRC(Grid* grid,
   makeEolSpacingRules(tech);
 }
 
+void PlacementDRC::setPhiCutCell(odb::dbMaster* master)
+{
+  phi_cut_cell_ = master;
+  phi_spacing_ = DbuX{(int) master->getWidth()};
+}
+
 bool PlacementDRC::checkEdgeSpacing(const Node* cell) const
 {
   const GridX x = grid_->gridX(cell);
@@ -211,7 +217,8 @@ bool PlacementDRC::checkDRC(const Node* cell,
 {
   return checkEdgeSpacing(cell, x, y, orient) && checkPadding(cell, x, y)
          && checkBlockedLayers(cell, x, y) && checkOneSiteGap(cell, x, y)
-         && checkAbuttedPins(cell, x, y, orient) && checkColoring(x);
+         && checkAbuttedPins(cell, x, y, orient)
+         && checkPhiSpacing(cell, x, y, orient) && checkColoring(x);
 }
 
 namespace {
@@ -435,6 +442,7 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
   if (cell->getConnections().empty()) {
     return true;
   }
+
   const auto& master = cell->getMaster();
   DbuX x_real = gridToDbu(x, grid_->getSiteWidth());
   DbuY y_real = grid_->gridYToDbu(y);
@@ -493,7 +501,7 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
       }
     }
   }
-  return checkPhiSpacing(cell, x, y, orient);
+  return true;
 }
 
 bool PlacementDRC::checkColoring(const Node* cell) const
@@ -607,6 +615,9 @@ bool PlacementDRC::checkPhiSpacing(const Node* cell,
   if (cell->getConnections().empty() || phi_spacing_ == 0) {
     return true;
   }
+  if (cell->getMaster()->getDbMaster() == phi_cut_cell_) {
+    return true;
+  }
   // Cells with PHI nets are either single or double height.
 
   const GridX phi_cut_width = grid_->gridX(phi_spacing_);
@@ -630,7 +641,9 @@ bool PlacementDRC::checkPhiSpacing(const Node* cell,
         continue;
       }
       checked_cells.insert(cell2);
-
+      if (cell2->getMaster()->getDbMaster() == phi_cut_cell_) {
+        continue;
+      }
       for (auto [_, net1_idx] : cell->getConnections()) {
         for (auto [_, net2_idx] : cell2->getConnections()) {
           if (net1_idx != net2_idx) {
