@@ -40,6 +40,7 @@ void Opendp::checkPlacement(const bool verbose,
   std::vector<Node*> edge_spacing_failures;
   std::vector<Node*> blocked_layers_failures;
   std::vector<Node*> abutment_conn_failures;
+  std::vector<Node*> phi_spacing_failures;
 
   initGrid();
   groupAssignCellRegions();
@@ -79,6 +80,9 @@ void Opendp::checkPlacement(const bool verbose,
     if (!drc_engine_->checkAbuttedPins(cell.get())) {
       abutment_conn_failures.push_back(cell.get());
     }
+    if (!drc_engine_->checkPhiSpacing(cell.get())) {
+      phi_spacing_failures.emplace_back(cell.get());
+    }
     // EdgeSpacing check
     if (!drc_engine_->checkEdgeSpacing(cell.get())) {
       edge_spacing_failures.emplace_back(cell.get());
@@ -110,7 +114,8 @@ void Opendp::checkPlacement(const bool verbose,
                {},
                edge_spacing_failures,
                blocked_layers_failures,
-               abutment_conn_failures);
+               abutment_conn_failures,
+               phi_spacing_failures);
   if (!report_file_name.empty()) {
     writeJsonReport(report_file_name);
   }
@@ -128,6 +133,7 @@ void Opendp::checkPlacement(const bool verbose,
       edge_spacing_failures, 9, "LEF58_CELLEDGESPACINGTABLE", verbose);
   reportFailures(blocked_layers_failures, 10, "Blocked layers", verbose);
   reportFailures(abutment_conn_failures, 11, "Abutment connectivity", verbose);
+  reportFailures(phi_spacing_failures, 12, "Phi spacing", verbose);
 
   logger_->metric("design__violations",
                   placed_failures.size() + in_rows_failures.size()
@@ -200,14 +206,15 @@ void Opendp::saveFailures(const vector<Node*>& placed_failures,
                           const vector<Node*>& placement_failures,
                           const vector<Node*>& edge_spacing_failures,
                           const vector<Node*>& blocked_layers_failures,
-                          const vector<Node*>& abutment_conn_failures)
+                          const vector<Node*>& abutment_conn_failures,
+                          const vector<Node*>& phi_spacing_failures)
 {
   if (placed_failures.empty() && in_rows_failures.empty()
       && overlap_failures.empty() && padding_failures.empty()
       && one_site_gap_failures.empty() && site_align_failures.empty()
       && region_placement_failures.empty() && placement_failures.empty()
       && edge_spacing_failures.empty() && blocked_layers_failures.empty()
-      && abutment_conn_failures.empty()) {
+      && abutment_conn_failures.empty() && phi_spacing_failures.empty()) {
     return;
   }
 
@@ -284,6 +291,13 @@ void Opendp::saveFailures(const vector<Node*>& placed_failures,
         "Cells with pins connected by abutment but belonging to different "
         "nets.");
     saveViolations(abutment_conn_failures, category);
+  }
+  if (!phi_spacing_failures.empty()) {
+    auto category = odb::dbMarkerCategory::createOrReplace(
+        tool_category, "Phi_spacing_failures");
+    category->setDescription(
+        "Cells with insufficient phi spacing to allow phi cut cell placement.");
+    saveViolations(phi_spacing_failures, category);
   }
 }
 

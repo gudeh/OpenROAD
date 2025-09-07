@@ -64,7 +64,7 @@ void Opendp::initPlacementDRC()
     drc_engine_->disallowOddSites();
   }
   if (phi_cut_cell_) {
-    drc_engine_->setPhiSpacing(DbuX{(int) phi_cut_cell_->getWidth()});
+    drc_engine_->setPhiCutCell(phi_cut_cell_);
   }
 }
 
