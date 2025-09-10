@@ -1526,7 +1526,8 @@ void MainWindow::selectHighlightConnectedNets(bool select_flag,
       auto inst_obj = std::any_cast<odb::dbInst*>(sel_obj.getObject());
       for (auto inst_term : inst_obj->getITerms()) {
         if (inst_term->getNet() == nullptr
-            || inst_term->getNet()->getSigType() != odb::dbSigType::SIGNAL) {
+            || inst_term->getNet()->getSigType() != odb::dbSigType::SIGNAL
+            || inst_term->getNet()->isSpecial()) {
           continue;
         }
         auto inst_term_dir = inst_term->getIoType();
