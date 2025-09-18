@@ -10,6 +10,7 @@
 #include "infrastructure/Padding.h"
 #include "odb/db.h"
 #include "odb/dbTransform.h"
+#include "graphics/DplObserver.h"
 
 namespace dpl {
 
@@ -47,10 +48,12 @@ Rect getQueryRect(const Rect& edge_box, const int spc)
 
 // Constructor
 PlacementDRC::PlacementDRC(Grid* grid,
-                           odb::dbTech* tech,
+                           odb::dbTech* tech,                           
                            Padding* padding,
-                           bool disallow_one_site_gap)
-    : grid_(grid),
+                           bool disallow_one_site_gap,
+                           utl::Logger* logger)
+    : logger_(logger),
+      grid_(grid),
       padding_(padding),
       disallow_one_site_gap_(disallow_one_site_gap)
 {
@@ -149,14 +152,12 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
   return true;
 }
 
-bool PlacementDRC::checkBlockedLayers(const Node* cell) const
+bool PlacementDRC::hasBlockedLayers(const Node* cell, DplObserver* debug_observer) const
 {
-  return checkBlockedLayers(cell, grid_->gridX(cell), grid_->gridRoundY(cell));
+  return hasBlockedLayers(cell, grid_->gridX(cell), grid_->gridRoundY(cell), debug_observer);
 }
 
-bool PlacementDRC::checkBlockedLayers(const Node* cell,
-                                      const GridX x,
-                                      const GridY y) const
+bool PlacementDRC::hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObserver* debug_observer) const
 {
   const GridX x_begin = x;
   const GridY y_begin = y;
@@ -165,27 +166,119 @@ bool PlacementDRC::checkBlockedLayers(const Node* cell,
   for (GridY y1 = y_begin; y1 < y_end; y1++) {
     for (GridX x1 = x_begin; x1 < x_end; x1++) {
       const Pixel* pixel = grid_->gridPixel(x1, y1);
-      if (pixel != nullptr && pixel->blocked_layers & cell->getUsedLayers()) {
+      if (pixel != nullptr && (pixel->blocked_layers & cell->getUsedLayers())) {
+        // Logging for blocked pixel
+        const auto& core = grid_->getCore();
+        DbuX dbu_x = gridToDbu(x1, grid_->getSiteWidth()) + core.xMin();
+        DbuY dbu_y = grid_->gridYToDbu(y1) + core.yMin();
+
+        auto to_binary_str = [](unsigned int val) {
+          std::string s;
+          for (int i = sizeof(val) * 8 - 1; i >= 0; --i) {
+            s += ((val >> i) & 1) ? '1' : '0';
+          }
+          auto first_one = s.find('1');
+          return first_one == std::string::npos ? "0" : s.substr(first_one);
+        };
+
+        logger_->report(
+          "Blocked pixel at dbu ({}, {}) for cell {}: blocked_layers={}, used_layers={}",
+          dbu_x.v, dbu_y.v, cell->name(),
+          to_binary_str(pixel->blocked_layers),
+          to_binary_str(cell->getUsedLayers()));
+        if (debug_observer) {
+          debug_observer->endPlacement();
+        }
         return false;
+      }
+
+      //  TODO are values being stored with offset or not?
+      // Check for via box overlap with cell pin shapes
+      if (pixel != nullptr && !pixel->via_boxes.empty()) {
+        odb::dbInst* db_inst = cell->getDbInst();
+        if (db_inst) {
+          std::vector<odb::dbShape> pin_shapes;
+          pin_shapes.reserve(32);
+
+          // Transform from mterm local coords to block coords.
+          odb::dbTransform xform = db_inst->getTransform();
+
+          for (odb::dbITerm* iterm : db_inst->getITerms()) {
+            odb::dbMTerm* mterm = iterm->getMTerm();
+            if (!mterm) continue;
+
+            for (odb::dbMPin* mpin : mterm->getMPins()) {
+              if (!mpin) continue;
+
+              // Geometry is a set of dbBox in mterm local coords.
+              for (odb::dbBox* box : mpin->getGeometry()) {
+                if (!box) continue;
+
+                // Optional: only consider routing layers.
+                odb::dbTechLayer* layer = box->getTechLayer();
+                if (!layer) continue;
+                if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
+
+                odb::Rect r = box->getBox();  // mterm-local
+                xform.apply(r);               // -> block coords
+
+                // Store as a shape in block coords on the same layer.
+                pin_shapes.emplace_back(layer, r);
+              }
+            }
+          }
+
+          auto core = grid_->getCore();
+          for (const auto& via_box : pixel->via_boxes) {
+            const odb::Rect& v = via_box.getBox();  // assumes block coords
+            for (const auto& pin_shape : pin_shapes) {
+              if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
+                if (v.overlaps(pin_shape.getBox())) {
+                    logger_->report(
+                    "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
+                    "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
+                    x1.v, y1.v, cell->name(),
+                    v.xMin() + core.xMin(), v.yMin() + core.yMin(),
+                    v.xMax() + core.xMin(), v.yMax() + core.yMin(),
+                    via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
+                    pin_shape.xMin() + core.xMin(), pin_shape.yMin() + core.yMin(),
+                    pin_shape.xMax() + core.xMin(), pin_shape.yMax() + core.yMin(),
+                    pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+
+                  if (debug_observer) {
+                    debug_observer->endPlacement();
+                  }
+                  return false;
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
   return true;
 }
 
-bool PlacementDRC::checkDRC(const Node* cell) const
+
+bool PlacementDRC::checkDRC(const Node* cell, DplObserver* debug_observer_) const
 {
   return checkDRC(
-      cell, grid_->gridX(cell), grid_->gridRoundY(cell), cell->getOrient());
+      cell, grid_->gridX(cell), grid_->gridRoundY(cell), cell->getOrient(), debug_observer_);
 }
 
 bool PlacementDRC::checkDRC(const Node* cell,
-                            const GridX x,
-                            const GridY y,
-                            const dbOrientType& orient) const
+              const GridX x,
+              const GridY y,
+              const dbOrientType& orient,
+              DplObserver* debug_observer_) const
 {
-  return checkEdgeSpacing(cell, x, y, orient) && checkPadding(cell, x, y)
-         && checkBlockedLayers(cell, x, y) && checkOneSiteGap(cell, x, y);
+  bool edge_spacing_ok = checkEdgeSpacing(cell, x, y, orient);
+  bool padding_ok = checkPadding(cell, x, y);
+  bool no_blocked_layers = !hasBlockedLayers(cell, x, y, debug_observer_);
+  bool one_site_gap_ok = checkOneSiteGap(cell, x, y);
+
+  return edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
 }
 
 namespace {

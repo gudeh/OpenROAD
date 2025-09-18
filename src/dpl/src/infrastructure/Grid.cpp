@@ -139,34 +139,33 @@ void Grid::markHopeless(dbBlock* block,
 void Grid::markBlocked(dbBlock* block)
 {
   const Rect core = getCore();
-  auto addBlockedLayers
-      = [&](odb::Rect wire_rect, odb::dbTechLayer* tech_layer) {
-          if (tech_layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
-            return;
-          }
-          auto routing_level = tech_layer->getRoutingLevel();
-          if (routing_level <= 1 || routing_level > 3) {  // considering M2, M3
-            return;
-          }
-          if (wire_rect.getDir() == 1) {  // horizontal
-            return;
-          }
-          wire_rect.moveDelta(-core.xMin(), -core.yMin());
-          GridRect grid_rect = gridCovering(wire_rect);
-          GridRect core{.xlo = GridX{0},
-                        .ylo = GridY{0},
-                        .xhi = GridX{row_site_count_},
-                        .yhi = GridY{row_count_}};
-          grid_rect = grid_rect.intersect(core);
-          for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {
-            for (GridX x = grid_rect.xlo; x < grid_rect.xhi; x++) {
-              auto pixel1 = gridPixel(x, y);
-              if (pixel1) {
-                pixel1->blocked_layers |= 1 << routing_level;
-              }
-            }
-          }
-        };
+  auto addBlockedLayers = [&](odb::Rect wire_rect, odb::dbTechLayer* tech_layer) {
+    if (tech_layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
+      return;
+    }
+    auto routing_level = tech_layer->getRoutingLevel();
+    if (routing_level <= 1 || routing_level > 3) {  // considering M2, M3
+      return;
+    }
+    if (wire_rect.getDir() == 1) {  // horizontal
+      return;
+    }
+    wire_rect.moveDelta(-core.xMin(), -core.yMin());
+    GridRect grid_rect = gridCovering(wire_rect);
+    GridRect core_rect{.xlo = GridX{0},
+                       .ylo = GridY{0},
+                       .xhi = GridX{row_site_count_},
+                       .yhi = GridY{row_count_}};
+    grid_rect = grid_rect.intersect(core_rect);
+    for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {
+      for (GridX x = grid_rect.xlo; x < grid_rect.xhi; x++) {
+        auto pixel1 = gridPixel(x, y);
+        if (pixel1) {
+          pixel1->blocked_layers |= 1 << routing_level;
+        }
+      }
+    }
+  };
 
   for (auto net : block->getNets()) {
     if (!net->isSpecial()) {
@@ -178,23 +177,70 @@ void Grid::markBlocked(dbBlock* block)
           odb::Rect wire_rect = s->getBox();
           odb::dbTechLayer* tech_layer = s->getTechLayer();
           addBlockedLayers(wire_rect, tech_layer);
-        }
-      }
-    }
-  }
-  for (odb::dbBlockage* blockage : block->getBlockages()) {
-    if (blockage->isSoft()) {
-      continue;
-    }
-    Rect bbox = blockage->getBBox()->getBox();
-    bbox.moveDelta(-core.xMin(), -core.yMin());
-    GridRect grid_rect = gridCovering(bbox);
+        } else {
+          std::vector<odb::dbShape> via_boxes;
+          s->getViaBoxes(via_boxes);
 
-    // Clip to the core area
-    GridRect core{.xlo = GridX{0},
-                  .ylo = GridY{0},
-                  .xhi = GridX{row_site_count_},
-                  .yhi = GridY{row_count_}};
+          for (const odb::dbShape& box : via_boxes) {
+            odb::dbTechLayer* tech_layer = box.getTechLayer();
+            if (tech_layer == nullptr || tech_layer->getRoutingLevel() == 0) {
+              continue;
+            }
+
+                  //TODO check if values are correct
+                  odb::Rect via_rect = box.getBox();
+                  // via_rect.moveDelta(core.xMin(), core.yMin());
+                  GridRect grid_rect = gridCovering(via_rect);
+                  GridRect core_rect{.xlo = GridX{0},
+                             .ylo = GridY{0},
+                             .xhi = GridX{row_site_count_},
+                             .yhi = GridY{row_count_}};
+                  grid_rect = grid_rect.intersect(core_rect);
+
+                  for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {
+                    for (GridX x = grid_rect.xlo; x < grid_rect.xhi; x++) {
+                    auto& pixel1 = pixels_[y.v][x.v];
+                    // Store via_boxes directly as an attribute in Pixel (no pointers)
+                    pixel1.via_boxes.push_back(box);
+                    
+                      // Debug print via box coordinates and grid range
+                      logger_->report("Via box at tech layer {}: ({}, {}) to ({}, {})",
+                              tech_layer->getName(),
+                              box.getBox().xMin(), box.getBox().yMin(),
+                              box.getBox().xMax(), box.getBox().yMax());
+
+                      // Calculate and print grid range in DBU
+                      const int grid_x_min_dbu = grid_rect.xlo.v * getSiteWidth().v + core.xMin();
+                      const int grid_y_min_dbu = gridYToDbu(grid_rect.ylo).v + core.yMin();
+                      const int grid_x_max_dbu = grid_rect.xhi.v * getSiteWidth().v + core.xMin();
+                      const int grid_y_max_dbu = gridYToDbu(grid_rect.yhi).v + core.yMin();
+
+                      logger_->report("Grid range in DBU: ({}, {}) to ({}, {})",
+                              grid_x_min_dbu, grid_y_min_dbu,
+                              grid_x_max_dbu, grid_y_max_dbu);
+                      // const odb::Rect via_rect = box.getBox();
+                      // addBlockedLayers(via_rect, tech_layer);
+                    }
+                  }
+                  }
+                }
+                }
+              }
+              }
+
+              for (odb::dbBlockage* blockage : block->getBlockages()) {
+              if (blockage->isSoft()) {
+                continue;
+              }
+              Rect bbox = blockage->getBBox()->getBox();
+              bbox.moveDelta(-core.xMin(), -core.yMin());
+              GridRect grid_rect = gridCovering(bbox);
+
+              // Clip to the core area
+              GridRect core{.xlo = GridX{0},
+                      .ylo = GridY{0},
+                      .xhi = GridX{row_site_count_},
+                      .yhi = GridY{row_count_}};
     grid_rect = grid_rect.intersect(core);
 
     for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {

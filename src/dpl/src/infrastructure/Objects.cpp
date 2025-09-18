@@ -4,6 +4,7 @@
 #include "Objects.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -271,6 +272,10 @@ Rect Node::getBBox() const
 }
 uint8_t Node::getUsedLayers() const
 {
+  if (this->getDbInst() && this->getDbInst()->getName() == "_24948_") {
+    std::cout << "Node::_24948_ is using layers: 0b"
+              << std::bitset<8>(used_layers_) << " (" << static_cast<int>(used_layers_) << ")" << std::endl;
+  }
   return used_layers_;
 }
 void Node::setId(int id)

@@ -40,6 +40,11 @@ void Opendp::importDb()
   block_ = db_->getChip()->getBlock();
   core_ = block_->getCoreArea();
   grid_->setCore(core_);
+  logger_->report("Core area: ({}, {}) - ({}, {})",
+                 core_.xMin(),
+                 core_.yMin(),
+                 core_.xMax(),
+                 core_.yMax());
   have_fillers_ = false;
   disallow_one_site_gaps_ = !odb::hasOneSiteMaster(db_);
   importClear();
@@ -61,7 +66,7 @@ void Opendp::importClear()
 void Opendp::initPlacementDRC()
 {
   drc_engine_ = std::make_unique<PlacementDRC>(
-      grid_.get(), db_->getTech(), padding_.get(), !odb::hasOneSiteMaster(db_));
+      grid_.get(), db_->getTech(), padding_.get(), !odb::hasOneSiteMaster(db_), logger_);
 }
 
 static bool swapWidthHeight(const dbOrientType& orient)

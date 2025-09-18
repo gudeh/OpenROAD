@@ -916,7 +916,7 @@ bool Opendp::checkPixels(const Node* cell,
     }
   }
   const auto orient = grid_->getSiteOrientation(x, y, site).value();
-  return drc_engine_->checkDRC(cell, x, y, orient);
+  return drc_engine_->checkDRC(cell, x, y, orient, debug_observer_.get());
 }
 
 ////////////////////////////////////////////////////////////////

@@ -37,15 +37,16 @@ class PlacementDRC
   PlacementDRC(Grid* grid,
                odb::dbTech* tech,
                Padding* padding,
-               bool disallow_one_site_gap);
+               bool disallow_one_site_gap,
+               utl::Logger* logger);
   bool checkEdgeSpacing(const Node* cell) const;
   // Check edge spacing for a cell at a given location and orientation
   bool checkEdgeSpacing(const Node* cell,
                         GridX x,
                         GridY y,
                         const odb::dbOrientType& orient) const;
-  bool checkBlockedLayers(const Node* cell) const;
-  bool checkBlockedLayers(const Node* cell, GridX x, GridY y) const;
+  bool hasBlockedLayers(const Node* cell, DplObserver* debug_observer=nullptr) const;
+  bool hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObserver* debug_observer=nullptr) const;
   // Check shared padding spacing conflicts
   bool checkPadding(const Node* cell) const;
   bool checkPadding(const Node* cell, GridX x, GridY y) const;
@@ -55,11 +56,12 @@ class PlacementDRC
   bool checkOneSiteGap(const Node* cell, GridX x, GridY y) const;
 
   // aggregate function to check against all DRC types
-  bool checkDRC(const Node* cell) const;
+  bool checkDRC(const Node* cell, DplObserver* debug_observer_=nullptr) const;
   bool checkDRC(const Node* cell,
                 GridX x,
                 GridY y,
-                const odb::dbOrientType& orient) const;
+                const odb::dbOrientType& orient,
+                DplObserver* debug_observer_) const;
 
   int getEdgeTypeIdx(const std::string& edge_type) const;
   bool hasCellEdgeSpacingTable() const;
@@ -67,6 +69,7 @@ class PlacementDRC
 
  private:
   // Member variables
+  utl::Logger* logger_{nullptr};
   Grid* grid_{nullptr};        // Pointer to the grid for placement
   Padding* padding_{nullptr};  // Pointer to the padding
   std::unordered_map<std::string, int> edge_types_indices_;

@@ -17,6 +17,7 @@
 #include "boost/icl/interval_map.hpp"
 #include "dpl/Opendp.h"
 #include "odb/db.h"
+#include "odb/dbShape.h"
 
 namespace dpl {
 
@@ -45,6 +46,7 @@ struct Pixel
   uint8_t blocked_layers = 0;
   // Cells that reserved this pixel for padding
   std::unordered_set<Node*> padding_reserved_by;
+  std::vector<odb::dbShape> via_boxes;
 };
 
 // Return value for grid searches.

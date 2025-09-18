@@ -86,9 +86,9 @@ void Graphics::drawObjects(gui::Painter& painter)
 
     auto color = cell->getDbInst() ? gui::Painter::kGray : gui::Painter::kRed;
     painter.setPen(color);
-    painter.setBrush(color);
+    painter.setBrush(gui::Painter::kTransparent); // Do not fill the inside
     painter.drawRect(Rect(
-        lx.v, ly.v, lx.v + cell->getWidth().v, ly.v + cell->getHeight().v));
+      lx.v, ly.v, lx.v + cell->getWidth().v, ly.v + cell->getHeight().v));
 
     if (!cell->getDbInst()) {
       continue;
@@ -115,6 +115,38 @@ void Graphics::drawObjects(gui::Painter& painter)
   painter.setBrush(color);
   for (auto& rect : searched_) {
     painter.drawRect(rect);
+  }
+
+
+
+  if (!dp_ || !dp_->grid_)
+    return;
+
+  // // Draw the x and y grid values as a string at the center of the pixel if enabled
+  // for (GridY y{0}; y < dp_->grid_->getRowCount(); ++y) {
+  //   for (GridX x{0}; x < dp_->grid_->getRowSiteCount(); ++x) {
+  //     std::string label = std::to_string(x.v) + "," + std::to_string(y.v);
+  //     painter.setPen(gui::Painter::kWhite);
+  //     int dbu_x = dp_->grid_->getCore().xMin() + gridToDbu(x, dp_->grid_->getSiteWidth()).v + (dp_->grid_->getSiteWidth().v / 2);
+  //     int dbu_y = dp_->grid_->getCore().yMin() + dp_->grid_->gridYToDbu(y).v + (dp_->grid_->rowHeight(y).v / 2);
+  //     painter.drawString(dbu_x, dbu_y, gui::Painter::Anchor::kCenter, label, /*rotate_90=*/false);
+  //   }
+  // }
+
+  // Then, draw the blocked pixels
+  for (GridY y{0}; y < dp_->grid_->getRowCount(); ++y) {
+    for (GridX x{0}; x < dp_->grid_->getRowSiteCount(); ++x) {
+      const Pixel& pixel = dp_->grid_->pixel(y, x);
+      int dbu_x = dp_->grid_->getCore().xMin() + gridToDbu(x, dp_->grid_->getSiteWidth()).v;
+      int dbu_y = dp_->grid_->getCore().yMin() + dp_->grid_->gridYToDbu(y).v;
+      if (pixel.blocked_layers != 0) {
+        painter.setPen(gui::Painter::kRed);
+        painter.setBrush(gui::Painter::kRed);
+        odb::Rect rect(dbu_x, dbu_y, dbu_x + dp_->grid_->getSiteWidth().v, 
+                      dbu_y + dp_->grid_->rowHeight(y).v);
+        painter.drawRect(rect);
+      }
+    }
   }
 }
 
