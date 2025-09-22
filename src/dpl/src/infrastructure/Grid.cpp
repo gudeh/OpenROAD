@@ -205,20 +205,22 @@ void Grid::markBlocked(dbBlock* block)
                     pixel1.via_boxes.push_back(box);
                     
                       // Debug print via box coordinates and grid range
-                      logger_->report("Via box at tech layer {}: ({}, {}) to ({}, {})",
-                              tech_layer->getName(),
-                              box.getBox().xMin(), box.getBox().yMin(),
-                              box.getBox().xMax(), box.getBox().yMax());
+                      // logger_->report("Via box at tech layer {}: ({}, {}) to ({}, {})",
+                      //         tech_layer->getName(),
+                      //         box.getBox().xMin(), box.getBox().yMin(),
+                      //         box.getBox().xMax(), box.getBox().yMax());
 
-                      // Calculate and print grid range in DBU
-                      const int grid_x_min_dbu = grid_rect.xlo.v * getSiteWidth().v + core.xMin();
-                      const int grid_y_min_dbu = gridYToDbu(grid_rect.ylo).v + core.yMin();
-                      const int grid_x_max_dbu = grid_rect.xhi.v * getSiteWidth().v + core.xMin();
-                      const int grid_y_max_dbu = gridYToDbu(grid_rect.yhi).v + core.yMin();
+                      // // Calculate and print grid range in DBU
+                      // const int grid_x_min_dbu = grid_rect.xlo.v * getSiteWidth().v + core.xMin();
+                      // const int grid_y_min_dbu = gridYToDbu(grid_rect.ylo).v + core.yMin();
+                      // const int grid_x_max_dbu = grid_rect.xhi.v * getSiteWidth().v + core.xMin();
+                      // const int grid_y_max_dbu = gridYToDbu(grid_rect.yhi).v + core.yMin();
 
-                      logger_->report("Grid range in DBU: ({}, {}) to ({}, {})",
-                              grid_x_min_dbu, grid_y_min_dbu,
-                              grid_x_max_dbu, grid_y_max_dbu);
+                      // logger_->report("Grid range in DBU: ({}, {}) to ({}, {})",
+                      //         grid_x_min_dbu, grid_y_min_dbu,
+                      //         grid_x_max_dbu, grid_y_max_dbu);
+
+
                       // const odb::Rect via_rect = box.getBox();
                       // addBlockedLayers(via_rect, tech_layer);
                     }

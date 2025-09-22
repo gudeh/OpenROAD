@@ -39,25 +39,25 @@ class PlacementDRC
                Padding* padding,
                bool disallow_one_site_gap,
                utl::Logger* logger);
-  bool checkEdgeSpacing(const Node* cell) const;
+  bool isEdgeSpacingClean(const Node* cell) const;
   // Check edge spacing for a cell at a given location and orientation
-  bool checkEdgeSpacing(const Node* cell,
+  bool isEdgeSpacingClean(const Node* cell,
                         GridX x,
                         GridY y,
                         const odb::dbOrientType& orient) const;
-  bool hasBlockedLayers(const Node* cell, DplObserver* debug_observer=nullptr) const;
-  bool hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObserver* debug_observer=nullptr) const;
+  bool isBlockedLayersClean(const Node* cell, DplObserver* debug_observer=nullptr) const;
+  bool isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplObserver* debug_observer=nullptr) const;
   // Check shared padding spacing conflicts
-  bool checkPadding(const Node* cell) const;
-  bool checkPadding(const Node* cell, GridX x, GridY y) const;
+  bool isPaddingClean(const Node* cell) const;
+  bool isPaddingClean(const Node* cell, GridX x, GridY y) const;
 
   // Check one site gap
-  bool checkOneSiteGap(const Node* cell) const;
-  bool checkOneSiteGap(const Node* cell, GridX x, GridY y) const;
+  bool isOneSiteGapClean(const Node* cell) const;
+  bool isOneSiteGapClean(const Node* cell, GridX x, GridY y) const;
 
   // aggregate function to check against all DRC types
-  bool checkDRC(const Node* cell, DplObserver* debug_observer_=nullptr) const;
-  bool checkDRC(const Node* cell,
+  bool isDRCclean(const Node* cell, DplObserver* debug_observer_=nullptr) const;
+  bool isDRCclean(const Node* cell,
                 GridX x,
                 GridY y,
                 const odb::dbOrientType& orient,

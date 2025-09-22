@@ -70,15 +70,15 @@ void Opendp::checkPlacement(const bool verbose,
       overlap_failures.push_back(cell.get());
     }
     // Padding check
-    if (!drc_engine_->checkPadding(cell.get())) {
+    if (!drc_engine_->isPaddingClean(cell.get())) {
       padding_failures.emplace_back(cell.get());
     }
     grid_->paintCellPadding(cell.get());
     // EdgeSpacing check
-    if (!drc_engine_->checkEdgeSpacing(cell.get())) {
+    if (!drc_engine_->isEdgeSpacingClean(cell.get())) {
       edge_spacing_failures.emplace_back(cell.get());
     }
-    if (drc_engine_->hasBlockedLayers(cell.get())) {
+    if (!drc_engine_->isBlockedLayersClean(cell.get())) {
       blocked_layers_failures.emplace_back(cell.get());
     }
   }

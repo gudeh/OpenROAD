@@ -60,15 +60,15 @@ PlacementDRC::PlacementDRC(Grid* grid,
   makeCellEdgeSpacingTable(tech);
 }
 
-bool PlacementDRC::checkEdgeSpacing(const Node* cell) const
+bool PlacementDRC::isEdgeSpacingClean(const Node* cell) const
 {
   const GridX x = grid_->gridX(cell);
   const GridY y = grid_->gridRoundY(cell);
-  return checkEdgeSpacing(cell, x, y, cell->getOrient());
+  return isEdgeSpacingClean(cell, x, y, cell->getOrient());
 }
 
 // Check edge spacing for a cell at a given location and orientation
-bool PlacementDRC::checkEdgeSpacing(const Node* cell,
+bool PlacementDRC::isEdgeSpacingClean(const Node* cell,
                                     const GridX x,
                                     const GridY y,
                                     const dbOrientType& orient) const
@@ -152,12 +152,12 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
   return true;
 }
 
-bool PlacementDRC::hasBlockedLayers(const Node* cell, DplObserver* debug_observer) const
+bool PlacementDRC::isBlockedLayersClean(const Node* cell, DplObserver* debug_observer) const
 {
-  return hasBlockedLayers(cell, grid_->gridX(cell), grid_->gridRoundY(cell), debug_observer);
+  return isBlockedLayersClean(cell, grid_->gridX(cell), grid_->gridRoundY(cell), debug_observer);
 }
 
-bool PlacementDRC::hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObserver* debug_observer) const
+bool PlacementDRC::isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplObserver* debug_observer) const
 {
   const GridX x_begin = x;
   const GridY y_begin = y;
@@ -259,22 +259,22 @@ bool PlacementDRC::hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObser
 }
 
 
-bool PlacementDRC::checkDRC(const Node* cell, DplObserver* debug_observer_) const
+bool PlacementDRC::isDRCclean(const Node* cell, DplObserver* debug_observer_) const
 {
-  return checkDRC(
+  return isDRCclean(
       cell, grid_->gridX(cell), grid_->gridRoundY(cell), cell->getOrient(), debug_observer_);
 }
 
-bool PlacementDRC::checkDRC(const Node* cell,
+bool PlacementDRC::isDRCclean(const Node* cell,
               const GridX x,
               const GridY y,
               const dbOrientType& orient,
               DplObserver* debug_observer_) const
 {
-  bool edge_spacing_ok = checkEdgeSpacing(cell, x, y, orient);
-  bool padding_ok = checkPadding(cell, x, y);
-  bool no_blocked_layers = !hasBlockedLayers(cell, x, y, debug_observer_);
-  bool one_site_gap_ok = checkOneSiteGap(cell, x, y);
+  bool edge_spacing_ok = isEdgeSpacingClean(cell, x, y, orient);
+  bool padding_ok = isPaddingClean(cell, x, y);
+  bool no_blocked_layers = isBlockedLayersClean(cell, x, y, debug_observer_);
+  bool one_site_gap_ok = isOneSiteGapClean(cell, x, y);
 
   return edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
 }
@@ -358,9 +358,9 @@ bool PlacementDRC::hasPaddingConflict(const Node* cell,
          && !allowOverlap(cell, padding_cell);
 }
 
-bool PlacementDRC::checkPadding(const Node* cell) const
+bool PlacementDRC::isPaddingClean(const Node* cell) const
 {
-  return checkPadding(cell, grid_->gridX(cell), grid_->gridRoundY(cell));
+  return isPaddingClean(cell, grid_->gridX(cell), grid_->gridRoundY(cell));
 }
 
 // CLASSes are grouped as follows
@@ -380,7 +380,7 @@ bool PlacementDRC::checkPadding(const Node* cell) const
 // - = no overlap check (overlap allowed)
 // The rules apply to both FIXED or PLACED instances
 
-bool PlacementDRC::checkPadding(const Node* cell,
+bool PlacementDRC::isPaddingClean(const Node* cell,
                                 const GridX x,
                                 const GridY y) const
 {
@@ -410,12 +410,12 @@ bool PlacementDRC::checkPadding(const Node* cell,
   return true;  // No padding conflicts found
 }
 
-bool PlacementDRC::checkOneSiteGap(const Node* cell) const
+bool PlacementDRC::isOneSiteGapClean(const Node* cell) const
 {
-  return checkOneSiteGap(cell, grid_->gridX(cell), grid_->gridRoundY(cell));
+  return isOneSiteGapClean(cell, grid_->gridX(cell), grid_->gridRoundY(cell));
 }
 
-bool PlacementDRC::checkOneSiteGap(const Node* cell,
+bool PlacementDRC::isOneSiteGapClean(const Node* cell,
                                    const GridX x,
                                    const GridY y) const
 {
