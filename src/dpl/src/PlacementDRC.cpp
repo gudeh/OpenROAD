@@ -228,26 +228,24 @@ bool PlacementDRC::hasBlockedLayers(const Node* cell, GridX x, GridY y, DplObser
             }
           }
 
-          auto core = grid_->getCore();
-          for (const auto& via_box : pixel->via_boxes) {
+            // auto core = grid_->getCore();
+            for (const auto& via_box : pixel->via_boxes) {
             const odb::Rect& v = via_box.getBox();  // assumes block coords
             for (const auto& pin_shape : pin_shapes) {
               if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
-                if (v.overlaps(pin_shape.getBox())) {
-                    logger_->report(
-                    "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
-                    "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
-                    x1.v, y1.v, cell->name(),
-                    v.xMin() + core.xMin(), v.yMin() + core.yMin(),
-                    v.xMax() + core.xMin(), v.yMax() + core.yMin(),
-                    via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
-                    pin_shape.xMin() + core.xMin(), pin_shape.yMin() + core.yMin(),
-                    pin_shape.xMax() + core.xMin(), pin_shape.yMax() + core.yMin(),
-                    pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+              if (v.overlaps(pin_shape.getBox())) {
+                logger_->report(
+                "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
+                "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
+                x1.v, y1.v, cell->name(),
+                v.xMin(), v.yMin(), v.xMax(), v.yMax(),
+                via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
+                pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
+                pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
 
-                  if (debug_observer) {
-                    debug_observer->endPlacement();
-                  }
+                  // if (debug_observer) {
+                  //   debug_observer->endPlacement();
+                  // }
                   return false;
                 }
               }

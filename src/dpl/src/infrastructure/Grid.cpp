@@ -183,13 +183,14 @@ void Grid::markBlocked(dbBlock* block)
 
           for (const odb::dbShape& box : via_boxes) {
             odb::dbTechLayer* tech_layer = box.getTechLayer();
-            if (tech_layer == nullptr || tech_layer->getRoutingLevel() == 0) {
+            auto routing_level = tech_layer->getRoutingLevel();
+            if (routing_level <= 1 || routing_level > 3) {
               continue;
             }
 
                   //TODO check if values are correct
                   odb::Rect via_rect = box.getBox();
-                  // via_rect.moveDelta(core.xMin(), core.yMin());
+                  via_rect.moveDelta(-core.xMin(), -core.yMin());
                   GridRect grid_rect = gridCovering(via_rect);
                   GridRect core_rect{.xlo = GridX{0},
                              .ylo = GridY{0},
