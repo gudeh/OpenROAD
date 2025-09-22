@@ -103,6 +103,8 @@ class dbNetwork : public ConcreteNetwork
   Point location(const Pin* pin) const;
   bool isPlaced(const Pin* pin) const;
 
+  LibertyCell* libertyCell(Cell* cell) const override;
+  const LibertyCell* libertyCell(const Cell* cell) const override;
   LibertyCell* libertyCell(dbInst* inst);
   LibertyPort* libertyPort(const Pin*) const override;
   dbInst* staToDb(const Instance* instance) const;
@@ -267,7 +269,8 @@ class dbNetwork : public ConcreteNetwork
                     const std::string& value) override;
 
   bool isConcreteCell(const Cell*) const;
-  void registerConcreteCell(const Cell*);
+  void registerHierModule(const Cell* cell);
+  void unregisterHierModule(const Cell* cell);
 
   ////////////////////////////////////////////////////////////////
   // Port functions
@@ -425,7 +428,7 @@ class dbNetwork : public ConcreteNetwork
 
  private:
   bool hierarchy_ = false;
-  std::set<const Cell*> concrete_cells_;
+  std::set<const Cell*> hier_modules_;
   std::set<const Port*> concrete_ports_;
   std::unique_ptr<dbEditHierarchy> hierarchy_editor_;
 };

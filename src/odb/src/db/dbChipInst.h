@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "dbCore.h"
+#include "odb/dbId.h"
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
 #include "odb/odb.h"
@@ -34,7 +35,7 @@ class _dbChipInst : public _dbObject
 
   std::string name_;
   Point3D loc_;
-  dbOrientType::Value orient_;
+  dbOrientType3D orient_;
   dbId<_dbChip> master_chip_;
   dbId<_dbChip> parent_chip_;
   dbId<_dbChipInst> chipinst_next_;
