@@ -1,6 +1,7 @@
 #include "PlacementDRC.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <set>
 #include <string>
@@ -192,18 +193,26 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplO
         return false;
       }
 
-      //  TODO are values being stored with offset or not?
       // Check for via box overlap with cell pin shapes
       if (pixel != nullptr && !pixel->via_boxes.empty()) {
         odb::dbInst* db_inst = cell->getDbInst();
         if (db_inst) {
-          std::vector<odb::dbShape> pin_shapes;
-          pin_shapes.reserve(32);
+            std::vector<odb::dbShape> pin_shapes;
+            pin_shapes.reserve(32);
 
-          // Transform from mterm local coords to block coords.
-          odb::dbTransform xform = db_inst->getTransform();
+            // Get cell position from DPL internal coordinates
+            DbuX cell_x = gridToDbu(x, grid_->getSiteWidth());
+            DbuY cell_y = grid_->gridYToDbu(y);
+            const auto& core = grid_->getCore();
+            int inst_x = core.xMin() + cell_x.v;
+            int inst_y = core.yMin() + cell_y.v;
 
-          for (odb::dbITerm* iterm : db_inst->getITerms()) {
+            // Transform from mterm local coords to block coords using DPL position
+            odb::dbTransform xform(cell->getOrient());
+            xform.setOffset(odb::Point(inst_x, inst_y));
+
+            // Add instance pins
+            for (odb::dbITerm* iterm : db_inst->getITerms()) {
             odb::dbMTerm* mterm = iterm->getMTerm();
             if (!mterm) continue;
 
@@ -212,40 +221,59 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplO
 
               // Geometry is a set of dbBox in mterm local coords.
               for (odb::dbBox* box : mpin->getGeometry()) {
-                if (!box) continue;
+              if (!box) continue;
 
-                // Optional: only consider routing layers.
-                odb::dbTechLayer* layer = box->getTechLayer();
-                if (!layer) continue;
-                if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
+              // Optional: only consider routing layers.
+              odb::dbTechLayer* layer = box->getTechLayer();
+              if (!layer) 
+              continue;
+              if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
 
-                odb::Rect r = box->getBox();  // mterm-local
-                xform.apply(r);               // -> block coords
+              odb::Rect r = box->getBox();  // mterm-local
+              xform.apply(r);               // -> block coords
 
-                // Store as a shape in block coords on the same layer.
-                pin_shapes.emplace_back(layer, r);
+              // Store as a shape in block coords on the same layer.
+              pin_shapes.emplace_back(layer, r);
               }
             }
-          }
+            }
+
+            // Add blockages
+            odb::dbMaster* master = db_inst->getMaster();
+            if (master) {
+              for (odb::dbBox* blockage : master->getObstructions()) {
+              if (!blockage) continue;
+
+              odb::dbTechLayer* layer = blockage->getTechLayer();
+              if (!layer) continue;
+              if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
+
+              odb::Rect r = blockage->getBox();  // mterm-local
+              xform.apply(r);                    // -> block coords
+
+              // Store as a shape in block coords on the same layer.
+              pin_shapes.emplace_back(layer, r);
+              }
+            }
 
             // auto core = grid_->getCore();
             for (const auto& via_box : pixel->via_boxes) {
             const odb::Rect& v = via_box.getBox();  // assumes block coords
             for (const auto& pin_shape : pin_shapes) {
               if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
-              if (v.overlaps(pin_shape.getBox())) {
-                logger_->report(
-                "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
-                "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
-                x1.v, y1.v, cell->name(),
-                v.xMin(), v.yMin(), v.xMax(), v.yMax(),
-                via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
-                pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
-                pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+                if (v.overlaps(pin_shape.getBox())) {
+                  logger_->report(
+                  "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
+                  "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
+                  x1.v, y1.v, cell->name(),
+                  v.xMin(), v.yMin(), v.xMax(), v.yMax(),
+                  via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
+                  pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
+                  pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
 
-                  // if (debug_observer) {
-                  //   debug_observer->endPlacement();
-                  // }
+                  if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
+                    debug_observer->endPlacement();
+                  }
                   return false;
                 }
               }
@@ -271,6 +299,10 @@ bool PlacementDRC::isDRCclean(const Node* cell,
               const dbOrientType& orient,
               DplObserver* debug_observer_) const
 {
+  if(cell->name() == "place3879" || cell->name() == "place3487") {
+    std::cout<<"Checking DRC for "<<cell->name()<<" at ("<<x.v<<","<<y.v<<") orient "<<orient<<std::endl;
+  }
+
   bool edge_spacing_ok = isEdgeSpacingClean(cell, x, y, orient);
   bool padding_ok = isPaddingClean(cell, x, y);
   bool no_blocked_layers = isBlockedLayersClean(cell, x, y, debug_observer_);

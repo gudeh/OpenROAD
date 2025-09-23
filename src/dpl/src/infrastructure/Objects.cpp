@@ -296,10 +296,28 @@ void Node::setBTerm(dbBTerm* term)
 }
 void Node::setLeft(DbuX x)
 {
+  if(name()== "place3879" || name() == "place3487") { 
+    if(master_ != nullptr) {
+      auto block = master_->getDbMaster()->getDb()->getChip()->getBlock();
+      auto core_offset_x = block->getCoreArea().xMin();
+      fmt::print("Last left move for {}: {} -> {} [core offset sum]\n", this->name(), left_.v + core_offset_x, x.v + core_offset_x);
+    } else {
+      fmt::print("Last left move for {}: {} -> {} [no offset]\n", this->name(), left_.v, x.v);
+    }
+  }
   left_ = x;
 }
 void Node::setBottom(DbuY y)
 {
+  if(name()== "place3879" || name() == "place3487") {
+    if(master_ != nullptr) {
+      auto block = master_->getDbMaster()->getDb()->getChip()->getBlock();
+      auto core_offset_y = block->getCoreArea().yMin();
+      fmt::print("Last bottom move for {}: {} -> {} [core offset sum]\n", this->name(), bottom_.v + core_offset_y, y.v + core_offset_y);
+    } else {
+      fmt::print("Last bottom move for {}: {} -> {} [no offset]\n", this->name(), bottom_.v, y.v);
+    }
+  }
   bottom_ = y;
 }
 void Node::setOrient(const dbOrientType& in)

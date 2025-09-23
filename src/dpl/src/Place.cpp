@@ -793,6 +793,9 @@ int Opendp::calcDist(GridPt p0, GridPt p1) const
 
 bool Opendp::canBePlaced(const Node* cell, GridX bin_x, GridY bin_y) const
 {
+  if(cell->name() == "place3879" || cell->name() == "place3487") {
+    logger_->report("call canBePlaced for {} at ({},{})", cell->name(), bin_x, bin_y);
+  }
   debugPrint(logger_,
              DPL,
              "place",
