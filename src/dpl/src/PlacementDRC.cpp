@@ -215,6 +215,9 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
             for (odb::dbITerm* iterm : db_inst->getITerms()) {
             odb::dbMTerm* mterm = iterm->getMTerm();
             if (!mterm) continue;
+            if(mterm->getSigType().isSupply()) {
+              continue;
+            }
 
             for (odb::dbMPin* mpin : mterm->getMPins()) {
               if (!mpin) continue;
@@ -305,18 +308,18 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
               for (const auto& pin_shape : pin_shapes) {
               if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
                 if (v.overlaps(pin_shape.getBox())) {
-                // logger_->report(
-                //   "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
-                //   "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
-                //   x1.v, y1.v, cell->name(),
-                //   v.xMin(), v.yMin(), v.xMax(), v.yMax(),
-                //   via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
-                //   pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
-                //   pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+                logger_->report(
+                  "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
+                  "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
+                  x1.v, y1.v, cell->name(),
+                  v.xMin(), v.yMin(), v.xMax(), v.yMax(),
+                  via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
+                  pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
+                  pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
 
-                // if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
-                //   debug_observer->endPlacement();
-                // }
+                if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
+                  debug_observer->endPlacement();
+                }
                 return false;
                 }
               }
