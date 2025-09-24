@@ -158,7 +158,7 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, DplObserver* debug_obs
   return isBlockedLayersClean(cell, grid_->gridX(cell), grid_->gridRoundY(cell), debug_observer);
 }
 
-bool PlacementDRC::isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplObserver* debug_observer) const
+bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const GridY y, DplObserver* debug_observer) const
 {
   const GridX x_begin = x;
   const GridY y_begin = y;
@@ -257,28 +257,71 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, GridX x, GridY y, DplO
             }
 
             // auto core = grid_->getCore();
-            for (const auto& via_box : pixel->via_boxes) {
-            const odb::Rect& v = via_box.getBox();  // assumes block coords
-            for (const auto& pin_shape : pin_shapes) {
-              if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
-                if (v.overlaps(pin_shape.getBox())) {
-                  logger_->report(
-                  "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
-                  "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
-                  x1.v, y1.v, cell->name(),
-                  v.xMin(), v.yMin(), v.xMax(), v.yMax(),
-                  via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
-                  pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
-                  pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
-
-                  if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
-                    debug_observer->endPlacement();
-                  }
-                  return false;
-                }
+            // Debug reporting for specific instances
+            if (debug_observer && (db_inst->getName() == "place3879" || db_inst->getName() == "place3487")) {
+              DbuX pixel_dbu_x = gridToDbu(x1, grid_->getSiteWidth()) + core.xMin();
+              DbuY pixel_dbu_y = grid_->gridYToDbu(y1) + core.yMin();
+              
+              logger_->report("Debug info for cell {} at pixel ({}, {}) [dbu: ({}, {})]:", 
+                     cell->name(), x1.v, y1.v, pixel_dbu_x.v, pixel_dbu_y.v);
+              
+              // Report all pin shapes for this cell
+              logger_->report("  Pin shapes ({} total):", pin_shapes.size());
+              for (size_t i = 0; i < pin_shapes.size(); ++i) {
+              const auto& pin_shape = pin_shapes[i];
+              logger_->report("    Pin shape {}: ({}, {}, {}, {}) [layer: {}]",
+                   i, pin_shape.xMin(), pin_shape.yMin(), 
+                   pin_shape.xMax(), pin_shape.yMax(),
+                   pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+              }
+              
+              // Report all via boxes at this pixel
+              logger_->report("  Via boxes ({} total):", pixel->via_boxes.size());
+              for (size_t i = 0; i < pixel->via_boxes.size(); ++i) {
+              const auto& via_box = pixel->via_boxes[i];
+              const odb::Rect& v = via_box.getBox();
+              logger_->report("    Via box {}: ({}, {}, {}, {}) [layer: {}]",
+                   i, v.xMin(), v.yMin(), v.xMax(), v.yMax(),
+                   via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown");
+              }
+              
+              // Report overlap analysis for each via box and pin shape combination
+              logger_->report("  Overlap analysis:");
+              for (size_t v_idx = 0; v_idx < pixel->via_boxes.size(); ++v_idx) {
+              const auto& via_box = pixel->via_boxes[v_idx];
+              const odb::Rect& v = via_box.getBox();
+              for (size_t p_idx = 0; p_idx < pin_shapes.size(); ++p_idx) {
+                const auto& pin_shape = pin_shapes[p_idx];
+                bool same_layer = (via_box.getTechLayer() == pin_shape.getTechLayer());
+                bool overlaps = same_layer && v.overlaps(pin_shape.getBox());
+                logger_->report("    Via {} vs Pin {}: layer_match={}, overlaps={}",
+                       v_idx, p_idx, same_layer, overlaps);
+              }
               }
             }
-          }
+
+            for (const auto& via_box : pixel->via_boxes) {
+              const odb::Rect& v = via_box.getBox();  // assumes block coords
+              for (const auto& pin_shape : pin_shapes) {
+              if (via_box.getTechLayer() == pin_shape.getTechLayer()) {
+                if (v.overlaps(pin_shape.getBox())) {
+                // logger_->report(
+                //   "Via box at pixel ({}, {}) overlaps with cell {} pin shape. "
+                //   "Via box: ({}, {}, {}, {}) [layer: {}], Pin shape: ({}, {}, {}, {}) [layer: {}]",
+                //   x1.v, y1.v, cell->name(),
+                //   v.xMin(), v.yMin(), v.xMax(), v.yMax(),
+                //   via_box.getTechLayer() ? via_box.getTechLayer()->getName() : "unknown",
+                //   pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
+                //   pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
+
+                // if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
+                //   debug_observer->endPlacement();
+                // }
+                return false;
+                }
+              }
+              }
+            }
         }
       }
     }
@@ -294,21 +337,32 @@ bool PlacementDRC::isDRCclean(const Node* cell, DplObserver* debug_observer_) co
 }
 
 bool PlacementDRC::isDRCclean(const Node* cell,
-              const GridX x,
-              const GridY y,
-              const dbOrientType& orient,
-              DplObserver* debug_observer_) const
+  const GridX x,
+  const GridY y,
+  const dbOrientType& orient,
+  DplObserver* debug_observer_) const
 {
-  if(cell->name() == "place3879" || cell->name() == "place3487") {
-    std::cout<<"Checking DRC for "<<cell->name()<<" at ("<<x.v<<","<<y.v<<") orient "<<orient<<std::endl;
-  }
-
   bool edge_spacing_ok = isEdgeSpacingClean(cell, x, y, orient);
   bool padding_ok = isPaddingClean(cell, x, y);
   bool no_blocked_layers = isBlockedLayersClean(cell, x, y, debug_observer_);
   bool one_site_gap_ok = isOneSiteGapClean(cell, x, y);
 
-  return edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
+  bool result = edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
+
+  if(cell->name() == "place3879" || cell->name() == "place3487") {
+    std::cout << "DRC result for " << cell->name() << " at (" << x.v << "," << y.v << ") orient " << orient << ": " << result;
+    if (!result) {
+      std::cout << " [FAILED:";
+      if (!edge_spacing_ok) std::cout << " edge_spacing";
+      if (!padding_ok) std::cout << " padding";
+      if (!no_blocked_layers) std::cout << " blocked_layers";
+      if (!one_site_gap_ok) std::cout << " one_site_gap";
+      std::cout << "]";
+    }
+    std::cout << std::endl;
+  }
+
+  return result;
 }
 
 namespace {
