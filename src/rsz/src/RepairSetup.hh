@@ -2,10 +2,10 @@
 // Copyright (c) 2022-2025, The OpenROAD Authors
 
 #pragma once
-#include <boost/functional/hash.hpp>
 #include <unordered_set>
 #include <vector>
 
+#include "boost/functional/hash.hpp"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
 #include "rsz/Resizer.hh"
@@ -70,7 +70,7 @@ struct OptoParams
 class RepairSetup : public sta::dbStaState
 {
  public:
-  RepairSetup(Resizer* resizer, est::EstimateParasitics* estimate_parasitics);
+  RepairSetup(Resizer* resizer);
   bool repairSetup(float setup_slack_margin,
                    // Percent of violating ends to repair to
                    // reduce tns (0.0-1.0).

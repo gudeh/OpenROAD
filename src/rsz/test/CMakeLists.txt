@@ -14,6 +14,10 @@ or_integration_tests(
     buffer_ports8
     buffer_ports9
     buffer_ports10
+    buffer_ports11
+    buffer_ports11_hier
+    buffer_ports12
+    buffer_ports12_hier
     buffer_varying_lengths
     clone_flat
     clone_hier
@@ -114,6 +118,9 @@ or_integration_tests(
     repair_tie7
     repair_tie8
     repair_tie9
+    repair_tie10_hier
+    repair_tie11_hier
+    repair_tie12_hier
     repair_wire1
     repair_wire2
     repair_wire3

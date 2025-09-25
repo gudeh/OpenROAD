@@ -4,7 +4,6 @@
 #include "ScanCellFactory.hh"
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -13,6 +12,7 @@
 #include "ClockDomain.hh"
 #include "Utils.hh"
 #include "db_sta/dbNetwork.hh"
+#include "odb/db.h"
 #include "sta/Clock.hh"
 #include "sta/FuncExpr.hh"
 #include "sta/Liberty.hh"

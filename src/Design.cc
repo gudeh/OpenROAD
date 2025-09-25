@@ -5,6 +5,11 @@
 
 #include <tcl.h>
 
+#include <cmath>
+#include <cstdint>
+#include <istream>
+#include <mutex>
+#include <ostream>
 #include <string>
 
 #include "ant/AntennaChecker.hh"
@@ -49,8 +54,7 @@ void Design::readVerilog(const std::string& file_name)
 void Design::readDef(const std::string& file_name,
                      bool continue_on_errors,  // = false
                      bool floorplan_init,      // = false
-                     bool incremental,         // = false
-                     bool child                // = false
+                     bool incremental          // = false
 )
 {
   if (floorplan_init && incremental) {
@@ -62,12 +66,12 @@ void Design::readDef(const std::string& file_name,
   if (tech_->getDB()->getTech() == nullptr) {
     getLogger()->error(utl::ORD, 102, "No technology has been read.");
   }
-  getOpenRoad()->readDef(file_name.c_str(),
-                         tech_->getDB()->getTech(),
-                         continue_on_errors,
-                         floorplan_init,
-                         incremental,
-                         child);
+  auto chip = tech_->getDB()->getChip();
+  if (chip == nullptr) {
+    chip = odb::dbChip::create(tech_->getDB(), tech_->getDB()->getTech());
+  }
+  getOpenRoad()->readDef(
+      file_name.c_str(), chip, continue_on_errors, floorplan_init, incremental);
 }
 
 void Design::link(const std::string& design_name)
@@ -266,6 +270,11 @@ ppl::IOPlacer* Design::getIOPlacer()
 tap::Tapcell* Design::getTapcell()
 {
   return getOpenRoad()->getTapcell();
+}
+
+cgt::ClockGating* Design::getClockGating()
+{
+  return getOpenRoad()->getClockGating();
 }
 
 cts::TritonCTS* Design::getTritonCts()

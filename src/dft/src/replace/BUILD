@@ -21,10 +21,11 @@ cc_library(
         ".",
     ],
     deps = [
-        "//src/sta:opensta_lib",
         "//src/dbSta",
+        "//src/dbSta:dbNetwork",
         "//src/dft/src/utils",
         "//src/odb",
+        "//src/sta:opensta_lib",
         "//src/utl",
     ],
 )

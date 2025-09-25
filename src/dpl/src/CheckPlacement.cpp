@@ -2,9 +2,7 @@
 // Copyright (c) 2020-2025, The OpenROAD Authors
 
 #include <cmath>
-#include <fstream>
 #include <functional>
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -14,6 +12,7 @@
 #include "infrastructure/Objects.h"
 #include "infrastructure/Padding.h"
 #include "infrastructure/network.h"
+#include "odb/db.h"
 #include "utl/Logger.h"
 namespace dpl {
 

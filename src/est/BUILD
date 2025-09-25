@@ -41,6 +41,8 @@ cc_library(
     deps = [
         ":private_hdrs",
         "//src/dbSta",
+        "//src/dbSta:SpefWriter",
+        "//src/dbSta:dbNetwork",
         "//src/grt",
         "//src/odb",
         "//src/sta:opensta_lib",
@@ -51,6 +53,7 @@ cc_library(
         "@spdlog",
     ],
 )
+
 cc_library(
     name = "ui",
     srcs = [
@@ -60,7 +63,6 @@ cc_library(
         ":tcl",
     ],
     hdrs = [
-        "include/est/EstimateParasitics.h",
         "include/est/MakeEstimateParasitics.h",
     ],
     copts = [
@@ -76,6 +78,7 @@ cc_library(
         ":private_hdrs",
         "//:ord",
         "//src/dbSta",
+        "//src/dbSta:dbNetwork",
         "//src/grt",
         "//src/gui",
         "//src/odb",

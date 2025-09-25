@@ -5,6 +5,7 @@ load("//test:regression.bzl", "regression_test")
 # From CMakeLists.txt or_integration_tests(TESTS
 COMPULSORY_TESTS = [
     "block_sta1",
+    "check_axioms",
     "clock_pin",
     "constant1",
     "find_clks1",
@@ -29,6 +30,7 @@ COMPULSORY_TESTS = [
     "read_verilog8",
     "read_verilog9",
     "read_verilog10",
+    "read_verilog10_no_prop",
     "read_verilog11",
     "readdb_hier",
     "report_cell_usage",
@@ -38,6 +40,7 @@ COMPULSORY_TESTS = [
     "report_cell_usage_physical_only",
     "report_json1",
     "report_timing_histogram",
+    "report_logic_depth_histogram",
     "sdc_get1",
     "sdc_names1",
     "sdc_names2",
@@ -55,6 +58,8 @@ COMPULSORY_TESTS = [
     "write_verilog6",
     "write_verilog7",
     "write_verilog8",
+    "write_verilog9",
+    "write_verilog9_hier",
 ]
 
 ALL_TESTS = COMPULSORY_TESTS
@@ -116,9 +121,9 @@ filegroup(
         "hier1.sdc",
         "hier1.v",
         "hier2_out.vok",
+        "hier_deep.v",
         "hierclock_gate.v",
         "hierclock_out.vok",
-        "hier_deep.v",
         "liberty1.lef",
         "liberty1.lib",
         "pad.lef",
@@ -131,6 +136,7 @@ filegroup(
         "reg5.v",
         "reg6.def",
         "report_cell_usage_no_taps.def",
+        "write_verilog9.v",
     ],
 )
 

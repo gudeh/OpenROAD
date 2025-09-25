@@ -4,8 +4,9 @@
 #include "gpl/Replace.h"
 
 #include <algorithm>
-#include <iostream>
+#include <chrono>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "db_sta/dbNetwork.hh"
@@ -15,7 +16,6 @@
 #include "nesterovBase.h"
 #include "nesterovPlace.h"
 #include "odb/db.h"
-#include "ord/OpenRoad.hh"
 #include "placerBase.h"
 #include "routeBase.h"
 #include "rsz/Resizer.hh"
@@ -445,6 +445,8 @@ float Replace::getUniformTargetDensity(int threads)
 {
   log_->info(GPL, 22, "Initialize gpl and calculate uniform density.");
   log_->redirectStringBegin();
+
+  setSkipIoMode(true);  // in case bterms are not placed
 
   float density = 1.0f;
   if (initNesterovPlace(threads)) {

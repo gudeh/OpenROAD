@@ -3,18 +3,23 @@
 
 #include "pdn/PdnGen.hh"
 
+#include <algorithm>
+#include <array>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
+#include "boost/geometry/geometry.hpp"
 #include "connect.h"
 #include "domain.h"
 #include "grid.h"
 #include "odb/db.h"
+#include "odb/dbObject.h"
 #include "odb/dbTransform.h"
-#include "ord/OpenRoad.hh"
 #include "power_cells.h"
 #include "renderer.h"
 #include "rings.h"
@@ -130,8 +135,9 @@ void PdnGen::buildGrids(bool trim)
     }
     logger_->warn(utl::PDN,
                   232,
-                  "{} does not contain any shapes or vias.",
-                  grid->getLongName());
+                  "The grid \"{}\" ({}) does not contain any shapes or vias.",
+                  grid->getLongName(),
+                  Grid::typeToString(grid->type()));
     failed = true;
   }
   if (failed) {

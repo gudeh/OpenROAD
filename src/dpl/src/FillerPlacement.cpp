@@ -2,13 +2,14 @@
 // Copyright (c) 2020-2025, The OpenROAD Authors
 
 #include <algorithm>
-#include <limits>
+#include <string>
 #include <utility>
 
 #include "dpl/Opendp.h"
 #include "infrastructure/Grid.h"
 #include "infrastructure/Objects.h"
 #include "infrastructure/network.h"
+#include "odb/dbTypes.h"
 #include "utl/Logger.h"
 
 namespace dpl {

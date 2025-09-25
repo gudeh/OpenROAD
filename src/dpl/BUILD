@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025, The OpenROAD Authors
 
+load("//bazel:python_wrap_cc.bzl", "python_wrap_cc")
 load("//bazel:tcl_encode_or.bzl", "tcl_encode")
 load("//bazel:tcl_wrap_cc.bzl", "tcl_wrap_cc")
 
@@ -71,7 +72,6 @@ cc_library(
         "src/util/utility.h",
     ],
     hdrs = [
-        "include/dpl/MakeOpendp.h",
         "include/dpl/Opendp.h",
         "include/dpl/OptMirror.h",
     ],
@@ -114,14 +114,13 @@ cc_library(
     ],
     hdrs = [
         "include/dpl/MakeOpendp.h",
-        "include/dpl/Opendp.h",
-        "include/dpl/OptMirror.h",
     ],
     includes = [
         "include",
         "src",
     ],
     deps = [
+        ":dpl",
         "//:ord",
         "//src/gui",
         "//src/odb",
@@ -158,5 +157,23 @@ tcl_wrap_cc(
     ],
     deps = [
         "//src/odb:swig",
+    ],
+)
+
+python_wrap_cc(
+    name = "swig-py",
+    srcs = [
+        "include/dpl/Opendp.h",
+        "src/Opendp-py.i",
+        "//:error_swig-py",
+    ],
+    module = "dpl_py",
+    root_swig_src = "src/Opendp-py.i",
+    swig_includes = [
+        "include",
+        "src",
+    ],
+    deps = [
+        "//src/odb:swig-py",
     ],
 )

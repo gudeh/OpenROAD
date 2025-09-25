@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include <functional>
 #include <list>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "dbCore.h"
@@ -14,6 +16,7 @@
 #include "dbPagedVector.h"
 #include "dbVector.h"
 #include "odb/db.h"
+#include "odb/dbObject.h"
 #include "odb/dbTransform.h"
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
@@ -159,7 +162,6 @@ class _dbBlock : public _dbObject
   char* _name;
   Polygon _die_area;
   std::vector<Rect> _blocked_regions_for_pins;
-  dbId<_dbTech> _tech;
   dbId<_dbChip> _chip;
   dbId<_dbBox> _bbox;
   dbId<_dbBlock> _parent;
@@ -306,7 +308,6 @@ class _dbBlock : public _dbObject
   void remove_rect(const Rect& rect);
   void invalidate_bbox() { _flags._valid_bbox = 0; }
   void initialize(_dbChip* chip,
-                  _dbTech* tech,
                   _dbBlock* parent,
                   const char* name,
                   char delimiter);

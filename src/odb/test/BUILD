@@ -2,6 +2,139 @@
 # Copyright (c) 2022-2025, The OpenROAD Authors
 load("//test:regression.bzl", "regression_test")
 
+py_library(
+    name = "helper",
+    srcs = [
+        "helper.py",
+    ],
+    imports = ["."],
+)
+
+py_library(
+    name = "odbUnitTest",
+    srcs = [
+        "odbUnitTest.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "test_block",
+    srcs = [
+        "test_block.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_bterm",
+    srcs = [
+        "test_bterm.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_destroy",
+    srcs = [
+        "test_destroy.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_group",
+    srcs = [
+        "test_group.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_inst",
+    srcs = [
+        "test_inst.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_iterm",
+    srcs = [
+        "test_iterm.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_module",
+    srcs = [
+        "test_module.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_net",
+    srcs = [
+        "test_net.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
+py_test(
+    name = "test_wire_codec",
+    srcs = [
+        "test_wire_codec.py",
+    ],
+    deps = [
+        ":helper",
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
+)
+
 PASSFAIL_TESTS = [
     # FIXME not supported yet
     # "cpp_tests",
@@ -33,6 +166,8 @@ COMPULSORY_TESTS = [
     "design_is_routed_fail1",
     "design_is_routed_fail2",
     "dont_touch",
+    "dump_netlists",
+    "dump_netlists_withfill",
     "dump_nets",
     "dump_via_rules",
     "dump_vias",
@@ -52,6 +187,8 @@ COMPULSORY_TESTS = [
     "ndr",
     "polygon",
     "read_abstract_lef",
+    "read_3dbv",
+    "read_3dbx",
     "read_db",
     "read_def",
     "read_def58",
@@ -61,6 +198,7 @@ COMPULSORY_TESTS = [
     "replace_hier_mod2",
     "replace_hier_mod3",
     "replace_hier_mod4",
+    "replace_hier_mod5",
     "rounding",
     "row_settings",
     "sky130hd_multi_patterned",
@@ -72,6 +210,16 @@ COMPULSORY_TESTS = [
     "write_lef_and_def",
     "write_lef_polygon",
     "write_macro_placement",
+    # pass-fail
+    "test_block",
+    "test_bterm",
+    "test_destroy",
+    "test_group",
+    "test_inst",
+    "test_iterm",
+    "test_module",
+    "test_net",
+    "test_wire_codec",
 ]
 
 # Disabled in CMakeLists.txt
@@ -126,6 +274,8 @@ filegroup(
         "data/design.def.gz",
         "data/design.odb",
         "data/design58.def",
+        "data/example.3dbv",
+        "data/example.3dbx",
         "data/floorplan_initialize.def",
         "data/floorplan_initialize.v",
         "data/floorplan_initialize2.def",
@@ -153,6 +303,7 @@ filegroup(
         "gcd_adder.v",
         "gcd_adder2.v",
         "gcd_adder4.v",
+        "gcd_adder5.v",
         "helper.tcl",
         "helpers.tcl",
         "replace_hier_mod_undo.tcl",
@@ -193,6 +344,12 @@ filegroup(
             ],
             "replace_hier_mod4": [
                 "gcd_abstract_lef.lefok",
+            ],
+            "dump_netlists": [
+                "dump_netlists_cdl.ok",
+            ],
+            "dump_netlists_withfill": [
+                "dump_netlists_withfill_cdl.ok",
             ],
         }.get(
             test_name,

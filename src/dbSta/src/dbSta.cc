@@ -12,7 +12,11 @@
 #include <tcl.h>
 
 #include <algorithm>  // min
+#include <cctype>
 #include <cmath>
+#include <cstdarg>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -20,7 +24,6 @@
 #include <regex>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "boost/json.hpp"
@@ -28,6 +31,7 @@
 #include "dbSdcNetwork.hh"
 #include "db_sta/dbNetwork.hh"
 #include "odb/db.h"
+#include "odb/dbTypes.h"
 #include "sta/Clock.hh"
 #include "sta/Delay.hh"
 #include "sta/EquivCells.hh"
@@ -152,6 +156,8 @@ class dbStaCbk : public dbBlockCallBackObj
   void setNetwork(dbNetwork* network);
   void inDbInstCreate(dbInst* inst) override;
   void inDbInstDestroy(dbInst* inst) override;
+  void inDbModuleCreate(dbModule* module) override;
+  void inDbModuleDestroy(dbModule* module) override;
   void inDbInstSwapMasterBefore(dbInst* inst, dbMaster* master) override;
   void inDbInstSwapMasterAfter(dbInst* inst) override;
   void inDbNetDestroy(dbNet* net) override;
@@ -273,6 +279,11 @@ void dbSta::postReadDef(dbBlock* block)
     db_cbk_->addOwner(block);
     db_cbk_->setNetwork(db_network_);
   }
+}
+
+void dbSta::postRead3Dbx(odb::dbChip* chip)
+{
+  // TODO: we are not ready to do timing on chiplets yet
 }
 
 void dbSta::postReadDb(dbDatabase* db)
@@ -922,6 +933,16 @@ void dbStaCbk::inDbInstDestroy(dbInst* inst)
   // This is called after the iterms have been destroyed
   // so it side-steps Sta::deleteInstanceAfter.
   sta_->deleteLeafInstanceBefore(network_->dbToSta(inst));
+}
+
+void dbStaCbk::inDbModuleCreate(dbModule* module)
+{
+  network_->registerHierModule(network_->dbToSta(module));
+}
+
+void dbStaCbk::inDbModuleDestroy(dbModule* module)
+{
+  network_->unregisterHierModule(network_->dbToSta(module));
 }
 
 void dbStaCbk::inDbInstSwapMasterBefore(dbInst* inst, dbMaster* master)

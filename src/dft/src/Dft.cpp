@@ -3,12 +3,10 @@
 
 #include "dft/Dft.hh"
 
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "ClockDomain.hh"
@@ -18,6 +16,8 @@
 #include "ScanCellFactory.hh"
 #include "ScanReplace.hh"
 #include "ScanStitch.hh"
+#include "boost/property_tree/json_parser.hpp"
+#include "boost/property_tree/ptree.hpp"
 #include "odb/db.h"
 #include "utl/Logger.h"
 

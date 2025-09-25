@@ -5,12 +5,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <limits>
-#include <memory>
-#include <optional>
-#include <sstream>
 #include <string>
+#include <vector>
 
 #include "BaseMove.hh"
 #include "BufferMove.hh"
@@ -62,9 +59,7 @@ using sta::PathExpanded;
 using sta::Slew;
 using sta::VertexOutEdgeIterator;
 
-RepairSetup::RepairSetup(Resizer* resizer,
-                         est::EstimateParasitics* estimate_parasitics)
-    : resizer_(resizer), estimate_parasitics_(estimate_parasitics)
+RepairSetup::RepairSetup(Resizer* resizer) : resizer_(resizer)
 {
 }
 
@@ -73,7 +68,7 @@ void RepairSetup::init()
   logger_ = resizer_->logger_;
   dbStaState::init(resizer_->sta_);
   db_network_ = resizer_->db_network_;
-
+  estimate_parasitics_ = resizer_->estimate_parasitics_;
   initial_design_area_ = resizer_->computeDesignArea();
 }
 
@@ -627,7 +622,7 @@ bool RepairSetup::repairPath(Path* path,
       const Path* path = expanded.path(i);
       Vertex* path_vertex = path->vertex(sta_);
       const Pin* path_pin = path->pin(sta_);
-      if (i > 0 && network_->isDriver(path_pin)
+      if (i > 0 && path_vertex->isDriver(network_)
           && !network_->isTopLevelPort(path_pin)) {
         const TimingArc* prev_arc = path->prevArc(sta_);
         const TimingArc* corner_arc = prev_arc->cornerArc(lib_ap);

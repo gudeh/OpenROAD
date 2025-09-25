@@ -21,6 +21,7 @@ TAGS
 Makefile
 __pycache__
 venv/
+.abc_history
 
 # build file used by clangd
 compile_commands.json

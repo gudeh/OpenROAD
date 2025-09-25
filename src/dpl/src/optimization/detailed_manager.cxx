@@ -4,24 +4,23 @@
 #include "detailed_manager.h"
 
 #include <algorithm>
-#include <boost/format.hpp>
-#include <boost/tokenizer.hpp>
 #include <cmath>
 #include <cstddef>
-#include <iostream>
 #include <limits>
 #include <memory>
-#include <set>
 #include <stack>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "PlacementDRC.h"
+#include "boost/format.hpp"
+#include "boost/tokenizer.hpp"
 #include "detailed_orient.h"
 #include "infrastructure/architecture.h"
 #include "infrastructure/detailed_segment.h"
 #include "odb/dbTransform.h"
+#include "odb/geom.h"
 #include "util/journal.h"
 #include "util/utility.h"
 #include "utl/Logger.h"
@@ -2779,6 +2778,7 @@ bool DetailedMgr::trySwap1(Node* ndi,
       return false;
     }
     if (!addToMoveList(ndj, x2, y2, sj, xi, y1, si)) {
+      paintInGrid(ndj);
       return false;
     }
     return true;
@@ -2877,6 +2877,7 @@ bool DetailedMgr::trySwap1(Node* ndi,
     return false;
   }
   if (!addToMoveList(ndj, x2, y2, sj, xi, y1, si)) {
+    paintInGrid(ndj);
     return false;
   }
   return true;

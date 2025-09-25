@@ -9,6 +9,15 @@
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QPainter>
+#include <algorithm>
+#include <array>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <utility>
+#include <variant>
+#include <vector>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QRegularExpression>
 #else
@@ -16,16 +25,15 @@
 #endif
 #include <QSettings>
 #include <QVBoxLayout>
-#include <array>
 #include <functional>
 #include <random>
 #include <string>
-#include <vector>
 
 #include "dbDescriptors.h"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
 #include "odb/db.h"
+#include "odb/dbTypes.h"
 #include "sta/Liberty.hh"
 #include "utl/Logger.h"
 
