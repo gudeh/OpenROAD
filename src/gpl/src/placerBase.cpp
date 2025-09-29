@@ -484,7 +484,7 @@ void Pin::updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 {
   Rect bbox = bTerm->getBBox();
   if (bbox.isInverted()) {
-    logger->error(
+    logger->warn(
         GPL, 1, "{} toplevel port is not placed.", bTerm->getConstName());
   }
 

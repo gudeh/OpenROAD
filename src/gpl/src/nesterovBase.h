@@ -667,11 +667,11 @@ class BinGrid
 {
  public:
   BinGrid() = default;
-  BinGrid(Die* die);
+  BinGrid(int lx, int ly, int ux, int uy);
 
   void setPlacerBase(std::shared_ptr<PlacerBase> pb);
   void setLogger(utl::Logger* log);
-  void setCorePoints(const Die* die);
+  void setCorePoints(int lx, int ly, int ux, int uy);
   void setBinCnt(int binCntX, int binCntY);
   void setTargetDensity(float density);
   void updateBinsGCellDensityArea(const std::vector<GCellHandle>& cells);

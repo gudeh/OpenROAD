@@ -131,7 +131,7 @@ void InitialPlace::placeInstsCenter()
     const auto db_inst = inst->dbInst();
     const auto group = db_inst->getGroup();
 
-    if (group && group->getType() == odb::dbGroupType::POWER_DOMAIN) {
+    if (group){ //&& group->getType() == odb::dbGroupType::POWER_DOMAIN) {
       auto domain_region = group->getRegion();
       int domain_x_min = std::numeric_limits<int>::max();
       int domain_y_min = std::numeric_limits<int>::max();
@@ -145,9 +145,18 @@ void InitialPlace::placeInstsCenter()
         domain_y_max = std::max(domain_y_max, boundary->yMax());
       }
 
-      inst->setCenterLocation(domain_x_max - (domain_x_max - domain_x_min) / 2,
-                              domain_y_max - (domain_y_max - domain_y_min) / 2);
+      int region_center_x = domain_x_max - (domain_x_max - domain_x_min) / 2;
+      int region_center_y = domain_y_max - (domain_y_max - domain_y_min) / 2;
+      inst->setCenterLocation(region_center_x, region_center_y);
       ++count_region_center;
+      // if (db_inst->getName() == "exp.I8.IFA2_16_13.I52"
+      //     || db_inst->getName() == "exp.I8.IFA2_16_13.I51"
+      //     || db_inst->getName() == "exp.I8.IFA2_16_13.I50"
+      //     || db_inst->getName() == "exp.I5.IFA2_16_13.I52"
+      //     || db_inst->getName() == "exp.I5.IFA2_16_13.I51") 
+      //     {
+      //   log_->report("Placed {} at region center: {}, {}", db_inst->getName(), region_center_x, region_center_y);
+      // }
     } else if (pbc_->isSkipIoMode() && db_inst->isPlaced()) {
       // It is helpful to pick up the placement from mpl if available,
       // particularly when you are going to run skip_io.

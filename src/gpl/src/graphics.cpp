@@ -137,16 +137,28 @@ void Graphics::drawInitial(gui::Painter& painter)
     int ux = inst->ux();
     int uy = inst->uy();
 
-    gui::Painter::Color color = gui::Painter::kDarkGreen;
+    gui::Painter::Color color = gui::Painter::kGreen;
     color.a = 180;
     painter.setBrush(color);
     painter.drawRect({lx, ly, ux, uy});
+    logger_->report("initial drawing inst: {} at ({}, {})", inst->dbInst()->getName(), lx, ly);
   }
 }
 
 void Graphics::drawForce(gui::Painter& painter)
 {
-  for (const auto& nb : nbVec_) {
+  // Use different colors for each NesterovBase
+  std::vector<gui::Painter::Color> colors = {
+    gui::Painter::kRed,
+    gui::Painter::kBlue,
+    gui::Painter::kGreen,
+    gui::Painter::kMagenta,
+    gui::Painter::kCyan,
+    gui::Painter::kOrange
+  };
+  
+  for (size_t nb_idx = 0; nb_idx < nbVec_.size(); ++nb_idx) {
+    const auto& nb = nbVec_[nb_idx];
     const auto& bins = nb->getBins();
     if (bins.empty()) {
       continue;
@@ -164,6 +176,8 @@ void Graphics::drawForce(gui::Painter& painter)
       max_len = std::min({max_len, bin.dx(), bin.dy()});
     }
 
+    gui::Painter::Color color = colors[nb_idx % colors.size()];
+
     for (auto& bin : bins) {
       float fx = bin.electroForceX();
       float fy = bin.electroForceY();
@@ -175,7 +189,7 @@ void Graphics::drawForce(gui::Painter& painter)
       int cx = bin.cx();
       int cy = bin.cy();
 
-      painter.setPen(gui::Painter::kRed, true);
+      painter.setPen(color, true);
       painter.drawLine(cx, cy, cx + dx, cy + dy);
 
       // Draw a circle at the outer end of the line
@@ -183,7 +197,7 @@ void Graphics::drawForce(gui::Painter& painter)
       int circle_y = static_cast<int>(cy + dy);
       float bin_area = bin.dx() * bin.dy();
       int circle_radius = static_cast<int>(0.05 * std::sqrt(bin_area / M_PI));
-      painter.setPen(gui::Painter::kRed, true);
+      painter.setPen(color, true);
       painter.drawCircle(circle_x, circle_y, circle_radius);
     }
   }
@@ -228,7 +242,7 @@ void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
     default:
       if (gCell->isInstance()) {
         color = gCell->isLocked() ? gui::Painter::kDarkCyan
-                                  : gui::Painter::kDarkGreen;
+                                  : gui::Painter::kDarkYellow;
       } else if (gCell->isFiller()) {
         color = gui::Painter::kDarkMagenta;
       }
@@ -242,27 +256,38 @@ void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
     color.a = 180;
   }
 
-  painter.setBrush(color);
-  painter.drawRect({xl, yl, xh, yh});
+    gui::Painter::Color outline = gui::Painter::kBlack;
+    outline.a = 150;
+    painter.setPen(outline, /*cosmetic=*/false, /*width=*/1);
+    painter.setBrush(color);
+    painter.drawRect({xl, yl, xh, yh});
+// if (gCell->getName() == "exp.I8.IFA2_16_13.I52"
+//   || gCell->getName() == "exp.I8.IFA2_16_13.I51"
+//   || gCell->getName() == "exp.I8.IFA2_16_13.I50"
+//   || gCell->getName() == "exp.I5.IFA2_16_13.I52"
+//   || gCell->getName() == "exp.I5.IFA2_16_13.I51") 
+//   {
+//     logger_->report("drawing inst: {} at ({}, {}) ({} {})", gCell->getName(), xl, yl, xh, yh);
+//   }
 
-  if (gCell->isInstance()) {
-    odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
-    if (db_inst != nullptr) {
-      odb::dbBox* bbox = db_inst->getBBox();
-      if (bbox != nullptr) {
-        int origLx = bbox->xMin();
-        int origLy = bbox->yMin();
-        int origUx = bbox->xMax();
-        int origUy = bbox->yMax();
+  // if (gCell->isInstance()) {
+  //   odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
+  //   if (db_inst != nullptr) {
+  //     odb::dbBox* bbox = db_inst->getBBox();
+  //     if (bbox != nullptr) {
+  //       int origLx = bbox->xMin();
+  //       int origLy = bbox->yMin();
+  //       int origUx = bbox->xMax();
+  //       int origUy = bbox->yMax();
 
-        gui::Painter::Color outline = gui::Painter::kBlack;
-        outline.a = 150;  // Semi-transparent
+  //       gui::Painter::Color outline = gui::Painter::kBlack;
+  //       outline.a = 150;  // Semi-transparent
 
-        painter.setPen(outline, /*cosmetic=*/false, /*width=*/1);
-        painter.drawRect({origLx, origLy, origUx, origUy});
-      }
-    }
-  }
+  //       painter.setPen(outline, /*cosmetic=*/false, /*width=*/1);
+  //       painter.drawRect({origLx, origLy, origUx, origUy});
+  //     }
+  //   }
+  // }
 }
 
 void Graphics::drawNesterov(gui::Painter& painter)
@@ -296,8 +321,21 @@ void Graphics::drawNesterov(gui::Painter& painter)
     drawCells(nb->getGCells(), painter);
   }
 
-  painter.setBrush(gui::Painter::Color(gui::Painter::kLightGray, 50));
-  for (const auto& pb : pbVec_) {
+  // Use different colors for each PlacerBase
+  std::vector<gui::Painter::Color> colors = {
+    gui::Painter::Color(gui::Painter::kRed, 50),
+    gui::Painter::Color(gui::Painter::kBlue, 50),
+    gui::Painter::Color(gui::Painter::kGreen, 50),
+    gui::Painter::Color(gui::Painter::kMagenta, 50),
+    gui::Painter::Color(gui::Painter::kCyan, 50),
+    gui::Painter::Color(gui::Painter::kOrange, 50)
+  };
+  
+  for (size_t pb_idx = 1; pb_idx < pbVec_.size(); ++pb_idx) {
+    const auto& pb = pbVec_[pb_idx];
+    gui::Painter::Color color = colors[pb_idx % colors.size()];
+    painter.setBrush(color);
+    
     for (auto& inst : pb->nonPlaceInsts()) {
       painter.drawRect({inst->lx(), inst->ly(), inst->ux(), inst->uy()});
     }

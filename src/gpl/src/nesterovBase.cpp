@@ -590,17 +590,17 @@ void Bin::setElectroPhi(float phi)
 ////////////////////////////////////////////////
 // BinGrid
 
-BinGrid::BinGrid(Die* die)
+BinGrid::BinGrid(int lx, int ly, int ux, int uy)
 {
-  setCorePoints(die);
+  setCorePoints(lx, ly, ux, uy);
 }
 
-void BinGrid::setCorePoints(const Die* die)
+void BinGrid::setCorePoints(int lx, int ly, int ux, int uy)
 {
-  lx_ = die->coreLx();
-  ly_ = die->coreLy();
-  ux_ = die->coreUx();
-  uy_ = die->coreUy();
+  lx_ = lx;
+  ly_ = ly;
+  ux_ = ux;
+  uy_ = uy;
 }
 
 void BinGrid::setPlacerBase(std::shared_ptr<PlacerBase> pb)
@@ -1750,7 +1750,24 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
 
   bg_.setPlacerBase(pb_);
   bg_.setLogger(log_);
-  bg_.setCorePoints(&(pb_->getDie()));
+  if (pb_->group()) {
+    // Use group region boundaries
+    auto boundaries = pb_->group()->getRegion()->getBoundaries();
+    if (!boundaries.empty()) {
+      odb::Rect bbox;
+      bbox.mergeInit();
+      for (auto boundary : boundaries) {
+        bbox.merge(boundary->getBox());
+      }
+      bg_.setCorePoints(bbox.xMin(), bbox.yMin(), bbox.xMax(), bbox.yMax());
+    } else {
+      bg_.setCorePoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
+                        pb_->getDie().coreUx(), pb_->getDie().coreUy());
+    }
+  } else {
+    bg_.setCorePoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
+                      pb_->getDie().coreUx(), pb_->getDie().coreUy());
+  }
   bg_.setTargetDensity(targetDensity_);
 
   // update binGrid info
@@ -2355,6 +2372,8 @@ float NesterovBase::initDensity2(float wlCoeffX, float wlCoeffY)
     densityPenalty_
         = (wireLengthGradSum_ / densityGradSum_) * npVars_->initDensityPenalty;
   }
+
+  log_->report("initial densityPenalty: {:.3g}", densityPenalty_);
 
   sum_overflow_ = static_cast<float>(getOverflowArea())
                   / static_cast<float>(getNesterovInstsArea());
