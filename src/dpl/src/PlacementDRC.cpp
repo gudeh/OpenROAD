@@ -1,5 +1,7 @@
 #include "PlacementDRC.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <set>
 #include <string>
 
@@ -8,29 +10,30 @@
 #include "infrastructure/Padding.h"
 #include "odb/db.h"
 #include "odb/dbTransform.h"
+#include "odb/geom.h"
 
 namespace dpl {
 
 namespace cell_edges {
-Rect transformEdgeRect(const Rect& edge_rect,
-                       const Node* cell,
-                       const DbuX x,
-                       const DbuY y,
-                       const odb::dbOrientType& orient)
+odb::Rect transformEdgeRect(const odb::Rect& edge_rect,
+                            const Node* cell,
+                            const DbuX x,
+                            const DbuY y,
+                            const odb::dbOrientType& orient)
 {
-  Rect bbox;
+  odb::Rect bbox;
   cell->getDbInst()->getMaster()->getPlacementBoundary(bbox);
   odb::dbTransform transform(orient);
   transform.apply(bbox);
   Point offset(x.v - bbox.xMin(), y.v - bbox.yMin());
   transform.setOffset(offset);
-  Rect result(edge_rect);
+  odb::Rect result(edge_rect);
   transform.apply(result);
   return result;
 }
-Rect getQueryRect(const Rect& edge_box, const int spc)
+odb::Rect getQueryRect(const odb::Rect& edge_box, const int spc)
 {
-  Rect query_rect(edge_box);
+  odb::Rect query_rect(edge_box);
   bool is_vertical_edge = edge_box.getDir() == 0;
   if (is_vertical_edge) {
     // vertical edge
@@ -41,7 +44,8 @@ Rect getQueryRect(const Rect& edge_box, const int spc)
   }
   return query_rect;
 }
-uint64_t squaredDistanceBetweenRects(const Rect& rect1, const Rect& rect2)
+uint64_t squaredDistanceBetweenRects(const odb::Rect& rect1,
+                                     const odb::Rect& rect2)
 {
   // Calculate the distance along the x-axis
   int x_dist = 0;
@@ -115,10 +119,10 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
   for (const auto& edge1 : master->getEdges()) {
     int max_spc = getMaxSpacing(edge1.getEdgeType())
                   + 1;  // +1 to account for EXACT rules
-    Rect edge1_box = cell_edges::transformEdgeRect(
+    odb::Rect edge1_box = cell_edges::transformEdgeRect(
         edge1.getBBox(), cell, x_real, y_real, orient);
     bool is_vertical_edge = edge1_box.getDir() == 0;
-    Rect query_rect = cell_edges::getQueryRect(edge1_box, max_spc);
+    odb::Rect query_rect = cell_edges::getQueryRect(edge1_box, max_spc);
     GridX xMin = grid_->gridX(DbuX(query_rect.xMin()));
     GridX xMax = grid_->gridEndX(DbuX(query_rect.xMax()));
     GridY yMin = grid_->gridEndY(DbuY(query_rect.yMin())) - 1;
@@ -147,11 +151,12 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
           auto spc_entry
               = edge_spacing_table_[edge1.getEdgeType()][edge2.getEdgeType()];
           int spc = spc_entry.spc;
-          Rect edge2_box = cell_edges::transformEdgeRect(edge2.getBBox(),
-                                                         cell2,
-                                                         cell2->getLeft(),
-                                                         cell2->getBottom(),
-                                                         cell2->getOrient());
+          odb::Rect edge2_box
+              = cell_edges::transformEdgeRect(edge2.getBBox(),
+                                              cell2,
+                                              cell2->getLeft(),
+                                              cell2->getBottom(),
+                                              cell2->getOrient());
           if (edge1_box.getDir() != edge2_box.getDir()) {
             // Skip if edges are not parallel.
             continue;
@@ -160,7 +165,7 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell,
             // Skip if there is no PRL between the edges.
             continue;
           }
-          Rect test_rect(edge1_box);
+          odb::Rect test_rect(edge1_box);
           // Generalized intersection between the two edges.
           test_rect.merge(edge2_box);
           int dist = is_vertical_edge ? test_rect.dx() : test_rect.dy();
@@ -403,13 +408,13 @@ GridRect PlacementDRC::getEolQueryRect(const Node* node,
                                        const DbuY bottom,
                                        const odb::dbOrientType& orient) const
 {
-  Rect query_rect;
+  odb::Rect query_rect;
   query_rect.mergeInit();
   bool valid = false;
   const auto& master = node->getMaster();
   for (auto [pin1_idx, net1_idx] : node->getConnections()) {
     auto pin1 = master->getPins().at(pin1_idx);
-    Rect pin1_rect = cell_edges::transformEdgeRect(
+    odb::Rect pin1_rect = cell_edges::transformEdgeRect(
         pin1->getBox(), node, left, bottom, orient);
     if (eol_spacing_rules_.find(pin1->getTechLayer()->getNumber())
         == eol_spacing_rules_.end()) {
@@ -419,7 +424,7 @@ GridRect PlacementDRC::getEolQueryRect(const Node* node,
       if (pin1_rect.minDXDY() > rule.eol_width) {
         continue;
       }
-      Rect bloat_rect(pin1_rect);
+      odb::Rect bloat_rect(pin1_rect);
       bloat_rect.bloat(rule.spc, bloat_rect);
       query_rect.merge(bloat_rect);
       valid = true;
@@ -464,7 +469,7 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
       auto master2 = cell2->getMaster();
       for (auto [pin1_idx, net1_idx] : cell->getConnections()) {
         auto pin1 = master->getPins().at(pin1_idx);
-        Rect pin1_rect = cell_edges::transformEdgeRect(
+        odb::Rect pin1_rect = cell_edges::transformEdgeRect(
             pin1->getBox(), cell, x_real, y_real, orient);
         for (auto [pin2_idx, net2_idx] : cell2->getConnections()) {
           if (net1_idx == net2_idx) {
@@ -474,11 +479,12 @@ bool PlacementDRC::checkAbuttedPins(const Node* cell,
           if (pin2->getTechLayer() != pin1->getTechLayer()) {
             continue;
           }
-          Rect pin2_rect = cell_edges::transformEdgeRect(pin2->getBox(),
-                                                         cell2,
-                                                         cell2->getLeft(),
-                                                         cell2->getBottom(),
-                                                         cell2->getOrient());
+          odb::Rect pin2_rect
+              = cell_edges::transformEdgeRect(pin2->getBox(),
+                                              cell2,
+                                              cell2->getLeft(),
+                                              cell2->getBottom(),
+                                              cell2->getOrient());
           if (eol_spacing_rules_.find(pin1->getTechLayer()->getNumber())
               == eol_spacing_rules_.end()) {
             continue;

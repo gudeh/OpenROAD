@@ -4,6 +4,7 @@
 #include "layoutViewer.h"
 
 #include <QApplication>
+#include <QColor>
 #include <QDateTime>
 #include <QFileDialog>
 #include <QFont>
@@ -12,6 +13,7 @@
 #include <QImageWriter>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -19,18 +21,26 @@
 #include <QScrollBar>
 #include <QSizePolicy>
 #include <QStaticText>
+#include <QString>
 #include <QToolButton>
 #include <QToolTip>
 #include <QTranslator>
-#include <boost/geometry.hpp>
+#include <QWidget>
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <limits>
+#include <map>
+#include <memory>
+#include <set>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "boost/geometry/geometry.hpp"
 #include "dbDescriptors.h"
 #include "gui/gui.h"
 #include "gui_utils.h"
@@ -38,8 +48,11 @@
 #include "label.h"
 #include "mainWindow.h"
 #include "odb/db.h"
+#include "odb/dbObject.h"
 #include "odb/dbShape.h"
 #include "odb/dbTransform.h"
+#include "odb/dbTypes.h"
+#include "odb/geom.h"
 #include "painter.h"
 #include "ruler.h"
 #include "scriptWidget.h"

@@ -6,24 +6,25 @@
 #include <omp.h>
 
 #include <algorithm>
-#include <boost/pending/disjoint_sets.hpp>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <memory>
-#include <queue>
+#include <mutex>
 #include <set>
-#include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "Polygon.hh"
 #include "WireBuilder.hh"
+#include "boost/pending/disjoint_sets.hpp"
+#include "boost/polygon/polygon.hpp"
 #include "odb/db.h"
 #include "odb/dbShape.h"
 #include "odb/dbTypes.h"
+#include "odb/geom.h"
 #include "utl/Logger.h"
 
 namespace ant {
@@ -54,14 +55,12 @@ struct AntennaModel
   double diff_metal_reduce_factor;
 };
 
-AntennaChecker::AntennaChecker() = default;
-AntennaChecker::~AntennaChecker() = default;
-
-void AntennaChecker::init(odb::dbDatabase* db, utl::Logger* logger)
+AntennaChecker::AntennaChecker(odb::dbDatabase* db, utl::Logger* logger)
+    : db_(db), logger_(logger)
 {
-  db_ = db;
-  logger_ = logger;
 }
+
+AntennaChecker::~AntennaChecker() = default;
 
 void AntennaChecker::initAntennaRules()
 {
@@ -1097,9 +1096,15 @@ bool AntennaChecker::designIsPlaced()
     }
   }
 
-  for (odb::dbInst* inst : block_->getInsts()) {
-    if (!inst->isPlaced()) {
-      return false;
+  for (odb::dbNet* net : block_->getNets()) {
+    if (net->isSpecial()) {
+      continue;
+    }
+    for (odb::dbITerm* iterm : net->getITerms()) {
+      odb::dbInst* inst = iterm->getInst();
+      if (!inst->isPlaced()) {
+        return false;
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025, The OpenROAD Authors
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:tcl_encode_or.bzl", "tcl_encode")
 load("//bazel:tcl_wrap_cc.bzl", "tcl_wrap_cc")
 
@@ -48,11 +49,10 @@ cc_library(
         "src/SwapPinsMove.hh",
         "src/UnbufferMove.cc",
         "src/UnbufferMove.hh",
-        "src/VTSwapMove.hh",
         "src/VTSwapMove.cc",
+        "src/VTSwapMove.hh",
     ],
     hdrs = [
-        "include/rsz/MakeResizer.hh",
         "include/rsz/OdbCallBack.hh",
         "include/rsz/Resizer.hh",
     ],
@@ -61,6 +61,7 @@ cc_library(
     ],
     deps = [
         "//src/dbSta",
+        "//src/dbSta:dbNetwork",
         "//src/dpl",
         "//src/est",
         "//src/grt",
@@ -78,6 +79,7 @@ cc_library(
 cc_library(
     name = "ui",
     srcs = [
+        "src/BufferedNet.hh",
         "src/Graphics.cc",
         "src/Graphics.hh",
         "src/MakeResizer.cc",
@@ -87,8 +89,6 @@ cc_library(
     ],
     hdrs = [
         "include/rsz/MakeResizer.hh",
-        "include/rsz/OdbCallBack.hh",
-        "include/rsz/Resizer.hh",
     ],
     copts = [
         "-Isrc/rsz/src",
@@ -97,8 +97,10 @@ cc_library(
         "include",
     ],
     deps = [
+        ":rsz",
         "//:ord",
         "//src/dbSta",
+        "//src/dbSta:dbNetwork",
         "//src/dpl",
         "//src/est",
         "//src/grt",

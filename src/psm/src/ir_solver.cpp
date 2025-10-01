@@ -3,30 +3,40 @@
 
 #include "ir_solver.h"
 
-#include <Eigen/SparseLU>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <fstream>
-#include <list>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
 #include <queue>
 #include <set>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "boost/geometry/geometry.hpp"
 #include "connection.h"
 #include "db_sta/dbNetwork.hh"
 #include "est/EstimateParasitics.h"
 #include "ir_network.h"
 #include "node.h"
+#include "odb/db.h"
 #include "odb/dbShape.h"
+#include "odb/dbTypes.h"
+#include "odb/geom.h"
 #include "shape.h"
 #include "sta/Corner.hh"
 #include "sta/DcalcAnalysisPt.hh"
 #include "sta/Liberty.hh"
+#include "sta/MinMax.hh"
+#include "sta/NetworkClass.hh"
+#include "sta/PowerClass.hh"
 #include "sta/Sdc.hh"
+#include "utl/Logger.h"
 #include "utl/timer.h"
 
 namespace psm {

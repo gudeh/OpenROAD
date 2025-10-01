@@ -3,11 +3,16 @@
 
 #include "RDLRoute.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
+#include <tuple>
 #include <vector>
 
+#include "boost/geometry/geometry.hpp"
 #include "odb/db.h"
+#include "odb/dbCompare.h"
+#include "odb/geom.h"
 #include "odb/geom_boost.h"
 
 namespace pad {

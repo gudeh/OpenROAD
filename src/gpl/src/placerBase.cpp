@@ -4,7 +4,7 @@
 #include "placerBase.h"
 
 #include <algorithm>
-#include <iostream>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -13,6 +13,7 @@
 #include "nesterovBase.h"
 #include "odb/db.h"
 #include "odb/dbTransform.h"
+#include "odb/dbTypes.h"
 #include "utl/Logger.h"
 
 namespace gpl {
@@ -27,7 +28,6 @@ using odb::dbITerm;
 using odb::dbMPin;
 using odb::dbNet;
 using odb::dbPlacementStatus;
-using odb::dbPowerDomain;
 using odb::dbRow;
 using odb::dbSet;
 using odb::dbSigType;
@@ -481,33 +481,17 @@ void Pin::updateCoordi(odb::dbITerm* iTerm)
 //
 void Pin::updateCoordi(odb::dbBTerm* bTerm, utl::Logger* logger)
 {
-  int lx = INT_MAX;
-  int ly = INT_MAX;
-  int ux = INT_MIN;
-  int uy = INT_MIN;
-
-  for (dbBPin* bPin : bTerm->getBPins()) {
-    Rect bbox = bPin->getBBox();
-    lx = std::min(bbox.xMin(), lx);
-    ly = std::min(bbox.yMin(), ly);
-    ux = std::max(bbox.xMax(), ux);
-    uy = std::max(bbox.yMax(), uy);
-  }
-
-  if (lx == INT_MAX || ly == INT_MAX || ux == INT_MIN || uy == INT_MIN) {
-    logger->warn(GPL,
-                 1,
-                 "{} toplevel port is not placed!\n"
-                 "       Replace will regard {} is placed in (0, 0)",
-                 bTerm->getConstName(),
-                 bTerm->getConstName());
+  Rect bbox = bTerm->getBBox();
+  if (bbox.isInverted()) {
+    logger->error(
+        GPL, 1, "{} toplevel port is not placed.", bTerm->getConstName());
   }
 
   // Just center
   offsetCx_ = offsetCy_ = 0;
 
-  cx_ = (lx + ux) / 2;
-  cy_ = (ly + uy) / 2;
+  cx_ = bbox.xCenter();
+  cy_ = bbox.yCenter();
 }
 
 void Pin::updateLocation(const Instance* inst)
@@ -1083,7 +1067,6 @@ void PlacerBase::init()
 void PlacerBase::initInstsForUnusableSites()
 {
   dbSet<dbRow> rows = db_->getChip()->getBlock()->getRows();
-  dbSet<dbPowerDomain> pds = db_->getChip()->getBlock()->getPowerDomains();
 
   int64_t siteCountX = (die_.coreUx() - die_.coreLx()) / siteSizeX_;
   int64_t siteCountY = (die_.coreUy() - die_.coreLy()) / siteSizeY_;
@@ -1176,29 +1159,19 @@ void PlacerBase::initInstsForUnusableSites()
   // In the case of top level power domain i.e no group,
   // mark all other power domains as empty
   if (group_ == nullptr) {
-    for (dbPowerDomain* pd : pds) {
-      if (pd->getGroup() != nullptr) {
-        for (auto boundary : pd->getGroup()->getRegion()->getBoundaries()) {
-          Rect rect = boundary->getBox();
+    for (auto region : db_->getChip()->getBlock()->getRegions()) {
+      for (auto boundary : region->getBoundaries()) {
+        Rect rect = boundary->getBox();
 
-          std::pair<int, int> pairX = getMinMaxIdx(rect.xMin(),
-                                                   rect.xMax(),
-                                                   die_.coreLx(),
-                                                   siteSizeX_,
-                                                   0,
-                                                   siteCountX);
+        std::pair<int, int> pairX = getMinMaxIdx(
+            rect.xMin(), rect.xMax(), die_.coreLx(), siteSizeX_, 0, siteCountX);
 
-          std::pair<int, int> pairY = getMinMaxIdx(rect.yMin(),
-                                                   rect.yMax(),
-                                                   die_.coreLy(),
-                                                   siteSizeY_,
-                                                   0,
-                                                   siteCountY);
+        std::pair<int, int> pairY = getMinMaxIdx(
+            rect.yMin(), rect.yMax(), die_.coreLy(), siteSizeY_, 0, siteCountY);
 
-          for (int i = pairX.first; i < pairX.second; i++) {
-            for (int j = pairY.first; j < pairY.second; j++) {
-              siteGrid[j * siteCountX + i] = Empty;
-            }
+        for (int i = pairX.first; i < pairX.second; i++) {
+          for (int j = pairY.first; j < pairY.second; j++) {
+            siteGrid[j * siteCountX + i] = Empty;
           }
         }
       }

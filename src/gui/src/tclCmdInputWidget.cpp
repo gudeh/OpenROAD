@@ -10,11 +10,15 @@
 #include <QCoreApplication>
 #include <QMimeData>
 #include <QScrollBar>
+#include <QSettings>
 #include <QTextStream>
-#include <cstddef>
+#include <QWidget>
 #include <functional>
+#include <memory>
 #include <regex>
+#include <set>
 #include <string>
+#include <utility>
 
 #include "gui/gui.h"
 #include "ord/OpenRoad.hh"

@@ -4,26 +4,34 @@
 #include "RepairHold.hh"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
+#include "BufferMove.hh"
 #include "RepairDesign.hh"
 #include "db_sta/dbNetwork.hh"
+#include "db_sta/dbSta.hh"
+#include "odb/db.h"
 #include "rsz/Resizer.hh"
 #include "sta/Corner.hh"
 #include "sta/DcalcAnalysisPt.hh"
+#include "sta/Delay.hh"
 #include "sta/Fuzzy.hh"
 #include "sta/Graph.hh"
 #include "sta/GraphDelayCalc.hh"
 #include "sta/InputDrive.hh"
 #include "sta/Liberty.hh"
+#include "sta/MinMax.hh"
 #include "sta/Parasitics.hh"
 #include "sta/PathExpanded.hh"
 #include "sta/PortDirection.hh"
 #include "sta/Sdc.hh"
 #include "sta/Search.hh"
+#include "sta/SearchPred.hh"
 #include "sta/TimingArc.hh"
 #include "sta/Units.hh"
+#include "sta/Vector.hh"
 #include "utl/Logger.h"
 #include "utl/mem_stats.h"
 
@@ -43,9 +51,7 @@ using sta::PathExpanded;
 using sta::Port;
 using sta::VertexOutEdgeIterator;
 
-RepairHold::RepairHold(Resizer* resizer,
-                       est::EstimateParasitics* estimate_parasitics)
-    : resizer_(resizer), estimate_parasitics_(estimate_parasitics)
+RepairHold::RepairHold(Resizer* resizer) : resizer_(resizer)
 {
 }
 
@@ -54,6 +60,7 @@ void RepairHold::init()
   logger_ = resizer_->logger_;
   dbStaState::init(resizer_->sta_);
   db_network_ = resizer_->db_network_;
+  estimate_parasitics_ = resizer_->estimate_parasitics_;
   initial_design_area_ = resizer_->computeDesignArea();
 }
 
@@ -542,14 +549,9 @@ void RepairHold::repairEndHold(Vertex* end_vertex,
       for (int i = 0; i < path_vertices.size() - 1; i++) {
         Vertex* path_vertex = path_vertices[i];
         Pin* path_pin = path_vertex->pin();
-        // explicitly force getting the flat net.
-        odb::dbNet* db_path_net
-            = network_->isTopLevelPort(path_pin)
-                  ? db_network_->flatNet(network_->term(path_pin))
-                  : db_network_->flatNet(const_cast<Pin*>(path_pin));
 
-        if (path_vertex->isDriver(network_) && !resizer_->dontTouch(path_pin)
-            && !db_path_net->isConnectedByAbutment()) {
+        if (path_vertex->isDriver(network_)
+            && resizer_->okToBufferNet(path_pin)) {
           PinSeq load_pins;
           Slacks slacks;
           mergeInit(slacks);
