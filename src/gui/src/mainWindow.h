@@ -101,7 +101,7 @@ class MainWindow : public QMainWindow, public odb::dbDatabaseObserver
   void setTitle(const std::string& title);
 
   void setPauseSelectUpdates(bool);
-  bool getPauseSelectUpdates() const {return pause_window_updates_; }
+  bool getPauseSelectUpdates() const { return pause_window_updates_; }
 
  signals:
   // Signaled when we get a postRead callback to tell the sub-widgets
