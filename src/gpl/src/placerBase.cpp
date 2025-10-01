@@ -4,6 +4,7 @@
 #include "placerBase.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -1072,22 +1073,22 @@ void PlacerBase::initInstsForUnusableSites()
   int64_t siteCountX = (die_.coreUx() - die_.coreLx()) / siteSizeX_;
   int64_t siteCountY = (die_.coreUy() - die_.coreLy()) / siteSizeY_;
 
-  enum PlaceInfo
+  enum SiteInfo
   {
-    Empty,
-    Row,
-    FixedInst
+    Blocked,   // site representation of dummy instances
+    Row,       // placable site
+    FixedInst  // site taken by fixed instance
   };
 
   //
-  // Initialize siteGrid as empty
+  // Initialize siteGrid as Blocked
   //
-  std::vector<PlaceInfo> siteGrid(siteCountX * siteCountY, PlaceInfo::Empty);
+  std::vector<SiteInfo> siteGrid(siteCountX * siteCountY, SiteInfo::Blocked);
 
   // check if this belongs to a group
   // if there is a group, only mark the sites that belong to the group as Row
   // if there is no group, then mark all as Row, and then for each power
-  // domain, mark the sites that belong to the power domain as Empty
+  // domain, mark the sites that belong to the power domain as Blocked
 
   if (group_ != nullptr) {
     for (auto boundary : group_->getRegion()->getBoundaries()) {
@@ -1124,7 +1125,7 @@ void PlacerBase::initInstsForUnusableSites()
     }
   }
 
-  // Mark blockage areas as empty so that their sites will be blocked.
+  // Mark blockage areas as Blocked so that their sites will be blocked.
   for (dbBlockage* blockage : db_->getChip()->getBlock()->getBlockages()) {
     dbInst* inst = blockage->getInstance();
     if (inst && !inst->isFixed()) {
@@ -1149,7 +1150,7 @@ void PlacerBase::initInstsForUnusableSites()
     for (int j = pairY.first; j < pairY.second; j++) {
       for (int i = pairX.first; i < pairX.second; i++) {
         if (cells == 0 || filled / (float) cells <= filler_density) {
-          siteGrid[j * siteCountX + i] = Empty;
+          siteGrid[j * siteCountX + i] = Blocked;
           ++filled;
         }
         ++cells;
@@ -1158,7 +1159,7 @@ void PlacerBase::initInstsForUnusableSites()
   }
 
   // In the case of top level power domain i.e no group,
-  // mark all other power domains as empty
+  // mark all other power domains as Blocked
   if (group_ == nullptr) {
     for (auto region : db_->getChip()->getBlock()->getRegions()) {
       for (auto boundary : region->getBoundaries()) {
@@ -1172,7 +1173,7 @@ void PlacerBase::initInstsForUnusableSites()
 
         for (int i = pairX.first; i < pairX.second; i++) {
           for (int j = pairY.first; j < pairY.second; j++) {
-            siteGrid[j * siteCountX + i] = Empty;
+            siteGrid[j * siteCountX + i] = Blocked;
           }
         }
       }
@@ -1201,11 +1202,11 @@ void PlacerBase::initInstsForUnusableSites()
         continue;
       }
     }
+
     std::pair<int, int> pairX = getMinMaxIdx(
         inst->lx(), inst->ux(), die_.coreLx(), siteSizeX_, 0, siteCountX);
     std::pair<int, int> pairY = getMinMaxIdx(
         inst->ly(), inst->uy(), die_.coreLy(), siteSizeY_, 0, siteCountY);
-
     for (int i = pairX.first; i < pairX.second; i++) {
       for (int j = pairY.first; j < pairY.second; j++) {
         siteGrid[j * siteCountX + i] = FixedInst;
@@ -1214,24 +1215,26 @@ void PlacerBase::initInstsForUnusableSites()
   }
 
   //
-  // Search the "Empty" coordinates on site-grid
+  // Search the "Blocked" coordinates on site-grid
   // --> These sites need to be dummyInstance
   //
-  for (int j = 0; j < siteCountY; j++) {
-    for (int i = 0; i < siteCountX; i++) {
-      // if empty spot found
-      if (siteGrid[j * siteCountX + i] == Empty) {
-        int startX = i;
-        // find end points
-        while (i < siteCountX && siteGrid[j * siteCountX + i] == Empty) {
-          i++;
+  if(group_==nullptr) {
+    for (int j = 0; j < siteCountY; j++) {
+      for (int i = 0; i < siteCountX; i++) {
+        // if Blocked spot found
+        if (siteGrid[j * siteCountX + i] == Blocked) {
+          int startX = i;
+          // find end points
+          while (i < siteCountX && siteGrid[j * siteCountX + i] == Blocked) {
+            i++;
+          }
+          int endX = i;
+          Instance dummy(die_.coreLx() + siteSizeX_ * startX,
+                          die_.coreLy() + siteSizeY_ * j,
+                          die_.coreLx() + siteSizeX_ * endX,
+                          die_.coreLy() + siteSizeY_ * (j + 1));
+          instStor_.push_back(dummy);
         }
-        int endX = i;
-        Instance myInst(die_.coreLx() + siteSizeX_ * startX,
-                        die_.coreLy() + siteSizeY_ * j,
-                        die_.coreLx() + siteSizeX_ * endX,
-                        die_.coreLy() + siteSizeY_ * (j + 1));
-        instStor_.push_back(myInst);
       }
     }
   }

@@ -1833,8 +1833,17 @@ void NesterovBase::initFillerGCells()
   fillerDx_ = static_cast<int>(dxSum / (maxIdx - minIdx));
   fillerDy_ = static_cast<int>(dySum / (maxIdx - minIdx));
 
-  int64_t coreArea = pb_->getDie().coreArea();
-  whiteSpaceArea_ = coreArea - static_cast<int64_t>(pb_->nonPlaceInstsArea());
+  // int64_t coreArea = pb_->getDie().coreArea();
+  int64_t region_area = 0;
+  if (pb_->group()) {
+    auto boundaries = pb_->group()->getRegion()->getBoundaries();
+    for (auto boundary : boundaries) {
+      region_area += boundary->getBox().area();
+    }
+  } else {
+    region_area = pb_->getDie().coreArea();
+  }
+  whiteSpaceArea_ = region_area - static_cast<int64_t>(pb_->nonPlaceInstsArea());
 
   // if(pb_->group() == nullptr) {
   //   // nonPlaceInstsArea should not have density downscaling!!!
@@ -1893,6 +1902,7 @@ void NesterovBase::initFillerGCells()
                fillerDx_,
                fillerDy_);
 
+    // TODO reference region area, not die here
     const double max_edge_fillers = 1024;
     const int max_filler_x = std::max(
         static_cast<int>(pb_->getDie().coreDx() / max_edge_fillers), fillerDx_);
@@ -1927,8 +1937,8 @@ void NesterovBase::initFillerGCells()
              GPL,
              "FillerInit",
              1,
-             "CoreArea {}",
-             block->dbuAreaToMicrons(coreArea));
+             "Region Area {}",
+             block->dbuAreaToMicrons(region_area));
   debugPrint(log_,
              GPL,
              "FillerInit",
@@ -1980,12 +1990,12 @@ void NesterovBase::initFillerGCells()
 
     // place filler cells on random coordi and
     // set size as avgDx and avgDy
-    GCell myGCell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
+    GCell gcell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
                   randY % pb_->getDie().coreDy() + pb_->getDie().coreLy(),
                   fillerDx_,
                   fillerDy_);
 
-    fillerStor_.push_back(myGCell);
+    fillerStor_.push_back(gcell);
   }
   // totalFillerArea_ = fillerStor_.size() * getFillerCellArea();
   initial_filler_area_ = totalFillerArea_;
