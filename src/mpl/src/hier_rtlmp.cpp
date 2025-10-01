@@ -240,6 +240,7 @@ void HierRTLMP::run()
   correctAllMacrosOrientation();
 
   commitMacroPlacementToDb();
+  writeInstanceClusterCSV("macro_cluster_csv_file.csv");
   writeMacroPlacement(macro_placement_file_);
 
   clear();
@@ -2755,6 +2756,68 @@ void HierRTLMP::writeCostFile(const std::string& file_name_prefix,
                               SACore* sa_core)
 {
   sa_core->writeCostFile(file_name_prefix + ".cost.txt");
+}
+
+
+void HierRTLMP::writeInstanceClusterCSV(const std::string& filename) const
+{
+  // Write CSV with one row per instance:
+  // cluster_id,xl,yl,xh,yh
+  if (filename.empty() || block_ == nullptr || !tree_ || !tree_->root) {
+    return;
+  }
+
+  std::ofstream out(filename);
+  if (!out.is_open()) {
+    logger_->error(MPL, 12, "Cannot open CSV file {}.", filename);
+  } else {
+    logger_->report("Writing instance cluster CSV file: {}", filename);
+  }
+
+  std::map<odb::dbInst*, int> inst_cluster_id;
+
+  std::function<void(Cluster*)> collect = [&](Cluster* c) {
+    if (!c) {
+      return;
+    }
+    if (c->isLeaf()) {
+      // Hard macros
+      // for (HardMacro* hm : c->getHardMacros()) {
+      //   if (odb::dbInst* inst = hm->getInst()) {
+      //     inst_cluster_id[inst] = c->getId();
+      //   }
+      // }
+      // Leaf std cells
+      for (odb::dbInst* inst : c->getLeafStdCells()) {
+        inst_cluster_id[inst] = c->getId();
+      }
+    } else {
+      for (auto& child : c->getChildren()) {
+        collect(child.get());
+      }
+    }
+  };
+  collect(tree_->root.get());
+
+  for (odb::dbInst* inst : block_->getInsts()) {
+    odb::dbBox* box = inst->getBBox();
+    if (box == nullptr) {
+      continue;
+    }
+    const odb::Rect r = box->getBox();
+    const int cluster_id
+        = (inst_cluster_id.find(inst) != inst_cluster_id.end())
+              ? inst_cluster_id[inst]
+              : -1;
+
+    const double xl = block_->dbuToMicrons(r.xMin());
+    const double yl = block_->dbuToMicrons(r.yMin());
+    const double xh = block_->dbuToMicrons(r.xMax());
+    const double yh = block_->dbuToMicrons(r.yMax());
+
+    out << inst->getName() << ',' << cluster_id << ',' << xl << ',' << yl << ',' << xh << ',' << yh << '\n';
+  }
+  out.close();
 }
 
 //////// Pusher ////////

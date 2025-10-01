@@ -245,6 +245,7 @@ class HierRTLMP
                           std::vector<SoftMacro>& macros);
   template <typename SACore>
   void writeCostFile(const std::string& file_name_prefix, SACore* sa_core);
+  void writeInstanceClusterCSV(const std::string& filename) const;
 
   sta::dbNetwork* network_ = nullptr;
   odb::dbDatabase* db_ = nullptr;
