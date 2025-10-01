@@ -7,9 +7,15 @@
 #include <QCloseEvent>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMenu>
 #include <QShortcut>
+#include <QString>
 #include <QToolBar>
+#include <QWidget>
+#include <map>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -17,6 +23,8 @@
 #include "gotoDialog.h"
 #include "gui/gui.h"
 #include "label.h"
+#include "odb/dbDatabaseObserver.h"
+#include "odb/dbObject.h"
 #include "ord/OpenRoad.hh"
 #include "ruler.h"
 #include "utl/Progress.h"
@@ -69,6 +77,7 @@ class MainWindow : public QMainWindow, public odb::dbDatabaseObserver
   void postReadLef(odb::dbTech* tech, odb::dbLib* library) override;
   void postReadDef(odb::dbBlock* block) override;
   void postReadDb(odb::dbDatabase* db) override;
+  void postRead3Dbx(odb::dbChip* chip) override;
 
   // Capture logger messages into the script widget output
   void setLogger(utl::Logger* logger);
@@ -92,7 +101,7 @@ class MainWindow : public QMainWindow, public odb::dbDatabaseObserver
   void setTitle(const std::string& title);
 
   void setPauseSelectUpdates(bool);
-  bool getPauseSelectUpdates() const {return pause_window_updates_; }
+  bool getPauseSelectUpdates() const { return pause_window_updates_; }
 
  signals:
   // Signaled when we get a postRead callback to tell the sub-widgets

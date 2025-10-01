@@ -18,8 +18,11 @@
 #include "odb/db.h"
 // User Code Begin Includes
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -28,6 +31,7 @@
 #include "dbModuleModBTermItr.h"
 #include "dbModuleModInstItr.h"
 #include "dbModuleModNetItr.h"
+#include "odb/dbBlockCallBackObj.h"
 #include "utl/Logger.h"
 // User Code End Includes
 namespace odb {
@@ -127,6 +131,9 @@ _dbModule::~_dbModule()
   if (_name) {
     free((void*) _name);
   }
+  // User Code Begin Destructor
+  delete _port_iter;
+  // User Code End Destructor
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -195,7 +202,7 @@ void dbModule::addInst(dbInst* inst)
   _dbInst* _inst = (_dbInst*) inst;
   _dbBlock* block = (_dbBlock*) module->getOwner();
 
-  if (_inst->_flags._physical_only) {
+  if (isTop() == false && _inst->_flags._physical_only) {
     _inst->getLogger()->error(
         utl::ODB,
         297,
@@ -371,6 +378,10 @@ dbModule* dbModule::create(dbBlock* block, const char* name)
     _block->_journal->endAction();
   }
 
+  for (dbBlockCallBackObj* cb : _block->_callbacks) {
+    cb->inDbModuleCreate((dbModule*) module);
+  }
+
   return (dbModule*) module;
 }
 
@@ -433,6 +444,10 @@ void dbModule::destroy(dbModule* module)
   dbSet<dbModNet>::iterator modnet_itr;
   for (modnet_itr = modnets.begin(); modnet_itr != modnets.end();) {
     modnet_itr = dbModNet::destroy(modnet_itr);
+  }
+
+  for (auto cb : block->_callbacks) {
+    cb->inDbModuleDestroy(module);
   }
 
   dbProperty::destroyProperties(_module);
@@ -612,6 +627,16 @@ bool dbModule::canSwapWith(dbModule* new_module) const
   }
 
   return true;
+}
+
+bool dbModule::isTop() const
+{
+  const _dbModule* obj = reinterpret_cast<const _dbModule*>(this);
+  const dbBlock* block = static_cast<dbBlock*>(obj->getOwner());
+  if (block == nullptr) {
+    return false;
+  }
+  return (block->getTopModule() == this);
 }
 
 // Do a "deep" copy of old_module based on its instance context into new_module.
@@ -877,7 +902,7 @@ void _dbModule::copyModuleModNets(dbModule* old_module,
              it_map.size());
   // Make boundary port connections.
   for (dbModNet* old_net : old_module->getModNets()) {
-    dbModNet* new_net = dbModNet::create(new_module, old_net->getName());
+    dbModNet* new_net = dbModNet::create(new_module, old_net->getConstName());
     if (new_net) {
       debugPrint(logger,
                  utl::ODB,
@@ -1014,7 +1039,7 @@ bool _dbModule::copyToChildBlock(dbModule* module)
   std::string block_name = module->getName();
   dbTech* tech = top_block->getTech();
   // TODO: strip out instance name from block name
-  dbBlock* child_block = dbBlock::create(top_block, block_name.c_str(), tech);
+  dbBlock* child_block = dbBlock::create(top_block, block_name.c_str());
   if (child_block) {
     child_block->setDefUnits(tech->getLefUnits());
     child_block->setBusDelimiters('[', ']');

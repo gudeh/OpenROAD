@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2022-2025, The OpenROAD Authors
+
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//test:regression.bzl", "regression_test")
 
 # From CMakeLists.txt or_integration_tests(TESTS
@@ -19,7 +21,7 @@ COMPULSORY_TESTS = [
     "gcd_asap7",
     "memory_nangate45",
     "aes_dontuse_nangate45",
-    "aes_donttouch_nangate45"
+    "aes_donttouch_nangate45",
 ]
 
 # Disabled in CMakeLists.txt
@@ -73,19 +75,14 @@ filegroup(
         "design_hanging.def",
         "design_in_out.def",
         "design_sequential.def",
-        "empty_cut_set.v",
         "gcd.sdc",
         "gcd_placed.def",
         "helpers.tcl",
         "rcon.def",
         "rcon.sdc",
-        "side_outputs_extract.v",
-        "side_outputs_extract_logic_depth.v",
-        "simple_and_gate_extract.v",
         "sky130/sky130_fd_sc_hd__ss_n40C_1v40.lib",
         "sky130/sky130hd.tlef",
         "sky130/sky130hd_std_cell.lef",
-        "sky130_const_cell.v",
     ],
 )
 
@@ -124,3 +121,21 @@ filegroup(
     )
     for test_name in ALL_TESTS
 ]
+
+cc_test(
+    name = "rmp_abc_unittest",
+    srcs = [
+        "cpp/TestAbc.cc",
+    ],
+    includes = [
+        "../src",
+    ],
+    linkstatic = True,  # TODO: remove once deps define all symbols
+    deps = [
+        "//src/dbSta:dbReadVerilog",
+        "//src/rmp",
+        "//src/tst",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

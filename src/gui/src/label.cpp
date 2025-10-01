@@ -4,10 +4,14 @@
 #include "label.h"
 
 #include <QFont>
+#include <any>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "gui/gui.h"
 #include "odb/db.h"
 #include "options.h"
 

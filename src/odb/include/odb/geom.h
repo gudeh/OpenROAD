@@ -4,13 +4,16 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <iosfwd>
 #include <tuple>
 #include <vector>
 
-#include "isotropy.h"
-#include "odb.h"
+#include "odb/isotropy.h"
+#include "odb/odb.h"
 #include "utl/Logger.h"
 
 namespace odb {

@@ -4,11 +4,13 @@
 #include "TechChar.h"
 
 #include <algorithm>
+#include <bitset>
 #include <cmath>
 #include <cstddef>
-#include <fstream>
+#include <cstdint>
+#include <deque>
 #include <functional>
-#include <iomanip>
+#include <iterator>
 #include <limits>
 #include <ostream>
 #include <sstream>
@@ -17,14 +19,21 @@
 #include <vector>
 
 #include "db_sta/dbSta.hh"
+#include "odb/db.h"
+#include "odb/dbSet.h"
 #include "rsz/Resizer.hh"
 #include "sta/Graph.hh"
 #include "sta/Liberty.hh"
+#include "sta/LibertyClass.hh"
+#include "sta/MinMax.hh"
 #include "sta/PathAnalysisPt.hh"
+#include "sta/PowerClass.hh"
 #include "sta/Sdc.hh"
 #include "sta/Search.hh"
 #include "sta/TableModel.hh"
 #include "sta/TimingArc.hh"
+#include "sta/TimingModel.hh"
+#include "sta/Transition.hh"
 #include "sta/Units.hh"
 #include "utl/Logger.h"
 

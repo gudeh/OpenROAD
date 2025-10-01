@@ -3,13 +3,19 @@
 
 #include "bufferTreeDescriptor.h"
 
+#include <algorithm>
+#include <any>
+#include <functional>
+#include <set>
 #include <string>
 
 #include "colorGenerator.h"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
+#include "gui/gui.h"
 #include "odb/db.h"
 #include "odb/dbTypes.h"
+#include "odb/geom.h"
 #include "sta/Liberty.hh"
 
 namespace gui {

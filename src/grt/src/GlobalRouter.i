@@ -135,6 +135,12 @@ set_perturbation_amount(int perturbation)
 }
 
 void
+set_use_cugr(bool use_cugr)
+{
+  getGlobalRouter()->setUseCUGR(use_cugr);
+}
+
+void
 global_route(bool start_incremental, bool end_incremental)
 {
   getGlobalRouter()->globalRoute(true, start_incremental, end_incremental);
@@ -231,9 +237,9 @@ clear_route_guides()
 }
 
 void
-report_layer_wire_lengths()
+report_layer_wire_lengths(bool global_route, bool detailed_route)
 {
-  getGlobalRouter()->reportLayerWireLengths();
+  getGlobalRouter()->reportLayerWireLengths(global_route, detailed_route);
 }
 
 void write_segments(const char* file_name)

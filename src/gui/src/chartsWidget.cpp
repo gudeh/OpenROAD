@@ -4,19 +4,27 @@
 #include "chartsWidget.h"
 
 #include <QColor>
+#include <QComboBox>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QMenu>
+#include <QPushButton>
 #include <QString>
 #include <QValueAxis>
 #include <QWidget>
-#include <QtCharts>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <optional>
+#include <set>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
+#include "gui/gui.h"
 #include "gui_utils.h"
 #include "sta/Clock.hh"
 #include "sta/MinMax.hh"

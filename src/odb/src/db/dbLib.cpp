@@ -3,9 +3,14 @@
 
 #include "dbLib.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <string>
 
+#include "dbCommon.h"
+#include "dbCore.h"
 #include "dbDatabase.h"
+#include "dbHashTable.h"
 #include "dbHashTable.hpp"
 #include "dbMaster.h"
 #include "dbNameCache.h"
@@ -16,6 +21,9 @@
 #include "dbTable.hpp"
 #include "dbTech.h"
 #include "odb/db.h"
+#include "odb/dbObject.h"
+#include "odb/dbSet.h"
+#include "odb/dbStream.h"
 #include "odb/dbTransform.h"
 
 namespace odb {

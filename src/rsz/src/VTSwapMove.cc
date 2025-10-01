@@ -6,6 +6,12 @@
 #include <cmath>
 
 #include "BaseMove.hh"
+#include "odb/db.h"
+#include "sta/Delay.hh"
+#include "sta/Liberty.hh"
+#include "sta/NetworkClass.hh"
+#include "sta/Path.hh"
+#include "utl/Logger.h"
 
 namespace rsz {
 
@@ -87,6 +93,11 @@ bool VTSwapSpeedMove::isSwappable(const Path*& drvr_path,
   }
   if (resizer_->dontTouch(drvr)) {
     debugMovePrint1("REJECT vt_swap {}: drvr instance is dont-touch",
+                    network_->pathName(drvr_pin));
+    return false;
+  }
+  if (!resizer_->isLogicStdCell(drvr)) {
+    debugMovePrint1("REJECT vt_swap {}: drvr instance is not a standard cell",
                     network_->pathName(drvr_pin));
     return false;
   }

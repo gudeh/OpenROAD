@@ -3,12 +3,17 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
 #include "odb/geom.h"
 #include "sta/Hash.hh"
+#include "sta/NetworkClass.hh"
+#include "sta/Vector.hh"
 #include "stt/SteinerTreeBuilder.h"
 #include "stt/flute.h"
 #include "utl/Logger.h"

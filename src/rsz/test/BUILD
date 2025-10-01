@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//test:regression.bzl", "regression_test")
 
 exports_files(
@@ -8,6 +9,10 @@ exports_files(
 TESTS = [
     "buffer_ports1",
     "buffer_ports10",
+    "buffer_ports11",
+    "buffer_ports11_hier",
+    "buffer_ports12",
+    "buffer_ports12_hier",
     "buffer_ports3",
     "buffer_ports4",
     "buffer_ports5",
@@ -52,13 +57,14 @@ TESTS = [
     "repair_fanout2",
     "repair_fanout2_hier",
     "repair_fanout3",
-    "repair_fanout3_hier      ",
+    "repair_fanout3_hier",
     "repair_fanout4",
     "repair_fanout5",
     "repair_fanout6",
     "repair_fanout6_multi",
     "repair_fanout7",
     "repair_fanout7_multi",
+    "repair_fanout7_skip_pin_swap",
     "repair_fanout8",
     "repair_fanout8_multi",
     "repair_hold1",
@@ -128,6 +134,9 @@ TESTS = [
     "repair_tie7",
     "repair_tie8",
     "repair_tie9",
+    "repair_tie10_hier",
+    "repair_tie11_hier",
+    "repair_tie12_hier",
     "repair_wire1",
     "repair_wire10",
     "repair_wire11",
@@ -194,17 +203,39 @@ filegroup(
 extra_deps = {
     "repair_fanout6_multi": ["repair_fanout6.tcl"],
     "repair_fanout7_multi": ["repair_fanout7.tcl"],
+    "repair_fanout7_skip_pin_swap": ["repair_fanout7.tcl"],
     "repair_fanout8_multi": ["repair_fanout8.tcl"],
     "repair_setup1_multi": ["repair_setup1.tcl"],
     "repair_setup2_multi": ["repair_setup2.tcl"],
     "repair_setup3_multi": ["repair_setup3.tcl"],
     "repair_setup4_multi": ["repair_setup4.tcl"],
+    "repair_setup4_sequence": ["repair_setup4.tcl"],
     "repair_setup6_multi": ["repair_setup6.tcl"],
     "repair_setup7_multi": ["repair_setup7.tcl"],
-    "repair_setup4_sequence": ["repair_setup4.tcl"],
 }
+
+BIG_TESTS = [
+    "repair_fanout6",
+]
 
 [regression_test(
     name = test_name,
+    size = "large" if test_name in BIG_TESTS else "medium",
     data = [":test_resources"] + extra_deps.get(test_name, []),
 ) for test_name in TESTS]
+
+cc_test(
+    name = "rsz_buffer_removal",
+    srcs = [
+        "cpp/TestBufferRemoval.cc",
+    ],
+    linkstatic = True,  # TODO: remove once deps define all symbols
+    deps = [
+        "//src/dbSta",
+        "//src/dpl",
+        "//src/rsz",
+        "//src/tst",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -3,15 +3,18 @@
 
 #include "Objects.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "odb/db.h"
+#include "odb/geom.h"
 
 namespace dpl {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-MasterEdge::MasterEdge(unsigned int type, const Rect& box)
+MasterEdge::MasterEdge(unsigned int type, const odb::Rect& box)
     : edge_type_idx_(type), bbox_(box)
 {
 }
@@ -20,7 +23,7 @@ unsigned int MasterEdge::getEdgeType() const
 {
   return edge_type_idx_;
 }
-const Rect& MasterEdge::getBBox() const
+const odb::Rect& MasterEdge::getBBox() const
 {
   return bbox_;
 }
@@ -83,7 +86,7 @@ const std::vector<MasterEdge>& Master::getEdges() const
 {
   return edges_;
 }
-Rect Master::getBBox() const
+odb::Rect Master::getBBox() const
 {
   return boundary_box_;
 }
@@ -107,7 +110,7 @@ void Master::clearEdges()
 {
   edges_.clear();
 }
-void Master::setBBox(const Rect box)
+void Master::setBBox(const odb::Rect box)
 {
   boundary_box_ = box;
 }
@@ -358,7 +361,7 @@ Group* Node::getGroup() const
 {
   return group_;
 }
-const Rect* Node::getRegion() const
+const odb::Rect* Node::getRegion() const
 {
   return region_;
 }
@@ -382,9 +385,10 @@ int Node::getGroupId() const
 {
   return group_id_;
 }
-Rect Node::getBBox() const
+odb::Rect Node::getBBox() const
 {
-  return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
+  return odb::Rect(
+      left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
 }
 uint8_t Node::getUsedLayers() const
 {
@@ -469,7 +473,7 @@ void Node::setGroup(Group* in)
 {
   group_ = in;
 }
-void Node::setRegion(const Rect* in)
+void Node::setRegion(const odb::Rect* in)
 {
   region_ = in;
 }
@@ -609,7 +613,7 @@ std::string Group::getName() const
 {
   return name_;
 }
-const std::vector<Rect>& Group::getRects() const
+const std::vector<odb::Rect>& Group::getRects() const
 {
   return region_boundaries_;
 }
@@ -617,7 +621,7 @@ std::vector<Node*> Group::getCells() const
 {
   return cells_;
 }
-const Rect& Group::getBBox() const
+const odb::Rect& Group::getBBox() const
 {
   return boundary_;
 }
@@ -637,7 +641,7 @@ void Group::setName(const std::string& in)
 {
   name_ = in;
 }
-void Group::addRect(const Rect& in)
+void Group::addRect(const odb::Rect& in)
 {
   region_boundaries_.emplace_back(in);
 }
@@ -645,7 +649,7 @@ void Group::addCell(Node* cell)
 {
   cells_.emplace_back(cell);
 }
-void Group::setBoundary(const Rect& in)
+void Group::setBoundary(const odb::Rect& in)
 {
   boundary_ = in;
 }
