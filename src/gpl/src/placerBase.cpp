@@ -794,18 +794,18 @@ void PlacerBaseCommon::mplPositions(){
   }
   
   // Remove empty clusters
-  std::vector<std::string> empty_clusters;
-  for (const auto& [cluster_name, cluster_info] : cluster_regions) {
-    if (cluster_instances.find(cluster_name) == cluster_instances.end() || 
-        cluster_instances[cluster_name].empty()) {
-      empty_clusters.push_back(cluster_name);
-    }
-  }
-  for (const auto& cluster_name : empty_clusters) {
-    log_->info(GPL, 881, "Removing empty cluster '{}'", cluster_name);
-    cluster_regions.erase(cluster_name);
-    cluster_instances.erase(cluster_name);
-  }
+  // std::vector<std::string> empty_clusters;
+  // for (const auto& [cluster_name, cluster_info] : cluster_regions) {
+  //   if (cluster_instances.find(cluster_name) == cluster_instances.end() || 
+  //       cluster_instances[cluster_name].empty()) {
+  //     empty_clusters.push_back(cluster_name);
+  //   }
+  // }
+  // for (const auto& cluster_name : empty_clusters) {
+  //   log_->info(GPL, 881, "Removing empty cluster '{}'", cluster_name);
+  //   cluster_regions.erase(cluster_name);
+  //   cluster_instances.erase(cluster_name);
+  // }
   
   // Report summary statistics
   log_->info(GPL, 883, "Cluster assignment summary: {} unassigned instances", unassigned_instances);

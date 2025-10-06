@@ -2759,7 +2759,7 @@ void HierRTLMP::writeCostFile(const std::string& file_name_prefix,
 
 //   std::ofstream out(filename);
 //   if (!out.is_open()) {
-//     logger_->error(MPL, 888, "Cannot open CSV file {}.", filename);
+//     logger_->error(MPL, xx, "Cannot open CSV file {}.", filename);
 //   } else {
 //     logger_->report("Writing instance cluster CSV file: {}", filename);
 //   }
@@ -2829,7 +2829,7 @@ void HierRTLMP::writeInstanceClusterCSV(const std::string& filename) const
 
   std::ofstream out(filename);
   if (!out.is_open()) {
-    logger_->error(MPL, 888, "Cannot open CSV file {}.", filename);
+    logger_->report("Cannot open CSV file {}.", filename);
   } else {
     logger_->report("Writing instance cluster CSV file: {}", filename);
   }

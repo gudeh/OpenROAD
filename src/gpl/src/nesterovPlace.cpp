@@ -885,7 +885,7 @@ void NesterovPlace::reportResults(const int nesterov_iter,
     std::string label = fmt::format("Final Iter {} |R: ? |T: ?",
                                     nesterov_iter);
     
-    graphics_->saveLabeledImage(fmt::format("{}/final_{:05d}.png",
+    graphics_->saveLabeledImage(fmt::format("{}/final_nesterov_{:05d}.png",
                                             getReportsDir(),
                                             nesterov_iter),
                                 label,
@@ -989,6 +989,16 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
       = reports_dir + "/gpl_routability_driven";
 
   cleanReportsDirs(timing_driven_dir, routability_driven_dir);
+
+  if (graphics_ && npVars_.debug_generate_images) {
+    updateDb();
+    std::string label = fmt::format("init_nesterov");
+    
+    graphics_->saveLabeledImage(fmt::format("{}/init_nesterov.png",
+                                            getReportsDir()),
+                                label,
+                                /* select_buffers = */ false);
+  }
 
   // Core Nesterov Loop
   int nesterov_iter = start_iter;
