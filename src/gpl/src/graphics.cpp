@@ -20,8 +20,23 @@
 #include "odb/db.h"
 #include "placerBase.h"
 #include "utl/Logger.h"
+// #include "gpl/Replace.h"
 
 namespace gpl {
+
+    std::vector<gui::Painter::Color> cluster_colors = {
+            gui::Painter::kMagenta,            
+            gui::Painter::kBrown,
+            gui::Painter::kDarkBlue,
+            gui::Painter::kRed,
+            gui::Painter::kOrange,
+            gui::Painter::kTeal,
+            gui::Painter::kPink,
+            gui::Painter::kDarkGreen,                        
+            gui::Painter::kPurple,            
+            gui::Painter::kIndigo,            
+            gui::Painter::kPink,
+    };
 
 Graphics::Graphics(utl::Logger* logger)
     : HeatMapDataSource(logger, "gpl", "gpl"), logger_(logger), mode_(Mbff)
@@ -228,8 +243,41 @@ void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
       break;
     default:
       if (gCell->isInstance()) {
-        color = gCell->isLocked() ? gui::Painter::kDarkCyan
-                                  : gui::Painter::kDarkGreen;
+        // if (gCell->isLocked()) {
+        //   color = gui::Painter::kDarkCyan;
+        // } else {
+         {
+          // Check if instance belongs to a cluster and use cluster color
+          odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
+          auto cluster_it = pbc_->instance_to_cluster.find(db_inst);
+          if (cluster_it != pbc_->instance_to_cluster.end()) {
+        const std::string& cluster_name = cluster_it->second;
+        auto region_it = pbc_->cluster_regions.find(cluster_name);
+        if (region_it != pbc_->cluster_regions.end()) {
+          // std::vector<gui::Painter::Color> cluster_colors = {
+          //   gui::Painter::kMagenta,
+          //   gui::Painter::kCyan,
+          //   gui::Painter::kOrange,
+          //   gui::Painter::kTurquoise,
+          //   gui::Painter::kPink,
+          //   gui::Painter::kYellow,
+          //   gui::Painter::kGreen,
+          //   gui::Painter::kBlue,
+          //   gui::Painter::kRed,
+          //   gui::Painter::kPurple,
+          //   gui::Painter::kBrown,
+          //   gui::Painter::kIndigo,
+          //   gui::Painter::kTeal
+          // };
+          int cluster_id = region_it->second.second;
+          color = cluster_colors[cluster_id % cluster_colors.size()];
+        } else {
+          color = gui::Painter::kDarkGreen;
+        }
+          } else {
+        color = gui::Painter::kDarkGreen;
+          }
+        }
       } else if (gCell->isFiller()) {
         color = gui::Painter::kDarkMagenta;
       }
@@ -326,6 +374,36 @@ void Graphics::drawNesterov(gui::Painter& painter)
   // Draw force direction lines
   if (draw_bins_) {
     drawForce(painter);
+  }
+  // Draw MPL regions from cluster_regions map
+  if (!pbc_->cluster_regions.empty()) {
+    // Define color palette for different clusters
+    // std::vector<gui::Painter::Color> cluster_colors = {
+    //         gui::Painter::kMagenta,
+    //         gui::Painter::kCyan,
+    //         gui::Painter::kOrange,
+    //         gui::Painter::kTurquoise,
+    //         gui::Painter::kPink,
+    //         gui::Painter::kYellow,
+    //         gui::Painter::kGreen,
+    //         gui::Painter::kBlue,
+    //         gui::Painter::kRed,
+    //         gui::Painter::kPurple,
+    //         gui::Painter::kBrown,
+    //         gui::Painter::kIndigo,
+    //         gui::Painter::kTeal
+    // };
+    
+    // Draw cluster regions with different colors
+    for (const auto& [cluster_name, region_data] : pbc_->cluster_regions) {
+      const odb::Rect& region = region_data.first;
+      int cluster_id = region_data.second;
+      
+      gui::Painter::Color color = cluster_colors[cluster_id % cluster_colors.size()];
+      painter.setPen(color, true, 2);
+      painter.setBrush(gui::Painter::Color(color.r, color.g, color.b, 50));
+      painter.drawRect(region);
+    }
   }
 }
 

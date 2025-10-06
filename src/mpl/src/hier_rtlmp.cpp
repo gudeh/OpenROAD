@@ -223,7 +223,7 @@ void HierRTLMP::run()
   }
 
   runCoarseShaping();
-  runHierarchicalMacroPlacement();
+  runHierarchicalMacroPlacement();  
 
   if (save_graphics) {
     graphics_ = std::move(save_graphics);
@@ -235,11 +235,11 @@ void HierRTLMP::run()
   pusher.pushMacrosToCoreBoundaries();
 
   updateMacrosOnDb();
-
-  generateTemporaryStdCellsPlacement(tree_->root.get());
+    
+  generateTemporaryStdCellsPlacement(tree_->root.get());  
   correctAllMacrosOrientation();
 
-  commitMacroPlacementToDb();
+  commitMacroPlacementToDb();  
   writeInstanceClusterCSV("macro_cluster_csv_file.csv");
   writeMacroPlacement(macro_placement_file_);
 
@@ -2758,65 +2758,113 @@ void HierRTLMP::writeCostFile(const std::string& file_name_prefix,
   sa_core->writeCostFile(file_name_prefix + ".cost.txt");
 }
 
+// void HierRTLMP::writeInstanceClusterCSV(const std::string& filename) const
+// {
+//   if (filename.empty() || block_ == nullptr || !tree_ || !tree_->root) {
+//     return;
+//   }
+
+//   std::ofstream out(filename);
+//   if (!out.is_open()) {
+//     logger_->error(MPL, 888, "Cannot open CSV file {}.", filename);
+//   } else {
+//     logger_->report("Writing instance cluster CSV file: {}", filename);
+//   }
+
+//   // Build mapping from instance to cluster
+//   std::map<odb::dbInst*, Cluster*> inst_to_cluster;
+  
+//   std::function<void(Cluster*)> collect = [&](Cluster* c) {
+//     if (!c) {
+//       return;
+//     }
+//     if (c->isLeaf()) {
+//       // Hard macros
+//       for (HardMacro* hm : c->getHardMacros()) {
+//         if (odb::dbInst* inst = hm->getInst()) {
+//           inst_to_cluster[inst] = c;
+//         }
+//       }
+//       // Leaf std cells
+//       for (odb::dbInst* inst : c->getLeafStdCells()) {
+//         inst_to_cluster[inst] = c;
+//       }
+//     } else {
+//       for (auto& child : c->getChildren()) {
+//         collect(child.get());
+//       }
+//     }
+//   };
+//   collect(tree_->root.get());
+
+//   // Write CSV with one row per instance using cluster dimensions
+//   for (odb::dbInst* inst : block_->getInsts()) {
+//     odb::dbBox* box = inst->getBBox();
+//     if (box == nullptr) {
+//       continue;
+//     }
+    
+//     auto it = inst_to_cluster.find(inst);
+//     if (it != inst_to_cluster.end()) {
+//       Cluster* cluster = it->second;
+//       const int cluster_id = cluster->getId();
+//       const int xl = block_->micronsToDbu(cluster->getX());
+//       const int yl = block_->micronsToDbu(cluster->getY());
+//       const int xh = block_->micronsToDbu(cluster->getX() + cluster->getWidth());
+//       const int yh = block_->micronsToDbu(cluster->getY() + cluster->getHeight());
+      
+//       out << inst->getName() << ',' << cluster_id << ',' << xl << ',' << yl << ',' << xh << ',' << yh << '\n';
+//     } else {
+//       // Instance not in any cluster, use -1 as cluster ID and instance dimensions
+//       const odb::Rect r = box->getBox();
+//       const int xl = r.xMin();
+//       const int yl = r.yMin();
+//       const int xh = r.xMax();
+//       const int yh = r.yMax();
+      
+//       out << inst->getName() << ',' << -1 << ',' << xl << ',' << yl << ',' << xh << ',' << yh << '\n';
+//     }
+//   }
+//   out.close();
+// }
 
 void HierRTLMP::writeInstanceClusterCSV(const std::string& filename) const
 {
-  // Write CSV with one row per instance:
-  // cluster_id,xl,yl,xh,yh
   if (filename.empty() || block_ == nullptr || !tree_ || !tree_->root) {
     return;
   }
 
   std::ofstream out(filename);
   if (!out.is_open()) {
-    logger_->error(MPL, 12, "Cannot open CSV file {}.", filename);
+    logger_->error(MPL, 888, "Cannot open CSV file {}.", filename);
   } else {
     logger_->report("Writing instance cluster CSV file: {}", filename);
   }
 
-  std::map<odb::dbInst*, int> inst_cluster_id;
-
-  std::function<void(Cluster*)> collect = [&](Cluster* c) {
-    if (!c) {
+  // Write cluster bounding boxes instead of individual instance boxes
+  std::function<void(Cluster*)> writeClusterBounds = [&](Cluster* cluster) {
+    if (!cluster) {
       return;
     }
-    if (c->isLeaf()) {
-      // Hard macros
-      // for (HardMacro* hm : c->getHardMacros()) {
-      //   if (odb::dbInst* inst = hm->getInst()) {
-      //     inst_cluster_id[inst] = c->getId();
-      //   }
-      // }
-      // Leaf std cells
-      for (odb::dbInst* inst : c->getLeafStdCells()) {
-        inst_cluster_id[inst] = c->getId();
-      }
+    
+    if (cluster->isLeaf()) {
+      // Write the cluster's bounding box for leaf clusters
+      const int cluster_id = cluster->getId();
+      const int xl = block_->micronsToDbu(cluster->getX());
+      const int yl = block_->micronsToDbu(cluster->getY());
+      const int xh = block_->micronsToDbu(cluster->getX() + cluster->getWidth());
+      const int yh = block_->micronsToDbu(cluster->getY() + cluster->getHeight());
+      
+      out << cluster->getName() << ',' << cluster_id << ',' << xl << ',' << yl << ',' << xh << ',' << yh << '\n';
     } else {
-      for (auto& child : c->getChildren()) {
-        collect(child.get());
+      // Recursively process children
+      for (auto& child : cluster->getChildren()) {
+        writeClusterBounds(child.get());
       }
     }
   };
-  collect(tree_->root.get());
-
-  for (odb::dbInst* inst : block_->getInsts()) {
-    odb::dbBox* box = inst->getBBox();
-    if (box == nullptr) {
-      continue;
-    }
-    const odb::Rect r = box->getBox();
-    const int cluster_id
-        = (inst_cluster_id.find(inst) != inst_cluster_id.end())
-              ? inst_cluster_id[inst]
-              : -1;
-
-    const double xl = block_->dbuToMicrons(r.xMin());
-    const double yl = block_->dbuToMicrons(r.yMin());
-    const double xh = block_->dbuToMicrons(r.xMax());
-    const double yh = block_->dbuToMicrons(r.yMax());
-
-    out << inst->getName() << ',' << cluster_id << ',' << xl << ',' << yl << ',' << xh << ',' << yh << '\n';
-  }
+  
+  writeClusterBounds(tree_->root.get());
   out.close();
 }
 

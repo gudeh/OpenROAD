@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <utility>
@@ -92,6 +93,10 @@ void Replace::reset()
   timingNetWeightOverflows_.clear();
   timingNetWeightOverflows_.shrink_to_fit();
   timingNetWeightMax_ = 5;
+  
+  // // Clear position tracking
+  initial_positions_.clear();
+  final_positions_.clear();
 }
 
 void Replace::addPlacementCluster(const Cluster& cluster)
@@ -180,6 +185,16 @@ void Replace::doIncrementalPlace(int threads)
 void Replace::doInitialPlace(int threads)
 {
   log_->info(GPL, 5, "Execute conjugate gradient initial placement.");
+
+    for (auto inst : db_->getChip()->getBlock()->getInsts()) {
+    if (inst->isFixed()) {
+      continue;
+    }
+    int x, y;
+    inst->getLocation(x, y);
+    initial_positions_[inst] = std::make_pair(x, y);
+  }  
+
   if (pbc_ == nullptr) {
     PlacerBaseVars pbVars;
     pbVars.padLeft = padLeft_;
@@ -196,6 +211,7 @@ void Replace::doInitialPlace(int threads)
       }
     }
 
+    pbc_->mplPositions();
     if (pbVec_.front()->placeInsts().empty()) {
       pbVec_.erase(pbVec_.begin());
     }
@@ -366,6 +382,97 @@ int Replace::doNesterovPlace(int threads, int start_iter)
     fr_->setCongestionIterations(0);
     fr_->setCriticalNetsPercentage(0);
     fr_->globalRoute();
+  }
+  
+  // Capture final positions after placement
+  for (auto inst : db_->getChip()->getBlock()->getInsts()) {
+    int x, y;
+    inst->getLocation(x, y);
+    final_positions_[inst] = std::make_pair(x, y);
+  }
+  
+  // Calculate and log displacement correlation
+  if (!initial_positions_.empty()) {
+    int moved_instances = 0;
+    double total_displacement = 0.0;
+    double max_displacement = 0.0;
+    
+    for (const auto& [inst, final_pos] : final_positions_) {
+      if (initial_positions_.find(inst) != initial_positions_.end()) {
+        auto initial_pos = initial_positions_[inst];
+        double dx = final_pos.first - initial_pos.first;
+        double dy = final_pos.second - initial_pos.second;
+        double displacement = sqrt((dx*dx) + (dy*dy));
+        
+        if (displacement > 0) {
+          moved_instances++;
+          total_displacement += displacement;
+          max_displacement = std::max(max_displacement, displacement);
+        }
+      }
+    }
+    
+    if (moved_instances > 0) {
+      double avg_displacement = total_displacement / moved_instances;
+      log_->info(GPL, 889, "Placement correlation: {} instances moved, avg displacement: {:.2f}, max displacement: {:.2f}", 
+                 moved_instances, avg_displacement, max_displacement);
+    }
+  }
+
+
+  // Read cluster information from CSV file and check placement compliance
+  std::string macro_cluster_csv_file = "macro_cluster_csv_file.csv";
+  std::ifstream csv_file(macro_cluster_csv_file);
+  if (csv_file.is_open()) {
+    std::string line;
+    int compliant_instances = 0;
+    int non_compliant_instances = 0;
+    
+    while (std::getline(csv_file, line)) {
+      std::stringstream ss(line);
+      std::string item;
+      std::vector<std::string> tokens;
+      
+      while (std::getline(ss, item, ',')) {
+        tokens.push_back(item);
+      }
+      
+      if (tokens.size() >= 6) {
+        std::string inst_name = tokens[0];
+        int cluster_id = std::stoi(tokens[1]);
+        float bbox_llx = std::stof(tokens[2]);
+        float bbox_lly = std::stof(tokens[3]);
+        float bbox_urx = std::stof(tokens[4]);
+        float bbox_ury = std::stof(tokens[5]);
+        
+        // Find the instance by name
+        auto block = db_->getChip()->getBlock();
+        auto inst = block->findInst(inst_name.c_str());
+        if (inst) {
+          int x, y;
+          inst->getLocation(x, y);
+          
+          // Check if instance position is within cluster bbox
+          if (x >= bbox_llx && x <= bbox_urx && y >= bbox_lly && y <= bbox_ury) {
+            compliant_instances++;
+          } else {
+            non_compliant_instances++;
+            log_->warn(GPL, 890, "Instance {} (cluster {}) placed outside cluster region at ({}, {})", 
+                       inst_name, cluster_id, x, y);
+          }
+        }
+      }
+    }
+    csv_file.close();
+    
+    int total_checked = compliant_instances + non_compliant_instances;
+    if (total_checked > 0) {
+      float compliance_rate = (float)compliant_instances / total_checked * 100.0f;
+      log_->info(GPL, 891, "Cluster placement compliance: {}/{} instances ({:.1f}%)", 
+                 compliant_instances, total_checked, compliance_rate);
+    }
+  } else {
+    log_->warn(GPL, 892, "Could not open cluster CSV file: {}", macro_cluster_csv_file);
   }
   return return_do_nesterov;
 }

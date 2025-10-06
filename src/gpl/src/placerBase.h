@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include<map>
 
 namespace odb {
 class dbDatabase;
@@ -286,6 +287,8 @@ class PlacerBaseCommon
                    utl::Logger* log);
   ~PlacerBaseCommon();
 
+  void mplPositions();
+
   const std::vector<Instance*>& placeInsts() const { return placeInsts_; }
   const std::vector<Instance*>& getInsts() const { return insts_; }
   const std::vector<Pin*>& getPins() const { return pins_; }
@@ -314,6 +317,10 @@ class PlacerBaseCommon
   odb::dbDatabase* db() const { return db_; }
 
   void unlockAll();
+
+  std::map<std::string, std::pair<odb::Rect, int>> cluster_regions;
+  std::map<std::string, std::vector<odb::dbInst*>> cluster_instances;
+  std::unordered_map<odb::dbInst*, std::string> instance_to_cluster;
 
  private:
   odb::dbDatabase* db_ = nullptr;

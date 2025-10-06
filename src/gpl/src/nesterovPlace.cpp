@@ -879,6 +879,19 @@ void NesterovPlace::reportResults(const int nesterov_iter,
 {
   auto block = pbc_->db()->getChip()->getBlock();
 
+  
+  if (graphics_ && npVars_.debug_generate_images) {
+    updateDb();
+    std::string label = fmt::format("Final Iter {} |R: ? |T: ?",
+                                    nesterov_iter);
+    
+    graphics_->saveLabeledImage(fmt::format("{}/final_{:05d}.png",
+                                            getReportsDir(),
+                                            nesterov_iter),
+                                label,
+                                /* select_buffers = */ false);
+  }
+
   if (nesterov_iter >= npVars_.maxNesterovIter) {
     log_->warn(GPL,
                1010,

@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace odb {
@@ -29,6 +31,7 @@ class Logger;
 }
 
 namespace gpl {
+  
 
 class PlacerBaseCommon;
 class PlacerBase;
@@ -189,6 +192,11 @@ class Replace
   // temp variable; OpenDB should have these values.
   int padLeft_ = 0;
   int padRight_ = 0;
+  // Position correlation tracking
+  std::unordered_map<odb::dbInst*, std::pair<int, int>> initial_positions_;
+  std::unordered_map<odb::dbInst*, std::pair<int, int>> final_positions_;
+
+  
   bool gui_debug_ = false;
   int gui_debug_pause_iterations_ = 10;
   int gui_debug_update_iterations_ = 10;

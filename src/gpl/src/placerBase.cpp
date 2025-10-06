@@ -715,6 +715,113 @@ void PlacerBaseVars::reset()
 ////////////////////////////////////////////////////////
 // PlacerBaseCommon
 
+void PlacerBaseCommon::mplPositions(){
+  std::string macro_cluster_csv_file = "macro_cluster_csv_file.csv";
+  std::ifstream csv_file(macro_cluster_csv_file);  
+
+  if (csv_file.is_open()) {
+  std::string line;    
+  
+  // Read cluster information from CSV
+  while (std::getline(csv_file, line)) {
+    std::stringstream ss(line);
+    std::string item;
+    std::vector<std::string> tokens;
+    
+    while (std::getline(ss, item, ',')) {
+    tokens.push_back(item);
+    }
+    
+    if (tokens.size() >= 6) {
+    std::string cluster_name = tokens[0];
+    int cluster_id = std::stoi(tokens[1]);
+    int llx = std::stoi(tokens[2]);
+    int lly = std::stoi(tokens[3]);
+    int urx = std::stoi(tokens[4]);
+    int ury = std::stoi(tokens[5]);
+    
+    odb::Rect region(llx, lly, urx, ury);
+    cluster_regions[cluster_name] = std::make_pair(region, cluster_id);
+    
+    log_->info(GPL, 888, "Cluster '{}' (ID: {}) region: ({}, {}) to ({}, {})", 
+       cluster_name, cluster_id, llx, lly, urx, ury);
+    }
+  }
+  csv_file.close();
+  
+  log_->info(GPL, 887, "Loaded {} cluster regions from CSV", cluster_regions.size());
+  } else {
+  log_->info(GPL, 886, "No cluster CSV file found, proceeding with standard initial placement");
+  }
+  // Capture initial positions before placement  
+  
+  int unassigned_instances = 0;
+  for (auto inst : db_->getChip()->getBlock()->getInsts()) {
+  if (inst->isFixed()) {
+    continue;
+  }
+  int x, y;
+  inst->getLocation(x, y);
+
+  // Check cluster assignment for each instance
+  // auto master = inst->getMaster();
+  // if (master && master->getType() == odb::dbMasterType::CORE) 
+  {
+    std::string inst_name = inst->getName();
+    bool found_cluster = false;
+    
+    for (const auto& [cluster_name, cluster_info] : cluster_regions) {
+    const odb::Rect& cluster_rect = cluster_info.first;
+    int cluster_id = cluster_info.second;
+    
+    // Check if instance position is within cluster bounding box
+    if (x >= cluster_rect.xMin() && x <= cluster_rect.xMax() && 
+    y >= cluster_rect.yMin() && y <= cluster_rect.yMax()) {
+      found_cluster = true;
+      cluster_instances[cluster_name].push_back(inst);
+      instance_to_cluster[inst] = cluster_name;  // Populate the map
+      // log_->info(GPL, 885, "Instance '{}' belongs to cluster '{}' (ID: {}) at position ({}, {})", 
+      //            inst_name, cluster_name, cluster_id, x, y);
+      break;
+    }
+    }
+    
+    if (!found_cluster) {
+    unassigned_instances++;
+    log_->info(GPL, 884, "Instance '{}' not assigned to any cluster", inst_name);
+    }
+  }
+  }
+  
+  // Remove empty clusters
+  std::vector<std::string> empty_clusters;
+  for (const auto& [cluster_name, cluster_info] : cluster_regions) {
+    if (cluster_instances.find(cluster_name) == cluster_instances.end() || 
+        cluster_instances[cluster_name].empty()) {
+      empty_clusters.push_back(cluster_name);
+    }
+  }
+  for (const auto& cluster_name : empty_clusters) {
+    log_->info(GPL, 881, "Removing empty cluster '{}'", cluster_name);
+    cluster_regions.erase(cluster_name);
+    cluster_instances.erase(cluster_name);
+  }
+  
+  // Report summary statistics
+  log_->info(GPL, 883, "Cluster assignment summary: {} unassigned instances", unassigned_instances);
+  
+  // Report cluster statistics
+  for (const auto& [cluster_name, instances] : cluster_instances) {
+  auto cluster_info = cluster_regions.find(cluster_name);
+  if (cluster_info != cluster_regions.end()) {
+    int cluster_id = cluster_info->second.second;
+    log_->info(GPL, 882, "Cluster '{}' (ID: {}) contains {} instances", 
+         cluster_name, cluster_id, instances.size());
+  }
+  }
+}
+
+
 PlacerBaseCommon::PlacerBaseCommon() = default;
 
 PlacerBaseCommon::PlacerBaseCommon(odb::dbDatabase* db,
