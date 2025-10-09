@@ -4,7 +4,6 @@
 #include "placerBase.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -29,7 +28,6 @@ using odb::dbITerm;
 using odb::dbMPin;
 using odb::dbNet;
 using odb::dbPlacementStatus;
-using odb::dbPowerDomain;
 using odb::dbRow;
 using odb::dbSet;
 using odb::dbSigType;
@@ -980,6 +978,8 @@ PlacerBase::PlacerBase(odb::dbDatabase* db,
   log_ = log;
   pbCommon_ = std::move(pbCommon);
   group_ = group;
+  log_->report("Initializing PlacerBase region: {}",
+               (group_ == nullptr) ? "No region" : group_->getName());
   init();
 }
 
@@ -1218,26 +1218,26 @@ void PlacerBase::initInstsForUnusableSites()
   // Search the "Blocked" coordinates on site-grid
   // --> These sites need to be dummyInstance
   //
-  if(group_==nullptr) {
-    for (int j = 0; j < siteCountY; j++) {
-      for (int i = 0; i < siteCountX; i++) {
-        // if Blocked spot found
-        if (siteGrid[j * siteCountX + i] == Blocked) {
-          int startX = i;
-          // find end points
-          while (i < siteCountX && siteGrid[j * siteCountX + i] == Blocked) {
-            i++;
-          }
-          int endX = i;
-          Instance dummy(die_.coreLx() + siteSizeX_ * startX,
-                          die_.coreLy() + siteSizeY_ * j,
-                          die_.coreLx() + siteSizeX_ * endX,
-                          die_.coreLy() + siteSizeY_ * (j + 1));
-          instStor_.push_back(dummy);
-        }
-      }
-    }
-  }
+  // if(group_==nullptr) {
+  //   for (int j = 0; j < siteCountY; j++) {
+  //     for (int i = 0; i < siteCountX; i++) {
+  //       // if Blocked spot found
+  //       if (siteGrid[j * siteCountX + i] == Blocked) {
+  //         int startX = i;
+  //         // find end points
+  //         while (i < siteCountX && siteGrid[j * siteCountX + i] == Blocked) {
+  //           i++;
+  //         }
+  //         int endX = i;
+  //         Instance dummy(die_.coreLx() + siteSizeX_ * startX,
+  //                         die_.coreLy() + siteSizeY_ * j,
+  //                         die_.coreLx() + siteSizeX_ * endX,
+  //                         die_.coreLy() + siteSizeY_ * (j + 1));
+  //         instStor_.push_back(dummy);
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 void PlacerBase::reset()
@@ -1273,6 +1273,9 @@ void PlacerBase::printInfo() const
              "Number of pins:",
              pbCommon_->getPins().size());
 
+
+  //TODO print die and core only for top placer, group == nullptr
+  // otherwise print group bbox             
   log_->info(GPL,
              12,
              "{:10} ( {:6.3f} {:6.3f} ) ( {:6.3f} {:6.3f} ) um",

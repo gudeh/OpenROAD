@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "gui/gui.h"
 #include "nesterovBase.h"
 #include "nesterovPlace.h"
 #include "odb/db.h"
@@ -47,7 +48,7 @@ Graphics::Graphics(utl::Logger* logger,
                    std::vector<std::shared_ptr<PlacerBase>>& pbVec,
                    std::vector<std::shared_ptr<NesterovBase>>& nbVec,
                    bool draw_bins,
-                   odb::dbInst* inst)
+                   odb::dbInst* db_inst)
     : HeatMapDataSource(logger, "gpl", "gpl"),
       pbc_(std::move(pbc)),
       nbc_(std::move(nbc)),
@@ -67,13 +68,45 @@ Graphics::Graphics(utl::Logger* logger,
   chart_->setYAxisFormats({"%.2e", "%.2f"});
   chart_->setYAxisMin({std::nullopt, 0});
 
+  // Setup the density penalties chart (one series per NesterovBase)
+  if (!nbVec_.empty()) {
+    std::vector<std::string> series_names;
+    series_names.reserve(nbVec_.size());
+    for (size_t i = 0; i < nbVec_.size(); ++i) {
+      std::string name;
+      if (nbVec_[i] && nbVec_[i]->getPb() && nbVec_[i]->getPb()->group()) {
+        name = fmt::format("nb[{}] {}", i, nbVec_[i]->getPb()->group()->getName());
+      } else {
+        name = fmt::format("nb[{}]", i);
+      }
+      series_names.push_back(name);
+    }
+    density_chart_ = gui->addChart("GPL Density Penalty", "Iteration", series_names);
+    density_chart_->setXAxisFormat("%d");
+    std::vector<std::string> y_formats(nbVec_.size(), "%.3f");
+    density_chart_->setYAxisFormats(y_formats);
+    std::vector<std::optional<double>> y_mins(nbVec_.size(), 0.0);
+    density_chart_->setYAxisMin(y_mins);
+  }
+
+
   initHeatmap();
-  if (inst) {
+  if (db_inst) {
     for (size_t idx = 0; idx < nbc_->getGCells().size(); ++idx) {
       auto cell = nbc_->getGCellByIndex(idx);
-      if (cell->contains(inst)) {
+      if (cell->contains(db_inst)) {
         selected_ = idx;
         break;
+      }
+    }
+
+    for( auto nb : nbVec_) {
+      for (size_t idx = 0; idx < nb->getGCells().size(); ++idx) {
+        GCellHandle cell_handle = nb->getGCells()[idx];
+        if (cell_handle->contains(db_inst)) {
+          nb_selected_index_ = idx;
+          break;
+        }
       }
     }
   }
@@ -204,11 +237,12 @@ void Graphics::drawForce(gui::Painter& painter)
 }
 
 void Graphics::drawCells(const std::vector<GCellHandle>& cells,
-                         gui::Painter& painter)
+                         gui::Painter& painter,
+                        size_t nb_index)
 {
   for (const auto& handle : cells) {
     const GCell* gCell = handle;
-    drawSingleGCell(gCell, painter);
+    drawSingleGCell(gCell, painter, nb_index);
   }
 }
 
@@ -220,7 +254,7 @@ void Graphics::drawCells(const std::vector<GCell*>& cells,
   }
 }
 
-void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
+void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter, size_t nb_index)
 {
   const int gcx = gCell->dCx();
   const int gcy = gCell->dCy();
@@ -242,9 +276,18 @@ void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
     default:
       if (gCell->isInstance()) {
         color = gCell->isLocked() ? gui::Painter::kDarkCyan
-                                  : gui::Painter::kDarkYellow;
+                                  : gui::Painter::kDarkGreen;
       } else if (gCell->isFiller()) {
-        color = gui::Painter::kDarkMagenta;
+          // Use different colors for each NesterovBase
+          std::vector<gui::Painter::Color> colors = { 
+            gui::Painter::kRed,
+            gui::Painter::kBlue,
+            gui::Painter::kGreen,
+            gui::Painter::kMagenta,
+            gui::Painter::kCyan,
+            gui::Painter::kOrange
+          };
+        color = colors[nb_index % colors.size()];
       }
       color.a = 180;
       break;
@@ -261,33 +304,6 @@ void Graphics::drawSingleGCell(const GCell* gCell, gui::Painter& painter)
     painter.setPen(outline, /*cosmetic=*/false, /*width=*/1);
     painter.setBrush(color);
     painter.drawRect({xl, yl, xh, yh});
-// if (gCell->getName() == "exp.I8.IFA2_16_13.I52"
-//   || gCell->getName() == "exp.I8.IFA2_16_13.I51"
-//   || gCell->getName() == "exp.I8.IFA2_16_13.I50"
-//   || gCell->getName() == "exp.I5.IFA2_16_13.I52"
-//   || gCell->getName() == "exp.I5.IFA2_16_13.I51") 
-//   {
-//     logger_->report("drawing inst: {} at ({}, {}) ({} {})", gCell->getName(), xl, yl, xh, yh);
-//   }
-
-  // if (gCell->isInstance()) {
-  //   odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
-  //   if (db_inst != nullptr) {
-  //     odb::dbBox* bbox = db_inst->getBBox();
-  //     if (bbox != nullptr) {
-  //       int origLx = bbox->xMin();
-  //       int origLy = bbox->yMin();
-  //       int origUx = bbox->xMax();
-  //       int origUy = bbox->yMax();
-
-  //       gui::Painter::Color outline = gui::Painter::kBlack;
-  //       outline.a = 150;  // Semi-transparent
-
-  //       painter.setPen(outline, /*cosmetic=*/false, /*width=*/1);
-  //       painter.drawRect({origLx, origLy, origUx, origUy});
-  //     }
-  //   }
-  // }
 }
 
 void Graphics::drawNesterov(gui::Painter& painter)
@@ -317,8 +333,9 @@ void Graphics::drawNesterov(gui::Painter& painter)
   // Draw the placeable objects
   painter.setPen(gui::Painter::kWhite);
   drawCells(nbc_->getGCells(), painter);
-  for (const auto& nb : nbVec_) {
-    drawCells(nb->getGCells(), painter);
+  for (size_t nb_idx = 0; nb_idx < nbVec_.size(); ++nb_idx) {
+    const auto& nb = nbVec_[nb_idx];
+    drawCells(nb->getGCells(), painter, nb_idx);
   }
 
   // Use different colors for each PlacerBase
@@ -358,6 +375,58 @@ void Graphics::drawNesterov(gui::Painter& painter)
             pin->cx(), pin->cy(), other_pin->cx(), other_pin->cy());
       }
     }
+
+      // Draw gradient direction lines in the GUI from the GCell center.
+    // We scale vectors to fit nicely within the cell (similar in spirit to drawForce()).
+    gui::Gui* gui = gui::Gui::get();
+    const GCell* gcell = nbc_->getGCellByIndex(selected_);
+    auto wlCoeffX = np_->getWireLengthCoefX();
+    auto wlCoeffY = np_->getWireLengthCoefY();    
+    size_t nb_index = 0;
+    if (nb_selected_index_ != kInvalidIndex) {
+      nb_index = nb_selected_index_;
+    } else {
+      logger_->warn(utl::GPL, 317, "Selected instance not found in any NesterovBase");
+    }
+    FloatPoint densityGrad = nbVec_[nb_index]->getDensityGradient(gcell);
+    FloatPoint wlGrad = nbc_->getWireLengthGradientWA(gcell, wlCoeffX, wlCoeffY);
+    const int cx = gcell->dCx();
+    const int cy = gcell->dCy();
+
+    // Calculate the maximum length for the lines based on the GCell size
+    const int max_len = std::max(1, std::min(gcell->dx(), gcell->dy()));
+    const float target_len = 0.45f * static_cast<float>(max_len);
+
+    // Determine the maximum magnitude for proper scaling
+    const float wl_magnitude = std::hypot(wlGrad.x, wlGrad.y);
+    const float densityPenalty = nbVec_[nb_index]->getDensityPenalty();
+    const float density_magnitude = std::hypot(densityPenalty * densityGrad.x, densityPenalty * densityGrad.y);
+    const float max_magnitude = std::max(wl_magnitude, density_magnitude);
+
+    auto scaleVector = [&](float vx, float vy) -> std::pair<float, float> {
+      const float magnitude = std::hypot(vx, vy);
+      if (magnitude <= std::numeric_limits<float>::epsilon()) {
+      return {0.0f, 0.0f};
+      }
+      // Normalize and scale based on the maximum magnitude
+      return {vx / max_magnitude * target_len, vy / max_magnitude * target_len};
+    };
+
+    // Draw WL gradient line
+    {
+      auto [dx, dy] = scaleVector(wlGrad.x, wlGrad.y);
+      painter.setPen(gui::Painter::kRed, true);  // Use red for WL gradient
+      painter.drawLine(cx, cy, cx + static_cast<int>(dx), cy + static_cast<int>(dy));
+    }
+
+    // Draw Density gradient line
+    {
+      const float scaled_dx = densityPenalty * densityGrad.x;
+      const float scaled_dy = densityPenalty * densityGrad.y;
+      auto [dx, dy] = scaleVector(scaled_dx, scaled_dy);
+      painter.setPen(gui::Painter::kBlue, true);  // Use blue for Density gradient
+      painter.drawLine(cx, cy, cx + static_cast<int>(dx), cy + static_cast<int>(dy));
+    }
   }
 
   // Draw force direction lines
@@ -395,35 +464,40 @@ void Graphics::drawObjects(gui::Painter& painter)
 }
 
 void Graphics::reportSelected()
-{  // TODO: PD_FIX
+{
   if (selected_ == kInvalidIndex) {
     return;
   }
-  logger_->report("Inst: {}", nbc_->getGCellByIndex(selected_)->getName());
+  const GCell* gcell = nbc_->getGCellByIndex(selected_);
+  logger_->report("Inst: {}", gcell->getName());
 
   if (np_) {
     auto wlCoeffX = np_->getWireLengthCoefX();
     auto wlCoeffY = np_->getWireLengthCoefY();
 
     logger_->report("  Wire Length Gradient");
-    for (auto& gPin : nbc_->getGCellByIndex(selected_)->gPins()) {
-      FloatPoint wlGrad
+    for (auto& gPin : gcell->gPins()) {
+      FloatPoint wlGradPin
           = nbc_->getWireLengthGradientPinWA(gPin, wlCoeffX, wlCoeffY);
       const float weight = gPin->getGNet()->getTotalWeight();
       logger_->report("          ({:+.2e}, {:+.2e}) (weight = {}) pin {}",
-                      wlGrad.x,
-                      wlGrad.y,
+                      wlGradPin.x,
+                      wlGradPin.y,
                       weight,
                       gPin->getPbPin()->getName());
     }
 
-    FloatPoint wlGrad = nbc_->getWireLengthGradientWA(
-        nbc_->getGCellByIndex(selected_), wlCoeffX, wlCoeffY);
+    FloatPoint wlGrad = nbc_->getWireLengthGradientWA(gcell, wlCoeffX, wlCoeffY);
     logger_->report("  sum wl  ({: .2e}, {: .2e})", wlGrad.x, wlGrad.y);
 
-    auto densityGrad
-        = nbVec_[0]->getDensityGradient(nbc_->getGCellByIndex(selected_));
-    float densityPenalty = nbVec_[0]->getDensityPenalty();
+    size_t nb_index = 0;
+    if (nb_selected_index_ != kInvalidIndex) {
+      nb_index = nb_selected_index_;
+    } else {
+      logger_->warn(utl::GPL, 318, "Selected instance not found in any NesterovBase");
+    }
+    FloatPoint densityGrad = nbVec_[nb_index]->getDensityGradient(gcell);
+    float densityPenalty = nbVec_[nb_index]->getDensityPenalty();
     logger_->report("  density ({: .2e}, {: .2e}) (penalty: {})",
                     densityPenalty * densityGrad.x,
                     densityPenalty * densityGrad.y,
@@ -438,6 +512,20 @@ void Graphics::addIter(const int iter, const double overflow)
 {
   odb::dbBlock* block = pbc_->db()->getChip()->getBlock();
   chart_->addPoint(iter, {block->dbuToMicrons(nbc_->getHpwl()), overflow});
+
+  // Add density penalties snapshot for each NesterovBase
+  if (density_chart_) {
+    std::vector<double> penalties;
+    penalties.reserve(nbVec_.size());
+    for (const auto& nb : nbVec_) {
+      double penalty = nb ? static_cast<double>(nb->getDensityPenalty()) : 0.0;
+      penalties.push_back(penalty);
+    }
+    density_chart_->addPoint(iter, penalties);
+
+    // Log the penalties
+    // logger_->report("Iteration {}: Density penalties: {}", iter, penalties);
+  }
 }
 
 void Graphics::addTimingDrivenIter(const int iter)
@@ -507,6 +595,24 @@ gui::SelectionSet Graphics::select(odb::dbTechLayer* layer,
     }
 
     selected_ = idx;
+    odb::dbInst* db_inst = cell->isInstance() ? cell->insts().front()->dbInst() : nullptr;
+    if(db_inst != nullptr) {
+      logger_->report("Selected instance: {}", db_inst->getName());
+      for(size_t i = 0; i < nbVec_.size(); ++i) {
+        logger_->report("NesterovBase idx {}, region {}, has {} gcells", i, nbVec_[i]->getPb()->group()->getName(), nbVec_[i]->getGCells().size()-nbVec_[i]->getFillerCnt());
+      }
+      for(size_t nb_idx = 0; nb_idx < nbVec_.size(); ++nb_idx) {
+        for (size_t gc_idx = 0; gc_idx < nbVec_[nb_idx]->getGCells().size(); ++gc_idx) {
+          GCellHandle cell_handle = nbVec_[nb_idx]->getGCells()[gc_idx];
+          if (cell_handle->contains(db_inst)) {
+            logger_->report("Found db_inst {} (same as {}) in NesterovBase {}", db_inst->getName(), cell_handle->getName(), nb_idx);
+            nb_selected_index_ = nb_idx;
+            break;
+          }
+        }
+      }
+    }
+    logger_->report("found nb_index: {}", nb_selected_index_);
     gui::Gui::get()->redraw();
     if (cell->isInstance()) {
       reportSelected();

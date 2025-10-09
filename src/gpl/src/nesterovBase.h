@@ -671,7 +671,7 @@ class BinGrid
 
   void setPlacerBase(std::shared_ptr<PlacerBase> pb);
   void setLogger(utl::Logger* log);
-  void setCorePoints(int lx, int ly, int ux, int uy);
+  void setRegionPoints(int lx, int ly, int ux, int uy);
   void setBinCnt(int binCntX, int binCntY);
   void setTargetDensity(float density);
   void updateBinsGCellDensityArea(const std::vector<GCellHandle>& cells);
@@ -679,7 +679,7 @@ class BinGrid
 
   void initBins();
 
-  // lx, ly, ux, uy will hold coreArea
+  // lx, ly, ux, uy will hold region area
   int lx() const;
   int ly() const;
   int ux() const;
@@ -1098,6 +1098,7 @@ class NesterovBase
                               int iteration,
                               bool write_header) const;
 
+  std::shared_ptr<PlacerBase> getPb() const { return pb_; }
  private:
   NesterovBaseVars nbVars_;
   std::shared_ptr<PlacerBase> pb_;

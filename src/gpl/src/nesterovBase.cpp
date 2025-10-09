@@ -592,10 +592,10 @@ void Bin::setElectroPhi(float phi)
 
 BinGrid::BinGrid(int lx, int ly, int ux, int uy)
 {
-  setCorePoints(lx, ly, ux, uy);
+  setRegionPoints(lx, ly, ux, uy);
 }
 
-void BinGrid::setCorePoints(int lx, int ly, int ux, int uy)
+void BinGrid::setRegionPoints(int lx, int ly, int ux, int uy)
 {
   lx_ = lx;
   ly_ = ly;
@@ -789,6 +789,10 @@ void BinGrid::initBins()
              "Bin size (W * H):",
              block->dbuToMicrons(binSizeX_),
              block->dbuToMicrons(binSizeY_));
+
+  if(binSizeX_ * binSizeY_ < idealBinArea) {
+    log_->report("binSizeX * binSizeY < idealBinArea");
+  }
 
   // initialize bins_ vector
   bins_.resize(binCntX_ * (size_t) binCntY_);
@@ -1675,11 +1679,12 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
                            std::shared_ptr<PlacerBase> pb,
                            std::shared_ptr<NesterovBaseCommon> nbc,
                            utl::Logger* log)
-{
+{  
   nbVars_ = nbVars;
   pb_ = std::move(pb);
   nbc_ = std::move(nbc);
   log_ = log;
+  log_->report("Initialize NesterovBase region: {}", pb_->group() ? pb_->group()->getName() : "No region");
 
   // Set a fixed seed
   srand(42);
@@ -1759,13 +1764,13 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
       for (auto boundary : boundaries) {
         bbox.merge(boundary->getBox());
       }
-      bg_.setCorePoints(bbox.xMin(), bbox.yMin(), bbox.xMax(), bbox.yMax());
+      bg_.setRegionPoints(bbox.xMin(), bbox.yMin(), bbox.xMax(), bbox.yMax());
     } else {
-      bg_.setCorePoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
+      bg_.setRegionPoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
                         pb_->getDie().coreUx(), pb_->getDie().coreUy());
     }
   } else {
-    bg_.setCorePoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
+    bg_.setRegionPoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
                       pb_->getDie().coreUx(), pb_->getDie().coreUy());
   }
   bg_.setTargetDensity(targetDensity_);
@@ -1894,6 +1899,7 @@ void NesterovBase::initFillerGCells()
   const double filler_scale_factor = std::sqrt(
       totalFillerArea_ / (limit_filler_ratio * nesterovInstanceArea));
   if (filler_scale_factor > 1.0) {
+    log_->report("limiting filler cells with scale factor {:.4f}", filler_scale_factor);
     debugPrint(log_,
                GPL,
                "FillerInit",
@@ -1989,13 +1995,13 @@ void NesterovBase::initFillerGCells()
     auto randY = randVal();
 
     // place filler cells on random coordi and
-    // set size as avgDx and avgDy
-    GCell gcell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
+    // set size as avgDx and avgDy    
+   GCell myGCell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
                   randY % pb_->getDie().coreDy() + pb_->getDie().coreLy(),
                   fillerDx_,
                   fillerDy_);
 
-    fillerStor_.push_back(gcell);
+    fillerStor_.push_back(myGCell);
   }
   // totalFillerArea_ = fillerStor_.size() * getFillerCellArea();
   initial_filler_area_ = totalFillerArea_;
@@ -2007,16 +2013,42 @@ NesterovBase::~NesterovBase() = default;
 void NesterovBase::updateGCellCenterLocation(
     const std::vector<FloatPoint>& coordis)
 {
+  //   auto region = pb_->group()->getRegion();
+  //   int region_x_min = std::numeric_limits<int>::max();
+  //   int region_y_min = std::numeric_limits<int>::max();
+  //   int region_x_max = std::numeric_limits<int>::min();
+  //   int region_y_max = std::numeric_limits<int>::min();
+  //   for (auto boundary : region->getBoundaries()) {
+  //       region_x_min = std::min(region_x_min, boundary->xMin());
+  //       region_y_min = std::min(region_y_min, boundary->yMin());
+  //       region_x_max = std::max(region_x_max, boundary->xMax());
+  //       region_y_max = std::max(region_y_max, boundary->yMax());
+  //     }
+  // int y_center = (region_y_min + region_y_max) / 2;
   for (int idx = 0; idx < coordis.size(); ++idx) {
     nb_gcells_[idx]->setCenterLocation(coordis[idx].x, coordis[idx].y);
+    // nb_gcells_[idx]->setCenterLocation(coordis[idx].x, y_center);    
   }
 }
 
 void NesterovBase::updateGCellDensityCenterLocation(
     const std::vector<FloatPoint>& coordis)
 {
+  //   auto region = pb_->group()->getRegion();
+  //   int region_x_min = std::numeric_limits<int>::max();
+  //   int region_y_min = std::numeric_limits<int>::max();
+  //   int region_x_max = std::numeric_limits<int>::min();
+  //   int region_y_max = std::numeric_limits<int>::min();
+  //   for (auto boundary : region->getBoundaries()) {
+  //       region_x_min = std::min(region_x_min, boundary->xMin());
+  //       region_y_min = std::min(region_y_min, boundary->yMin());
+  //       region_x_max = std::max(region_x_max, boundary->xMax());
+  //       region_y_max = std::max(region_y_max, boundary->yMax());
+  //     }
+  // int y_center = (region_y_min + region_y_max) / 2;
   for (int idx = 0; idx < coordis.size(); ++idx) {
     nb_gcells_[idx]->setDensityCenterLocation(coordis[idx].x, coordis[idx].y);
+    // nb_gcells_[idx]->setDensityCenterLocation(coordis[idx].x, y_center);
   }
   bg_.updateBinsGCellDensityArea(nb_gcells_);
 }
@@ -2274,6 +2306,7 @@ FloatPoint NesterovBase::getDensityGradient(const GCell* gCell) const
     }
   }
 
+  // log_->report("getDensityGradient - gcell {} final electroForce: ({}, {})", gCell->getName(), electroForce.x, electroForce.y);
   return electroForce;
 }
 
@@ -2382,8 +2415,6 @@ float NesterovBase::initDensity2(float wlCoeffX, float wlCoeffY)
     densityPenalty_
         = (wireLengthGradSum_ / densityGradSum_) * npVars_->initDensityPenalty;
   }
-
-  log_->report("initial densityPenalty: {:.3g}", densityPenalty_);
 
   sum_overflow_ = static_cast<float>(getOverflowArea())
                   / static_cast<float>(getNesterovInstsArea());
@@ -2771,6 +2802,8 @@ void NesterovBase::updateNextIter(const int iter)
 
   prev_hpwl_ = hpwl;
   densityPenalty_ *= phiCoef;
+  // debugPrint(log_, GPL, "penalty", 1, "PhiCoef        : {:g}", phiCoef);
+  // debugPrint(log_, GPL, "penalty", 1, "densityPenalty_: {:g}", densityPenalty_);
 
   if (iter > 50 && minSumOverflow_ > sum_overflow_unscaled_) {
     minSumOverflow_ = sum_overflow_unscaled_;
@@ -2877,9 +2910,8 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
     return true;
   }
   if (sum_overflow_unscaled_ <= npVars_->targetOverflow) {
-    const bool is_power_domain = pb_->group();
-    const std::string group_name
-        = is_power_domain ? pb_->group()->getName() : "";
+    const bool has_group = pb_->group();
+    const std::string group_name = has_group ? pb_->group()->getName() : "";
     const int final_iter = gpl_iter_count;
     dbBlock* block = pb_->db()->getChip()->getBlock();
 
@@ -2893,10 +2925,10 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
     log_->report(
         "---------------------------------------------------------------");
 
-    if (is_power_domain) {
+    if (has_group) {
       log_->info(GPL,
                  1016,
-                 "Power domain '{}' placement finished at iteration {}",
+                 "Region '{}' placement finished at iteration {}",
                  group_name,
                  final_iter);
     } else {
@@ -3273,13 +3305,15 @@ void NesterovBase::destroyCbkGCell(odb::dbInst* db_inst)
     // From now on gcell_index is the index for the replacement (previous last
     // element)
     size_t replacer_index = gcell_index;
-    if (replacer_index != last_index
-        && !nb_gcells_[replacer_index]->isFiller()) {
+    if (replacer_index != last_index) {
+      if (!nb_gcells_[replacer_index]->isFiller()) {
       odb::dbInst* replacer_inst
           = nb_gcells_[replacer_index]->insts()[0]->dbInst();
-      // Update new replacer reference on map
-      db_inst_to_nb_index_.erase(replacer_inst);
       db_inst_to_nb_index_[replacer_inst] = replacer_index;
+      } else {
+        size_t filler_stor_index = nb_gcells_[replacer_index].getStorageIndex();
+        filler_stor_index_to_nb_index_[filler_stor_index] = replacer_index;
+      }
     }
 
     std::pair<odb::dbInst*, size_t> replacer = nbc_->destroyCbkGCell(db_inst);

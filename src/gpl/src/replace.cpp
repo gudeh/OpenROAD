@@ -208,6 +208,7 @@ void Replace::doInitialPlace(int threads)
     }
 
     if (pbVec_.front()->placeInsts().empty()) {
+      log_->report("No placeable instances in the top-level region. Removing it.");
       pbVec_.erase(pbVec_.begin());
     }
 
