@@ -271,6 +271,9 @@ void Opendp::setUpPlacementGroups()
   int count = 0;
   auto db_groups = block->getGroups();
   for (auto db_group : db_groups) {
+    if (db_group->getType() == odb::dbGroupType::VISUAL_DEBUG) {
+      continue;
+    }
     dbRegion* region = db_group->getRegion();
     if (region) {
       Group* rptr = arch_->createAndAddRegion();
