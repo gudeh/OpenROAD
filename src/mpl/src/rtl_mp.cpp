@@ -60,7 +60,8 @@ bool MacroPlacer::place(const int num_threads,
                         const float target_dead_space,
                         const float min_ar,
                         const char* report_directory,
-                        const bool keep_clustering_data)
+                        const bool keep_clustering_data,
+                        const bool create_regions_for_std_cells)
 {
   hier_rtlmp_->setClusterSize(
       max_num_macro, min_num_macro, max_num_inst, min_num_inst);
@@ -86,6 +87,7 @@ bool MacroPlacer::place(const int num_threads,
   hier_rtlmp_->setReportDirectory(report_directory);
   hier_rtlmp_->setNumThreads(num_threads);
   hier_rtlmp_->setKeepClusteringData(keep_clustering_data);
+  hier_rtlmp_->setCreateRegionsForStdCells(create_regions_for_std_cells);
 
   hier_rtlmp_->setGuidanceRegions(guidance_regions_);
 

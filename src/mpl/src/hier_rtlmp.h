@@ -106,6 +106,7 @@ class HierRTLMP
   void setMinAR(float min_ar);
   void setReportDirectory(const char* report_directory);
   void setKeepClusteringData(bool keep_clustering_data);
+  void setCreateRegionsForStdCells(bool create_regions_for_std_cells);
   void setDebug(std::unique_ptr<MplObserver>& graphics);
   void setDebugShowBundledNets(bool show_bundled_nets);
   void setDebugShowClustersIds(bool show_clusters_ids);
@@ -135,6 +136,7 @@ class HierRTLMP
   void updateMacrosOnDb();
   void updateMacroOnDb(const HardMacro* hard_macro);
   void commitMacroPlacementToDb();
+  void createRegionForStdCells(Cluster* cluster) const;
   void commitClusteringDataToDb() const;
   void createGroupForCluster(Cluster* cluster,
                              odb::dbGroup* parent_group) const;
@@ -315,6 +317,7 @@ class HierRTLMP
 
   bool skip_macro_placement_ = false;
   bool keep_clustering_data_{false};
+  bool create_regions_for_std_cells_{false};
 
   std::unique_ptr<MplObserver> graphics_;
   bool is_debug_only_final_result_{false};

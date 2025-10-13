@@ -30,6 +30,7 @@ sta::define_cmd_args "rtl_macro_placer" { -max_num_macro  max_num_macro \
                                           -report_directory report_directory \
                                           -write_macro_placement file_name \
                                           -keep_clustering_data \
+                                          -create_regions_for_std_cells \
                                         }
 proc rtl_macro_placer { args } {
   sta::parse_key_args "rtl_macro_placer" args \
@@ -43,8 +44,7 @@ proc rtl_macro_placer { args } {
          -target_dead_space -min_ar \
          -report_directory \
          -write_macro_placement } \
-    flags {-keep_clustering_data}
-
+    flags {-keep_clustering_data -create_regions_for_std_cells}
   sta::check_argc_eq0 "rtl_macro_placer" $args
 
   #
@@ -180,6 +180,12 @@ proc rtl_macro_placer { args } {
     mpl::set_macro_placement_file $keys(-write_macro_placement)
   }
 
+  set keep_clustering_data [info exists flags(-keep_clustering_data)]
+  set create_regions_for_std_cells [info exists flags(-create_regions_for_std_cells)]
+  if { !$keep_clustering_data && $create_regions_for_std_cells } {
+    utl::error MPL 9 "-keep_clustering_data is required when using -create_regions_for_std_cells."
+  }
+
   if {
     ![mpl::rtl_macro_placer_cmd $max_num_macro \
       $min_num_macro \
@@ -200,7 +206,8 @@ proc rtl_macro_placer { args } {
       $target_dead_space \
       $min_ar \
       $report_directory \
-      [info exists flags(-keep_clustering_data)]]
+      $keep_clustering_data \
+      $create_regions_for_std_cells]
   } {
     return false
   }
