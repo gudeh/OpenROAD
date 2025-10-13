@@ -214,34 +214,45 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
             odb::dbTransform xform(cell->getOrient());
             xform.setOffset(odb::Point(inst_x, inst_y));
 
+            if (db_inst->getName() == "_16779_" || db_inst->getName() == "place3487") {
+              logger_->report("Debug info for cell {} at pixel ({}, {}) cell dbu: ({}, {}):", 
+                     cell->name(), x1.v, y1.v, inst_x, inst_y);
+            }
+            if (debug_observer && (db_inst->getName()== "_16779_" || db_inst->getName() == "place3487") ) {
+              debug_observer->endPlacement();
+            }
+
             // Add instance pins
             for (odb::dbITerm* iterm : db_inst->getITerms()) {
-            odb::dbMTerm* mterm = iterm->getMTerm();
-            if (!mterm) continue;
-            if(mterm->getSigType().isSupply()) {
-              continue;
-            }
-
-            for (odb::dbMPin* mpin : mterm->getMPins()) {
-              if (!mpin) continue;
-
-              // Geometry is a set of dbBox in mterm local coords.
-              for (odb::dbBox* box : mpin->getGeometry()) {
-              if (!box) continue;
-
-              // Optional: only consider routing layers.
-              odb::dbTechLayer* layer = box->getTechLayer();
-              if (!layer) 
-              continue;
-              if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
-
-              odb::Rect r = box->getBox();  // mterm-local
-              xform.apply(r);               // -> block coords
-
-              // Store as a shape in block coords on the same layer.
-              pin_shapes.emplace_back(layer, r);
+              odb::dbMTerm* mterm = iterm->getMTerm();
+              if (!mterm) 
+                continue;
+              if(mterm->getSigType().isSupply()) {
+                continue;
               }
-            }
+
+              for (odb::dbMPin* mpin : mterm->getMPins()) {
+                if (!mpin) 
+                  continue;
+
+                // Geometry is a set of dbBox in mterm local coords.
+                for (odb::dbBox* box : mpin->getGeometry()) {
+                if (!box) 
+                  continue;
+
+                // Optional: only consider routing layers.
+                odb::dbTechLayer* layer = box->getTechLayer();
+                if (!layer) 
+                  continue;
+                if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
+
+                odb::Rect r = box->getBox();  // mterm-local
+                xform.apply(r);               // -> block coords
+
+                // Store as a shape in block coords on the same layer.
+                pin_shapes.emplace_back(layer, r);
+                }
+              }
             }
 
             // Add blockages
@@ -264,7 +275,7 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
 
             // auto core = grid_->getCore();
             // Debug reporting for specific instances
-            if (debug_observer && (db_inst->getName() == "place3879" || db_inst->getName() == "place3487")) {
+            if (db_inst->getName() == "_16779_" || db_inst->getName() == "place3487") {
               DbuX pixel_dbu_x = gridToDbu(x1, grid_->getSiteWidth()) + core.xMin();
               DbuY pixel_dbu_y = grid_->gridYToDbu(y1) + core.yMin();
               
@@ -320,7 +331,7 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
                   pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
                   pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
 
-                if (debug_observer && (db_inst->getName()== "place3879" || db_inst->getName() == "place3487") ) {
+                if (debug_observer && (db_inst->getName()== "_16779_" || db_inst->getName() == "place3487") ) {
                   debug_observer->endPlacement();
                 }
                 return false;
@@ -355,8 +366,8 @@ bool PlacementDRC::isDRCclean(const Node* cell,
 
   bool result = edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
 
-  if(cell->name() == "place3879" || cell->name() == "place3487") {
-    std::cout << "DRC result for " << cell->name() << " at (" << x.v << "," << y.v << ") orient " << orient << ": " << result;
+  if(cell->name() == "_16779_" || cell->name() == "place3487") {
+    std::cout << "isDRCclean for " << cell->name() << " at (" << x.v << "," << y.v << ") orient " << orient << ": " << result;
     if (!result) {
       std::cout << " [FAILED:";
       if (!edge_spacing_ok) std::cout << " edge_spacing";
