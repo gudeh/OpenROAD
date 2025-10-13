@@ -29,14 +29,10 @@ namespace dpl {
 
 using utl::Logger;
 
-using odb::dbBlock;
 using odb::dbDatabase;
-using odb::dbInst;
 using odb::dbMaster;
 using odb::dbMasterType;
 using odb::dbTechLayer;
-using odb::Point;
-using odb::Rect;
 
 class Node;
 class Group;
@@ -88,16 +84,15 @@ struct IRDrop;
 class Opendp
 {
  public:
-  Opendp();
+  Opendp(dbDatabase* db, Logger* logger);
   ~Opendp();
 
   Opendp(const Opendp&) = delete;
   Opendp& operator=(const Opendp&) = delete;
 
-  void legalCellPos(dbInst* db_inst);  // call from rsz
-  void initMacrosAndGrid();            // call from rsz
+  void legalCellPos(odb::dbInst* db_inst);  // call from rsz
+  void initMacrosAndGrid();                 // call from rsz
 
-  void init(dbDatabase* db, Logger* logger);
   // legalize/report
   // max_displacment is in sites. use zero for defaults.
   void detailedPlacement(int max_displacement_x,
@@ -107,15 +102,15 @@ class Opendp
 
   void setPaddingGlobal(int left, int right);
   void setPadding(dbMaster* master, int left, int right);
-  void setPadding(dbInst* inst, int left, int right);
+  void setPadding(odb::dbInst* inst, int left, int right);
   void setDebug(std::unique_ptr<dpl::DplObserver>& observer);
 
   // Global padding.
   int padGlobalLeft() const;
   int padGlobalRight() const;
   // Find instance/master/global padding value for an instance.
-  int padLeft(dbInst* inst) const;
-  int padRight(dbInst* inst) const;
+  int padLeft(odb::dbInst* inst) const;
+  int padRight(odb::dbInst* inst) const;
 
   void checkPlacement(bool verbose, const std::string& report_file_name = "");
   void fillerPlacement(const dbMasterSeq& filler_masters,
@@ -129,10 +124,11 @@ class Opendp
   void insertDecapCells(double target, IRDropByPoint& psm_ir_drops);
 
   // Get the instance adjacent to the left or right of a given instance
-  dbInst* getAdjacentInstance(dbInst* inst, bool left) const;
+  odb::dbInst* getAdjacentInstance(odb::dbInst* inst, bool left) const;
 
   // Find a cluster of instances that are touching each other
-  std::vector<dbInst*> getAdjacentInstancesCluster(dbInst* inst) const;
+  std::vector<odb::dbInst*> getAdjacentInstancesCluster(
+      odb::dbInst* inst) const;
   Padding* getPadding() { return padding_.get(); }
   void improvePlacement(int seed,
                         int max_displacement_x,
@@ -162,14 +158,14 @@ class Opendp
   friend class Graphics;
   void findDisplacementStats();
   DbuPt pointOffMacro(const Node& cell);
-  void convertDbToCell(dbInst* db_inst, Node& cell);
+  void convertDbToCell(odb::dbInst* db_inst, Node& cell);
   // Return error count.
   void saveViolations(const std::vector<Node*>& failures,
                       odb::dbMarkerCategory* category,
                       const std::string& violation_type = "") const;
   void importDb();
   void importClear();
-  Rect getBbox(dbInst* inst);
+  odb::Rect getBbox(odb::dbInst* inst);
   void createNetwork();
   void createArchitecture();
   void setUpPlacementGroups();
@@ -184,11 +180,11 @@ class Opendp
   std::string printBgBox(const boost::geometry::model::box<bgPoint>& queryBox);
   void detailedPlacement();
   DbuPt nearestPt(const Node* cell, const DbuRect& rect) const;
-  int distToRect(const Node* cell, const Rect& rect) const;
-  static bool checkOverlap(const Rect& cell, const Rect& box);
+  int distToRect(const Node* cell, const odb::Rect& rect) const;
+  static bool checkOverlap(const odb::Rect& cell, const odb::Rect& box);
   bool checkOverlap(const Node* cell, const DbuRect& rect) const;
-  static bool isInside(const Rect& cell, const Rect& box);
-  bool isInside(const Node* cell, const Rect& rect) const;
+  static bool isInside(const odb::Rect& cell, const odb::Rect& box);
+  bool isInside(const Node* cell, const odb::Rect& rect) const;
   PixelPt searchNearestSite(const Node* cell, GridX x, GridY y) const;
   int calcDist(GridPt p0, GridPt p1) const;
   bool canBePlaced(const Node* cell, GridX bin_x, GridY bin_y) const;
@@ -215,7 +211,7 @@ class Opendp
   GridPt legalGridPt(const Node* cell, bool padded) const;
   DbuPt nearestBlockEdge(const Node* cell,
                          const DbuPt& legal_pt,
-                         const Rect& block_bbox) const;
+                         const odb::Rect& block_bbox) const;
 
   void findOverlapInRtree(const bgBox& queryBox,
                           std::vector<bgBox>& overlaps) const;
@@ -267,11 +263,11 @@ class Opendp
   void writeJsonReport(const std::string& filename);
 
   void rectDist(const Node* cell,
-                const Rect& rect,
+                const odb::Rect& rect,
                 // Return values.
                 int* x,
                 int* y) const;
-  int rectDist(const Node* cell, const Rect& rect) const;
+  int rectDist(const Node* cell, const odb::Rect& rect) const;
   void deleteGrid();
   // Cell initial location wrt core origin.
 
@@ -279,6 +275,7 @@ class Opendp
   DbuPt initialLocation(const Node* cell, bool padded) const;
   int disp(const Node* cell) const;
   // Place fillers
+  dbMasterSeq filterFillerMasters(const dbMasterSeq& filler_masters) const;
   MasterByImplant splitByImplant(const dbMasterSeq& filler_masters);
   void setGridCells();
   dbMasterSeq& gapFillers(dbTechLayer* implant,
@@ -313,7 +310,7 @@ class Opendp
 
   Logger* logger_ = nullptr;
   dbDatabase* db_ = nullptr;
-  dbBlock* block_ = nullptr;
+  odb::dbBlock* block_ = nullptr;
   odb::Rect core_;
 
   std::unique_ptr<Architecture> arch_;  // Information about rows, etc.

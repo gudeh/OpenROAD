@@ -16,9 +16,7 @@ class Logger;
 
 namespace dpl {
 
-using odb::dbInst;
 using odb::dbNet;
-using odb::Rect;
 
 using utl::Logger;
 
@@ -26,20 +24,20 @@ class NetBox
 {
  public:
   NetBox() = default;
-  NetBox(dbNet* net, const Rect& box, bool ignore);
+  NetBox(dbNet* net, const odb::Rect& box, bool ignore);
   int64_t hpwl();
   void saveBox();
   void restoreBox();
   bool isIgnore() const { return ignore_; }
   dbNet* getNet() const { return net_; }
-  const Rect& getBox() const { return box_; }
+  const odb::Rect& getBox() const { return box_; }
 
-  void setBox(const Rect& box) { box_ = box; }
+  void setBox(const odb::Rect& box) { box_ = box; }
 
  private:
   dbNet* net_ = nullptr;
-  Rect box_;
-  Rect box_saved_;
+  odb::Rect box_;
+  odb::Rect box_saved_;
   bool ignore_ = false;
 };
 
@@ -54,15 +52,15 @@ class OptimizeMirroring
   void run();
 
  private:
-  int mirrorCandidates(std::vector<dbInst*>& mirror_candidates);
+  int mirrorCandidates(std::vector<odb::dbInst*>& mirror_candidates);
   void findNetBoxes();
-  std::vector<dbInst*> findMirrorCandidates(NetBoxes& net_boxes);
+  std::vector<odb::dbInst*> findMirrorCandidates(NetBoxes& net_boxes);
 
-  void updateNetBoxes(dbInst* inst);
-  void saveNetBoxes(dbInst* inst);
-  void restoreNetBoxes(dbInst* inst);
+  void updateNetBoxes(odb::dbInst* inst);
+  void saveNetBoxes(odb::dbInst* inst);
+  void restoreNetBoxes(odb::dbInst* inst);
 
-  int64_t hpwl(dbInst* inst);  // Sum of ITerm hpwl's.
+  int64_t hpwl(odb::dbInst* inst);  // Sum of ITerm hpwl's.
 
   Logger* logger_ = nullptr;
   odb::dbDatabase* db_ = nullptr;

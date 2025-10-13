@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "odb/db.h"
+#include "odb/isotropy.h"
 
 namespace rcx {
 
@@ -274,7 +275,7 @@ int Wire::getShapeProperty(int id)
 dbNet* Wire::getNet()
 {
   GridTable* gtb = _track->getGrid()->getGridTable();
-  dbBlock* block = gtb->getBlock();
+  odb::dbBlock* block = gtb->getBlock();
   if (_otherId == 0) {
     return (odb::dbSBox::getSBox(block, _boxId)->getSWire()->getNet());
   }
@@ -2312,7 +2313,7 @@ void GridTable::dumpTrackCounts(FILE* fp)
           texpand,
           ttsubtn);
 }
-GridTable::GridTable(Rect* bb,
+GridTable::GridTable(odb::Rect* bb,
                      uint rowCnt,
                      uint colCnt,
                      uint* pitch,
@@ -2596,7 +2597,7 @@ void GridTable::removeMarkedNetWires()
   fprintf(stdout, "remove %d sdb wires.\n", cnt);
 }
 
-void GridTable::setExtControl(dbBlock* block,
+void GridTable::setExtControl(odb::dbBlock* block,
                               bool useDbSdb,
                               uint adj,
                               uint npsrc,
@@ -2646,7 +2647,7 @@ void GridTable::setExtControl(dbBlock* block,
   _dgContextTrackBase = dgContextTrackBase;
   _seqPool = seqPool;
 }
-void GridTable::setExtControl_v2(dbBlock* block,
+void GridTable::setExtControl_v2(odb::dbBlock* block,
                                  bool useDbSdb,
                                  uint adj,
                                  uint npsrc,

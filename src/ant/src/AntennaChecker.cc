@@ -3,8 +3,6 @@
 
 #include "ant/AntennaChecker.hh"
 
-#include <omp.h>
-
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -13,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -25,6 +24,7 @@
 #include "odb/dbShape.h"
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
+#include "omp.h"
 #include "utl/Logger.h"
 
 namespace ant {
@@ -55,14 +55,12 @@ struct AntennaModel
   double diff_metal_reduce_factor;
 };
 
-AntennaChecker::AntennaChecker() = default;
-AntennaChecker::~AntennaChecker() = default;
-
-void AntennaChecker::init(odb::dbDatabase* db, utl::Logger* logger)
+AntennaChecker::AntennaChecker(odb::dbDatabase* db, utl::Logger* logger)
+    : db_(db), logger_(logger)
 {
-  db_ = db;
-  logger_ = logger;
 }
+
+AntennaChecker::~AntennaChecker() = default;
 
 void AntennaChecker::initAntennaRules()
 {

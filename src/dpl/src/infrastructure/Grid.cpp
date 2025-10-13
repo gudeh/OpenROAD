@@ -22,6 +22,7 @@
 #include "odb/dbTransform.h"
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
+#include "odb/isotropy.h"
 #include "utl/Logger.h"
 
 namespace dpl {
@@ -50,7 +51,7 @@ void Grid::clear()
   row_index_to_y_dbu_.clear();
 }
 
-void Grid::visitDbRows(dbBlock* block,
+void Grid::visitDbRows(odb::dbBlock* block,
                        const std::function<void(dbRow*)>& func) const
 {
   for (auto row : block->getRows()) {
@@ -87,7 +88,7 @@ void Grid::allocateGrid()
   row_sites_.resize(row_count_.v);
 }
 
-void Grid::markHopeless(dbBlock* block,
+void Grid::markHopeless(odb::dbBlock* block,
                         const int max_displacement_x,
                         const int max_displacement_y)
 {
@@ -98,7 +99,7 @@ void Grid::markHopeless(dbBlock* block,
   gtl::polygon_90_set_data<int> hopeless;
   hopeless += gtl::rectangle_data<int>{0, 0, row_site_count_.v, row_count_.v};
 
-  const Rect core = getCore();
+  const odb::Rect core = getCore();
 
   // Fragmented row support; mark valid sites.
   visitDbRows(block, [&](odb::dbRow* db_row) {
@@ -136,49 +137,46 @@ void Grid::markHopeless(dbBlock* block,
   }
 }
 
-void Grid::markBlocked(dbBlock* block)
+void Grid::markBlocked(odb::dbBlock* block)
 {
-  const Rect core = getCore();
-  auto addBlockedLayers = [&](odb::Rect wire_rect, odb::dbTechLayer* tech_layer) {
-    if (tech_layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
-      return;
-    }
-    auto routing_level = tech_layer->getRoutingLevel();
-    if (routing_level <= 1 || routing_level > 3) {  // considering M2, M3
-      return;
-    }
-    if (wire_rect.getDir() == 1) {  // horizontal
-      return;
-    }
-    wire_rect.moveDelta(-core.xMin(), -core.yMin());
-    GridRect grid_rect = gridCovering(wire_rect);
-    GridRect core_rect{.xlo = GridX{0},
-                       .ylo = GridY{0},
-                       .xhi = GridX{row_site_count_},
-                       .yhi = GridY{row_count_}};
-    grid_rect = grid_rect.intersect(core_rect);
-    for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {
-      for (GridX x = grid_rect.xlo; x < grid_rect.xhi; x++) {
-        auto pixel1 = gridPixel(x, y);
-        if (pixel1) {
-          pixel1->blocked_layers |= 1 << routing_level;
-        }
-      }
-    }
-  };
+  const odb::Rect core = getCore();
+  auto addBlockedLayers
+      = [&](odb::Rect wire_rect, odb::dbTechLayer* tech_layer) {
+          if (tech_layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
+            return;
+          }
+          auto routing_level = tech_layer->getRoutingLevel();
+          if (routing_level <= 1 || routing_level > 3) {  // considering M2, M3
+            return;
+          }
+          if (wire_rect.getDir() == 1) {  // horizontal
+            return;
+          }
+          wire_rect.moveDelta(-core.xMin(), -core.yMin());
+          GridRect grid_rect = gridCovering(wire_rect);
+          GridRect core{.xlo = GridX{0},
+                        .ylo = GridY{0},
+                        .xhi = GridX{row_site_count_},
+                        .yhi = GridY{row_count_}};
+          grid_rect = grid_rect.intersect(core);
+          for (GridY y = grid_rect.ylo; y < grid_rect.yhi; y++) {
+            for (GridX x = grid_rect.xlo; x < grid_rect.xhi; x++) {
+              auto pixel1 = gridPixel(x, y);
+              if (pixel1) {
+                pixel1->blocked_layers |= 1 << routing_level;
+              }
+            }
+          }
+        };
 
   for (auto net : block->getNets()) {
     if (!net->isSpecial()) {
       continue;
     }
     for (odb::dbSWire* swire : net->getSWires()) {
-      for (odb::dbSBox* s : swire->getWires()) {
-        if (!s->isVia()) {
-          odb::Rect wire_rect = s->getBox();
-          odb::dbTechLayer* tech_layer = s->getTechLayer();
-          addBlockedLayers(wire_rect, tech_layer);
-        } else {
-          std::vector<odb::dbShape> via_boxes;
+      for (odb::dbSBox* sbox : swire->getWires()) {
+        if (sbox->isVia()) {
+std::vector<odb::dbShape> via_boxes;
           s->getViaBoxes(via_boxes);
 
           for (const odb::dbShape& box : via_boxes) {
@@ -226,18 +224,24 @@ void Grid::markBlocked(dbBlock* block)
                     }
                   }
                   }
-                }
-                }
-              }
-              }
-
-              for (odb::dbBlockage* blockage : block->getBlockages()) {
-              if (blockage->isSoft()) {
-                continue;
-              }
-              Rect bbox = blockage->getBBox()->getBox();
-              bbox.moveDelta(-core.xMin(), -core.yMin());
-              GridRect grid_rect = gridCovering(bbox);
+        }
+        if (sbox->getWireShapeType() == odb::dbWireShapeType::DRCFILL) {
+          // TODO: handle patches
+          continue;
+        }
+        odb::Rect wire_rect = sbox->getBox();
+        odb::dbTechLayer* tech_layer = sbox->getTechLayer();
+        addBlockedLayers(wire_rect, tech_layer);
+      }
+    }
+  }
+  for (odb::dbBlockage* blockage : block->getBlockages()) {
+    if (blockage->isSoft()) {
+      continue;
+    }
+    odb::Rect bbox = blockage->getBBox()->getBox();
+    bbox.moveDelta(-core.xMin(), -core.yMin());
+    GridRect grid_rect = gridCovering(bbox);
 
               // Clip to the core area
               GridRect core{.xlo = GridX{0},
@@ -256,7 +260,7 @@ void Grid::markBlocked(dbBlock* block)
 }
 
 void Grid::initGrid(dbDatabase* db,
-                    dbBlock* block,
+                    odb::dbBlock* block,
                     std::shared_ptr<Padding> padding,
                     int max_displacement_x,
                     int max_displacement_y)
@@ -270,11 +274,11 @@ void Grid::initGrid(dbDatabase* db,
   markBlocked(block);
 }
 
-std::pair<dbSite*, dbOrientType> Grid::getShortestSite(GridX grid_x,
-                                                       GridY grid_y)
+std::pair<dbSite*, odb::dbOrientType> Grid::getShortestSite(GridX grid_x,
+                                                            GridY grid_y)
 {
   dbSite* selected_site = nullptr;
-  dbOrientType selected_orient;
+  odb::dbOrientType selected_orient;
   DbuY min_height{std::numeric_limits<int>::max()};
 
   const RowSitesMap& sites_map = row_sites_[grid_y.v];
@@ -294,9 +298,9 @@ std::pair<dbSite*, dbOrientType> Grid::getShortestSite(GridX grid_x,
   return {selected_site, selected_orient};
 }
 
-std::optional<dbOrientType> Grid::getSiteOrientation(GridX x,
-                                                     GridY y,
-                                                     dbSite* site) const
+std::optional<odb::dbOrientType> Grid::getSiteOrientation(GridX x,
+                                                          GridY y,
+                                                          dbSite* site) const
 {
   const RowSitesMap& sites_map = row_sites_[y.v];
   auto interval_it = sites_map.find(x.v);
@@ -328,17 +332,17 @@ void Grid::visitCellPixels(
     bool padded,
     const std::function<void(Pixel* pixel, bool padded)>& visitor) const
 {
-  dbInst* inst = cell.getDbInst();
+  odb::dbInst* inst = cell.getDbInst();
   auto obstructions = inst->getMaster()->getObstructions();
   bool have_obstructions = false;
-  const Rect core = getCore();
+  const odb::Rect core = getCore();
 
   for (dbBox* obs : obstructions) {
     if (obs->getTechLayer()->getType()
         == odb::dbTechLayerType::Value::OVERLAP) {
       have_obstructions = true;
 
-      Rect rect = obs->getBox();
+      odb::Rect rect = obs->getBox();
       inst->getTransform().apply(rect);
       rect.moveDelta(-core.xMin(), -core.yMin());
       GridRect grid_rect = gridCovering(rect);
@@ -379,7 +383,7 @@ void Grid::visitCellBoundaryPixels(
         void(Pixel* pixel, odb::Direction2D edge, GridX x, GridY y)>& visitor)
     const
 {
-  dbInst* inst = cell.getDbInst();
+  odb::dbInst* inst = cell.getDbInst();
 
   auto visit = [&visitor, this](const GridX x_start,
                                 const GridX x_end,
@@ -410,13 +414,13 @@ void Grid::visitCellBoundaryPixels(
   dbMaster* master = inst->getMaster();
   auto obstructions = master->getObstructions();
   bool have_obstructions = false;
-  const Rect core = getCore();
+  const odb::Rect core = getCore();
   for (dbBox* obs : obstructions) {
     if (obs->getTechLayer()->getType()
         == odb::dbTechLayerType::Value::OVERLAP) {
       have_obstructions = true;
 
-      Rect rect = obs->getBox();
+      odb::Rect rect = obs->getBox();
       inst->getTransform().apply(rect);
       rect.moveDelta(-core.xMin(), -core.yMin());
 
@@ -561,7 +565,7 @@ GridX Grid::gridWidth(const Node* cell) const
 
 GridY Grid::gridHeight(odb::dbMaster* master) const
 {
-  Rect bbox;
+  odb::Rect bbox;
   master->getPlacementBoundary(bbox);
   if (uniform_row_height_) {
     DbuY row_height = uniform_row_height_.value();
@@ -618,7 +622,7 @@ GridY Grid::getRowCount(DbuY row_height) const
   return GridY{divFloor(core_.dy(), row_height.v)};
 }
 
-GridRect Grid::gridCovering(const Rect& rect) const
+GridRect Grid::gridCovering(const odb::Rect& rect) const
 {
   return {.xlo = gridX(DbuX{rect.xMin()}),
           .ylo = gridSnapDownY(DbuY{rect.yMin()}),
@@ -727,7 +731,7 @@ bool Grid::cellFitsInCore(Node* cell) const
          && cell->getHeight().v <= core_.dy();
 }
 
-void Grid::examineRows(dbBlock* block)
+void Grid::examineRows(odb::dbBlock* block)
 {
   block_ = block;
   has_hybrid_rows_ = false;

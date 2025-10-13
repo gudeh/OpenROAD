@@ -3,7 +3,12 @@
 
 #include "mainWindow.h"
 
+#include <QApplication>
 #include <QDesktopServices>
+#include <QDialog>
+#include <QPushButton>
+#include <QSize>
+#include <QWidget>
 #include <algorithm>
 #include <any>
 #include <exception>
@@ -40,6 +45,7 @@
 #include "displayControls.h"
 #include "drcWidget.h"
 #include "globalConnectDialog.h"
+#include "gui/gui.h"
 #include "gui/heatMap.h"
 #include "helpWidget.h"
 #include "highlightGroupDialog.h"
@@ -51,6 +57,7 @@
 #include "scriptWidget.h"
 #include "selectHighlightWindow.h"
 #include "sta/Liberty.hh"
+#include "sta/NetworkClass.hh"
 #include "staDescriptors.h"
 #include "staGui.h"
 #include "timingWidget.h"
@@ -1613,6 +1620,11 @@ void MainWindow::postReadLef(odb::dbTech* tech, odb::dbLib* library)
 void MainWindow::postReadDef(odb::dbBlock* block)
 {
   emit blockLoaded(block);
+}
+
+void MainWindow::postRead3Dbx(odb::dbChip* chip)
+{
+  // TODO: we are not ready to display chiplets yet
 }
 
 void MainWindow::postReadDb(odb::dbDatabase* db)

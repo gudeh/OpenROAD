@@ -112,20 +112,19 @@ using PointPair = std::pair<odb::Point, odb::Point>;
 class GlobalRouter
 {
  public:
-  GlobalRouter();
+  GlobalRouter(utl::Logger* logger,
+               utl::CallBackHandler* callback_handler,
+               stt::SteinerTreeBuilder* stt_builder,
+               odb::dbDatabase* db,
+               sta::dbSta* sta,
+               ant::AntennaChecker* antenna_checker,
+               dpl::Opendp* opendp);
   ~GlobalRouter();
 
-  void init(utl::Logger* logger,
-            utl::CallBackHandler* callback_handler,
-            stt::SteinerTreeBuilder* stt_builder,
-            odb::dbDatabase* db,
-            sta::dbSta* sta,
-            ant::AntennaChecker* antenna_checker,
-            dpl::Opendp* opendp,
-            std::unique_ptr<AbstractRoutingCongestionDataSource>
-                routing_congestion_data_source,
-            std::unique_ptr<AbstractRoutingCongestionDataSource>
-                routing_congestion_data_source_rudy);
+  void initGui(std::unique_ptr<AbstractRoutingCongestionDataSource>
+                   routing_congestion_data_source,
+               std::unique_ptr<AbstractRoutingCongestionDataSource>
+                   routing_congestion_data_source_rudy);
 
   void clear();
 
@@ -152,6 +151,7 @@ class GlobalRouter
   void setCongestionReportFile(const char* file_name);
   void setGridOrigin(int x, int y);
   void setAllowCongestion(bool allow_congestion);
+  void setResistanceAware(bool resistance_aware);
   void setMacroExtension(int macro_extension);
   void setUseCUGR(bool use_cugr) { use_cugr_ = use_cugr; };
 
@@ -485,6 +485,7 @@ class GlobalRouter
   int congestion_iterations_{50};
   int congestion_report_iter_step_;
   bool allow_congestion_;
+  bool resistance_aware_{false};
   std::vector<int> vertical_capacities_;
   std::vector<int> horizontal_capacities_;
   int macro_extension_;

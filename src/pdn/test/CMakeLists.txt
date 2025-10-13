@@ -4,6 +4,7 @@ or_integration_tests(
     add_double_global_connection
     asap7_failed_macro_covered
     asap7_failed_macro_grid
+    asap7_macro_covered_partial
     asap7_no_via_generate
     asap7_no_via_generate_v1_snapped
     asap7_offcenter_via
@@ -78,6 +79,7 @@ or_integration_tests(
     macros_cells_overlapping_ports
     macros_cells_via_failure
     macros_different_nets
+    macros_grid_check
     macros_grid_through
     macros_grid_through_without_middle
     macros_narrow_channel

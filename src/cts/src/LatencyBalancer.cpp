@@ -3,8 +3,12 @@
 
 #include "LatencyBalancer.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <map>
 #include <set>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,13 +18,22 @@
 #include "TreeBuilder.h"
 #include "cts/TritonCTS.h"
 #include "odb/db.h"
+#include "odb/dbSet.h"
+#include "odb/geom.h"
+#include "sta/Clock.hh"
+#include "sta/Delay.hh"
 #include "sta/Graph.hh"
 #include "sta/GraphDelayCalc.hh"
 #include "sta/Liberty.hh"
+#include "sta/NetworkClass.hh"
+#include "sta/Path.hh"
 #include "sta/PathAnalysisPt.hh"
 #include "sta/PathEnd.hh"
 #include "sta/PathExpanded.hh"
 #include "sta/Sdc.hh"
+#include "sta/TimingArc.hh"
+#include "sta/TimingModel.hh"
+#include "utl/Logger.h"
 
 namespace cts {
 
@@ -32,8 +45,6 @@ int LatencyBalancer::run()
                 33,
                 "Balancing latency for clock {}",
                 root_->getClock().getSdcName());
-  worseDelay_ = std::numeric_limits<float>::min();
-  delayBufIndex_ = 0;
   initSta();
   findLeafBuilders(root_);
   buildGraph(root_->getTopInputNet());
@@ -123,8 +134,8 @@ void LatencyBalancer::buildGraph(odb::dbNet* clkInputNet)
   }
   int builderSrcId = graph_.size();
   GraphNode builderSrcNode
-      = GraphNode(builderSrcId, rootSrcName, rootOutputITerm);
-  graph_.push_back(builderSrcNode);
+      = GraphNode(builderSrcId, std::move(rootSrcName), rootOutputITerm);
+  graph_.push_back(std::move(builderSrcNode));
 
   std::stack<int> visitNode;
   visitNode.push(builderSrcId);
@@ -151,7 +162,7 @@ void LatencyBalancer::buildGraph(odb::dbNet* clkInputNet)
         odb::dbInst* sinkInst = sinkIterm->getInst();
         std::string sinkName = sinkInst->getName();
         GraphNode sinkNode = GraphNode(sinkId, sinkName, sinkIterm);
-        graph_.push_back(sinkNode);
+        graph_.push_back(std::move(sinkNode));
         graph_[driverId].childrenIds.push_back(sinkId);
 
         if (inst2builder_.find(sinkName) != inst2builder_.end()) {
@@ -427,7 +438,7 @@ void LatencyBalancer::balanceLatencies(int nodeId)
     if (!previouBufToInsert) {
       previouBufToInsert = bufToInsert;
       sinksInput.clear();
-      sinksInput = children;
+      sinksInput = std::move(children);
       continue;
     }
 
@@ -436,7 +447,7 @@ void LatencyBalancer::balanceLatencies(int nodeId)
         = insertDelayBuffers(numBuffers, srcX, srcY, sinksInput);
 
     sinksInput.clear();
-    sinksInput = children;
+    sinksInput = std::move(children);
     sinksInput.push_back(delauBuffInput);
 
     previouBufToInsert = bufToInsert;

@@ -9,12 +9,15 @@
 #include <string>
 #include <vector>
 
+#include "dpl/Opendp.h"
+#include "odb/db.h"
+#include "odb/dbTypes.h"
 #include "odb/geom.h"
 
 namespace dpl {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-MasterEdge::MasterEdge(unsigned int type, const Rect& box)
+MasterEdge::MasterEdge(unsigned int type, const odb::Rect& box)
     : edge_type_idx_(type), bbox_(box)
 {
 }
@@ -23,7 +26,7 @@ unsigned int MasterEdge::getEdgeType() const
 {
   return edge_type_idx_;
 }
-const Rect& MasterEdge::getBBox() const
+const odb::Rect& MasterEdge::getBBox() const
 {
   return bbox_;
 }
@@ -38,7 +41,7 @@ const std::vector<MasterEdge>& Master::getEdges() const
 {
   return edges_;
 }
-Rect Master::getBBox() const
+odb::Rect Master::getBBox() const
 {
   return boundary_box_;
 }
@@ -62,7 +65,7 @@ void Master::clearEdges()
 {
   edges_.clear();
 }
-void Master::setBBox(const Rect box)
+void Master::setBBox(const odb::Rect box)
 {
   boundary_box_ = box;
 }
@@ -131,12 +134,12 @@ DbuY Node::getCenterY() const
 {
   return bottom_ + height_ / DbuY{2};
 }
-dbInst* Node::getDbInst() const
+odb::dbInst* Node::getDbInst() const
 {
   if (type_ != CELL) {
     return nullptr;
   }
-  return static_cast<dbInst*>(db_owner_);
+  return static_cast<odb::dbInst*>(db_owner_);
 }
 dbBTerm* Node::getBTerm() const
 {
@@ -145,7 +148,7 @@ dbBTerm* Node::getBTerm() const
   }
   return static_cast<dbBTerm*>(db_owner_);
 }
-dbOrientType Node::getOrient() const
+odb::dbOrientType Node::getOrient() const
 {
   return orient_;
 }
@@ -242,7 +245,7 @@ Group* Node::getGroup() const
 {
   return group_;
 }
-const Rect* Node::getRegion() const
+const odb::Rect* Node::getRegion() const
 {
   return region_;
 }
@@ -266,9 +269,10 @@ int Node::getGroupId() const
 {
   return group_id_;
 }
-Rect Node::getBBox() const
+odb::Rect Node::getBBox() const
 {
-  return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
+  return odb::Rect(
+      left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
 }
 uint8_t Node::getUsedLayers() const
 {
@@ -286,7 +290,7 @@ void Node::setFixed(bool in)
 {
   fixed_ = in;
 }
-void Node::setDbInst(dbInst* inst)
+void Node::setDbInst(odb::dbInst* inst)
 {
   db_owner_ = inst;
 }
@@ -320,7 +324,7 @@ void Node::setBottom(DbuY y)
   }
   bottom_ = y;
 }
-void Node::setOrient(const dbOrientType& in)
+void Node::setOrient(const odb::dbOrientType& in)
 {
   orient_ = in;
 }
@@ -364,7 +368,7 @@ void Node::setGroup(Group* in)
 {
   group_ = in;
 }
-void Node::setRegion(const Rect* in)
+void Node::setRegion(const odb::Rect* in)
 {
   region_ = in;
 }
@@ -384,8 +388,10 @@ void Node::addUsedLayer(int layer)
 {
   used_layers_ |= 1 << layer;
 }
-bool Node::adjustCurrOrient(const dbOrientType& newOri)
+bool Node::adjustCurrOrient(const odb::dbOrientType& newOri)
 {
+  using odb::dbOrientType;
+
   // Change the orientation of the cell, but leave the lower-left corner
   // alone.  This means changing the locations of pins and possibly
   // changing the edge types as well as the height and width.
@@ -497,7 +503,7 @@ std::string Group::getName() const
 {
   return name_;
 }
-const std::vector<Rect>& Group::getRects() const
+const std::vector<odb::Rect>& Group::getRects() const
 {
   return region_boundaries_;
 }
@@ -505,7 +511,7 @@ std::vector<Node*> Group::getCells() const
 {
   return cells_;
 }
-const Rect& Group::getBBox() const
+const odb::Rect& Group::getBBox() const
 {
   return boundary_;
 }
@@ -525,7 +531,7 @@ void Group::setName(const std::string& in)
 {
   name_ = in;
 }
-void Group::addRect(const Rect& in)
+void Group::addRect(const odb::Rect& in)
 {
   region_boundaries_.emplace_back(in);
 }
@@ -533,7 +539,7 @@ void Group::addCell(Node* cell)
 {
   cells_.emplace_back(cell);
 }
-void Group::setBoundary(const Rect& in)
+void Group::setBoundary(const odb::Rect& in)
 {
   boundary_ = in;
 }

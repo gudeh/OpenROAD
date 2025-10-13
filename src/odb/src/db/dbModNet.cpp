@@ -167,6 +167,24 @@ const char* dbModNet::getConstName() const
   return obj->_name;
 }
 
+std::string dbModNet::getHierarchicalName() const
+{
+  dbModule* parent = getParent();
+  if (parent == nullptr) {
+    return getName();
+  }
+
+  dbBlock* block = parent->getOwner();
+  if (parent == block->getTopModule()) {
+    return getName();
+  }
+
+  return fmt::format("{}{}{}",
+                     parent->getModInst()->getHierarchicalName(),
+                     block->getHierarchyDelimiter(),
+                     getName());
+}
+
 //
 // Support for renaming hierarchical nets
 //
@@ -282,6 +300,8 @@ dbModNet* dbModNet::getModNet(dbBlock* block, uint id)
 
 dbModNet* dbModNet::create(dbModule* parentModule, const char* base_name)
 {
+  assert(parentModule->getModNet(base_name) == nullptr);
+
   // give illusion of scoping.
   _dbModule* parent = (_dbModule*) parentModule;
   _dbBlock* block = (_dbBlock*) parent->getOwner();

@@ -161,12 +161,6 @@ void HierRTLMP::setSignatureNetThreshold(int signature_net_threshold)
   tree_->min_net_count_for_connection = signature_net_threshold;
 }
 
-void HierRTLMP::setPinAccessThreshold(float pin_access_th)
-{
-  pin_access_th_ = pin_access_th;
-  pin_access_th_orig_ = pin_access_th;
-}
-
 void HierRTLMP::setTargetUtil(float target_util)
 {
   target_util_ = target_util;
@@ -1478,8 +1472,6 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
         soft_macro_id_map[tree_->maps.id_to_cluster[cluster1]->getName()],
         soft_macro_id_map[tree_->maps.id_to_cluster[cluster2]->getName()],
         tree_->virtual_weight);
-    net.src_cluster_id = cluster1;
-    net.target_cluster_id = cluster2;
     nets.push_back(net);
   }
 
@@ -1500,8 +1492,6 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
       if (src_id > cluster_id) {
         BundledNet net(
             soft_macro_id_map[src_name], soft_macro_id_map[name], weight);
-        net.src_cluster_id = src_id;
-        net.target_cluster_id = cluster_id;
         nets.push_back(net);
       }
     }
@@ -2097,11 +2087,13 @@ void HierRTLMP::placeMacros(Cluster* cluster)
 
   const int number_of_sequence_pair_macros
       = static_cast<int>(hard_macros.size());
+  const int minimum_perturbations_per_step = num_perturb_per_step_ / 10;
+  const bool large_macro_cluster
+      = number_of_sequence_pair_macros > minimum_perturbations_per_step;
 
-  int num_perturb_per_step
-      = (number_of_sequence_pair_macros > num_perturb_per_step_ / 10)
-            ? number_of_sequence_pair_macros
-            : num_perturb_per_step_ / 10;
+  int perturbations_per_step = large_macro_cluster
+                                   ? number_of_sequence_pair_macros
+                                   : minimum_perturbations_per_step;
 
   SequencePair initial_seq_pair;
   if (cluster->isArrayOfInterconnectedMacros()) {
@@ -2114,8 +2106,8 @@ void HierRTLMP::placeMacros(Cluster* cluster)
     exchange_swap_prob = 1.0f;
 
     // Large arrays need more steps to properly converge.
-    if (number_of_sequence_pair_macros > num_perturb_per_step) {
-      num_perturb_per_step *= 2;
+    if (large_macro_cluster) {
+      perturbations_per_step *= 2;
     }
   }
 
@@ -2151,7 +2143,7 @@ void HierRTLMP::placeMacros(Cluster* cluster)
                                               exchange_swap_prob,
                                               init_prob_,
                                               max_num_step_,
-                                              num_perturb_per_step,
+                                              perturbations_per_step,
                                               random_seed_ + run_id,
                                               graphics_.get(),
                                               logger_,
@@ -2327,9 +2319,6 @@ std::vector<BundledNet> HierRTLMP::computeBundledNets(
     for (auto [cluster_id, weight] : macro_cluster->getConnectionsMap()) {
       BundledNet net(
           cluster_to_macro.at(src_id), cluster_to_macro.at(cluster_id), weight);
-
-      net.src_cluster_id = src_id;
-      net.target_cluster_id = cluster_id;
       nets.push_back(net);
     }
   }

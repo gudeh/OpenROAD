@@ -12,6 +12,7 @@
 
 #include "odb/array1.h"
 #include "odb/db.h"
+#include "odb/dbSet.h"
 #include "odb/dbShape.h"
 #include "odb/dbTypes.h"
 #include "odb/dbWireCodec.h"
@@ -62,12 +63,12 @@ void dbCreateNetUtil::setCurrentNet(dbNet* net)
   _currentNet = net;
 }
 
-dbInst* dbCreateNetUtil::createInst(dbInst* inst0)
+odb::dbInst* dbCreateNetUtil::createInst(odb::dbInst* inst0)
 {
   char instName[64];
   sprintf(instName, "N%d", inst0->getId());
 
-  dbInst* inst = dbInst::create(_block, inst0->getMaster(), instName);
+  odb::dbInst* inst = odb::dbInst::create(_block, inst0->getMaster(), instName);
   if (inst == nullptr) {
     return nullptr;
   }
@@ -80,7 +81,7 @@ dbInst* dbCreateNetUtil::createInst(dbInst* inst0)
   return inst;
 }
 
-void dbCreateNetUtil::setBlock(dbBlock* block, bool skipInit)
+void dbCreateNetUtil::setBlock(odb::dbBlock* block, bool skipInit)
 {
   _block = block;
   if (skipInit) {
@@ -218,7 +219,7 @@ dbTechLayerRule* dbCreateNetUtil::getRule(int routingLayer, int width)
   return rule;
 }
 
-dbTechVia* dbCreateNetUtil::getVia(int l1, int l2, Rect& bbox)
+dbTechVia* dbCreateNetUtil::getVia(int l1, int l2, odb::Rect& bbox)
 {
   int bot, top;
 
@@ -288,7 +289,7 @@ dbNet* dbCreateNetUtil::createNetSingleWire(const char* netName,
     return nullptr;
   }
 
-  Rect r(x1, y1, x2, y2);
+  odb::Rect r(x1, y1, x2, y2);
   int width;
   Point p0, p1;
 
@@ -297,7 +298,7 @@ dbNet* dbCreateNetUtil::createNetSingleWire(const char* netName,
 
     // This is dangerous!
     if (dx & 1) {
-      r = Rect(x1, y1, x2 + 1, y2);
+      r = odb::Rect(x1, y1, x2 + 1, y2);
       dx = r.dx();
     }
 
@@ -312,7 +313,7 @@ dbNet* dbCreateNetUtil::createNetSingleWire(const char* netName,
 
     // This is dangerous!
     if (dy & 1) {
-      r = Rect(x1, y1, x2, y2 + 1);
+      r = odb::Rect(x1, y1, x2, y2 + 1);
       dy = r.dy();
     }
 
@@ -395,7 +396,7 @@ dbNet* dbCreateNetUtil::createNetSingleWire(const char* netName,
   return net;
 }
 dbSBox* dbCreateNetUtil::createSpecialWire(dbNet* mainNet,
-                                           Rect& r,
+                                           odb::Rect& r,
                                            dbTechLayer* layer,
                                            uint /* unused: sboxId */)
 {
@@ -447,7 +448,7 @@ bool dbCreateNetUtil::setFirstShapeProperty(dbNet* net, uint prop)
   return true;
 }
 
-dbNet* dbCreateNetUtil::createNetSingleWire(Rect& r,
+dbNet* dbCreateNetUtil::createNetSingleWire(odb::Rect& r,
                                             uint level,
                                             uint netId,
                                             uint shapeId)
@@ -524,13 +525,13 @@ dbNet* dbCreateNetUtil::createNetSingleWire(const char* netName,
   }
 
   dbTechLayer* layer = _routingLayers[routingLayer];
-  Rect r(x1, y1, x2, y2);
+  odb::Rect r(x1, y1, x2, y2);
   uint dx = r.dx();
   uint dy = r.dy();
 
   // This is dangerous!
   if ((dx & 1) && (dy & 1)) {
-    r = Rect(x1, y1, x2, y2 + 1);
+    r = odb::Rect(x1, y1, x2, y2 + 1);
     dx = r.dx();
     dy = r.dy();
   }

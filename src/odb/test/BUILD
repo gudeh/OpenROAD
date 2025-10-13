@@ -1,13 +1,17 @@
+load("@openroad_rules_python//python:defs.bzl", "py_library", "py_test")
+
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2022-2025, The OpenROAD Authors
 load("//test:regression.bzl", "regression_test")
+
+package(features = ["layering_check"])
 
 py_library(
     name = "helper",
     srcs = [
         "helper.py",
     ],
-    imports = ["."]
+    imports = ["."],
 )
 
 py_library(
@@ -15,9 +19,8 @@ py_library(
     srcs = [
         "odbUnitTest.py",
     ],
-    imports = ["."]
+    imports = ["."],
 )
-
 
 py_test(
     name = "test_block",
@@ -25,11 +28,11 @@ py_test(
         "test_block.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -38,11 +41,11 @@ py_test(
         "test_bterm.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -51,11 +54,11 @@ py_test(
         "test_destroy.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -64,11 +67,11 @@ py_test(
         "test_group.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -77,11 +80,11 @@ py_test(
         "test_inst.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -90,11 +93,11 @@ py_test(
         "test_iterm.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -103,11 +106,11 @@ py_test(
         "test_module.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -116,11 +119,11 @@ py_test(
         "test_net.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
 
 py_test(
@@ -129,32 +132,18 @@ py_test(
         "test_wire_codec.py",
     ],
     deps = [
-        "//src/odb:odb_py",
-        "//openroad:openroadpy",
-        ":odbUnitTest",
         ":helper",
-    ]
+        ":odbUnitTest",
+        "//openroad:openroadpy",
+        "//src/odb:odb_py",
+    ],
 )
-
-PASSFAIL_TESTS = [
-    # FIXME not supported yet
-    # "cpp_tests",
-    "dump_netlists",
-    "dump_netlists_withfill",
-    "test_block",
-    "test_bterm",
-    "test_destroy",
-    "test_group",
-    "test_inst",
-    "test_iterm",
-    "test_module",
-    "test_net",
-    "test_wire_codec",
-]
 
 # From CMakeLists.txt or_integration_tests(TESTS
 COMPULSORY_TESTS = [
     "abstract_origin",
+    "all_pins_placed1",
+    "all_pins_placed2",
     "bterm_hier_create",
     "check_routing_tracks",
     "create_blockage",
@@ -188,6 +177,8 @@ COMPULSORY_TESTS = [
     "ndr",
     "polygon",
     "read_abstract_lef",
+    "read_3dbv",
+    "read_3dbx",
     "read_db",
     "read_def",
     "read_def58",
@@ -204,11 +195,15 @@ COMPULSORY_TESTS = [
     "smash_vias",
     "transform",
     "wire_encoder",
+    "write_cdl",
     "write_def58",
     "write_def58_gzip",
     "write_lef_and_def",
     "write_lef_polygon",
     "write_macro_placement",
+]
+
+PASSFAIL_TESTS = [
     # pass-fail
     "test_block",
     "test_bterm",
@@ -227,7 +222,14 @@ MANUAL_TESTS = [
     "odb_readme_msgs_check",
 ]
 
-ALL_TESTS = COMPULSORY_TESTS + MANUAL_TESTS
+# TODO: Enable once difference between bazel and ctest is resolved.
+MANUAL_FOR_BAZEL_TESTS = [
+    "dump_netlists",
+    "dump_netlists_withfill",
+    "replace_hier_mod1",
+]
+
+ALL_TESTS = COMPULSORY_TESTS + MANUAL_TESTS + PASSFAIL_TESTS
 
 filegroup(
     name = "regression_resources",
@@ -267,12 +269,12 @@ filegroup(
         "NangateOpenCellLibrary.cdl",
         "data/ICEWall/dummy_pads.lef",
         "data/ICEWall/octilinear.def",
-        "data/Nangate45/NangateOpenCellLibrary.mod.lef",
-        "data/Nangate45/OpenCellLibraryLicenseSi2.txt",
         "data/design.def",
         "data/design.def.gz",
         "data/design.odb",
         "data/design58.def",
+        "data/example.3dbv",
+        "data/example.3dbx",
         "data/floorplan_initialize.def",
         "data/floorplan_initialize.v",
         "data/floorplan_initialize2.def",
@@ -288,7 +290,6 @@ filegroup(
         "data/gscl45nm_polygon.lef",
         "data/lef58class_gscl45nm.lef",
         "data/mask.lef",
-        "data/nangate45_polygon_floorplan.def",
         "data/ndr.def",
         "data/parser_test.def",
         "data/rounding.def",
@@ -336,17 +337,26 @@ filegroup(
                 test_name + ".*",
             ],
         ) + {
-            "read_abstract_lef": [
-                "gcd_abstract_lef.lefok",
+            "all_pins_placed1": [
+                "floorplan_initialize3.def",
             ],
-            "replace_hier_mod4": [
-                "gcd_abstract_lef.lefok",
+            "all_pins_placed2": [
+                "design_is_routed1.def",
             ],
             "dump_netlists": [
                 "dump_netlists_cdl.ok",
             ],
             "dump_netlists_withfill": [
                 "dump_netlists_withfill_cdl.ok",
+            ],
+            "read_abstract_lef": [
+                "gcd_abstract_lef.lefok",
+            ],
+            "replace_hier_mod4": [
+                "gcd_abstract_lef.lefok",
+            ],
+            "write_cdl": [
+                "write_cdl_escaped.cdl",
             ],
         }.get(
             test_name,
@@ -359,8 +369,11 @@ filegroup(
 [
     regression_test(
         name = test_name,
+        check_log = False if test_name in PASSFAIL_TESTS else True,
+        check_passfail = True if test_name in PASSFAIL_TESTS else False,
         data = [":" + test_name + "_resources"],
-        tags = [] if test_name in COMPULSORY_TESTS else ["manual"],
+        tags = ["manual"] if test_name in MANUAL_TESTS or
+                             test_name in MANUAL_FOR_BAZEL_TESTS else [],
         visibility = ["//visibility:public"],
     )
     for test_name in ALL_TESTS

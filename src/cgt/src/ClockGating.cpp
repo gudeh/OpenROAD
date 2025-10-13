@@ -24,6 +24,7 @@
 #include "base/main/abcapis.h"
 #include "cut/abc_init.h"
 #include "cut/abc_library_factory.h"
+#include "cut/logic_cut.h"
 #include "cut/logic_extractor.h"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
@@ -62,16 +63,14 @@ extern void Abc_FrameSetLibGen(void* pLib);
 
 namespace cgt {
 
-ClockGating::ClockGating() = default;
+ClockGating::ClockGating(utl::Logger* const logger, sta::dbSta* const sta)
+    : logger_(logger),
+      sta_(sta),
+      abc_factory_(std::make_unique<cut::AbcLibraryFactory>(logger_))
+{
+}
 
 ClockGating::~ClockGating() = default;
-
-void ClockGating::init(utl::Logger* const logger, sta::dbSta* const sta)
-{
-  logger_ = logger;
-  sta_ = sta;
-  abc_factory_ = std::make_unique<cut::AbcLibraryFactory>(logger_);
-}
 
 // Dumps the given network as GraphViz.
 static void dumpGraphviz(sta::dbNetwork* const network,

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025, The OpenROAD Authors
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:tcl_encode_or.bzl", "tcl_encode")
 load("//bazel:tcl_wrap_cc.bzl", "tcl_wrap_cc")
 
@@ -142,10 +143,9 @@ cc_library(
 
 tcl_encode(
     name = "tcl",
-    srcs = [
+    srcs = ["//src/sta:tcl_scripts"] + [
         "src/dbReadVerilog.tcl",
         "src/dbSta.tcl",
-        "//src/sta:tcl_scripts",
     ],
     char_array_name = "dbSta_tcl_inits",
     namespace = "sta",

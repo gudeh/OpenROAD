@@ -86,7 +86,7 @@ static bool swapWidthHeight(const dbOrientType& orient)
   return false;
 }
 
-Rect Opendp::getBbox(dbInst* inst)
+Rect Opendp::getBbox(odb::dbInst* inst)
 {
   dbMaster* master = inst->getMaster();
 
@@ -106,7 +106,7 @@ Rect Opendp::getBbox(dbInst* inst)
 }
 void Opendp::createNetwork()
 {
-  dbBlock* block = db_->getChip()->getBlock();
+  odb::dbBlock* block = db_->getChip()->getBlock();
   network_->setCore(core_);
   ///////////////////////////////////
   auto min_row_height = std::numeric_limits<int>::max();
@@ -114,6 +114,7 @@ void Opendp::createNetwork()
     min_row_height = std::min(min_row_height, row->getSite()->getHeight());
   }
   ///////////////////////////////////
+  using odb::dbInst;
   auto block_insts = block->getInsts();
   std::vector<dbInst*> insts(block_insts.begin(), block_insts.end());
   std::stable_sort(insts.begin(), insts.end(), [](dbInst* a, dbInst* b) {
@@ -169,7 +170,7 @@ void Opendp::createNetwork()
 ////////////////////////////////////////////////////////////////
 void Opendp::createArchitecture()
 {
-  dbBlock* block = db_->getChip()->getBlock();
+  odb::dbBlock* block = db_->getChip()->getBlock();
 
   auto min_row_height = std::numeric_limits<int>::max();
   for (odb::dbRow* row : block->getRows()) {
@@ -272,7 +273,7 @@ void Opendp::createArchitecture()
 void Opendp::setUpPlacementGroups()
 {
   regions_rtree_.clear();
-  dbBlock* block = db_->getChip()->getBlock();
+  odb::dbBlock* block = db_->getChip()->getBlock();
   int count = 0;
   auto db_groups = block->getGroups();
   for (auto db_group : db_groups) {

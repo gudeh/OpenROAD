@@ -73,8 +73,8 @@ _installCommonDev() {
     cuddVersion=3.0.0
     lemonVersion=1.3.1
     spdlogVersion=1.15.0
-    gtestVersion=1.13.0
-    gtestChecksum="a1279c6fb5bf7d4a5e0d0b2a4adb39ac"
+    gtestVersion=1.17.0
+    gtestChecksum="3471f5011afc37b6555f6619c14169cf"
     abslVersion=20240722.0
     abslChecksum="740fb8f35ebdf82740c294bde408b9c0"
     bisonVersion=3.8.2
@@ -109,7 +109,31 @@ _installCommonDev() {
     fi
     if [ ${bisonInstalledVersion} != ${bisonVersion} ]; then
         cd "${baseDir}"
-        eval wget https://ftp.gnu.org/gnu/bison/bison-${bisonVersion}.tar.gz
+
+        mirrors=(
+            "https://ftp.gnu.org/gnu/bison"
+            "https://ftpmirror.gnu.org/bison"
+            "https://mirrors.kernel.org/gnu/bison"
+            "https://mirrors.dotsrc.org/gnu/bison"
+        )
+
+        success=0
+        for mirror in "${mirrors[@]}"; do
+            url="${mirror}/bison-${bisonVersion}.tar.gz"
+            echo "Trying to download bison from: $url"
+            if wget "$url"; then
+                success=1
+                break
+            else
+                echo "Failed to download from $mirror"
+            fi
+        done
+
+        if [ $success -ne 1 ]; then
+            echo "Error: could not download bison-${bisonVersion}.tar.gz from any mirror."
+            exit 1
+        fi
+
         md5sum -c <(echo "${bisonChecksum} bison-${bisonVersion}.tar.gz") || exit 1
         tar xf bison-${bisonVersion}.tar.gz
         cd bison-${bisonVersion}
@@ -322,6 +346,8 @@ _installOrTools() {
     os=$1
     osVersion=$2
     arch=$3
+    local skipSystemOrTools=$4
+
     orToolsVersionBig=9.11
     orToolsVersionSmall=${orToolsVersionBig}.4210
 
@@ -331,18 +357,20 @@ _installOrTools() {
     cd "${baseDir}"
 
     # Disable exit on error for 'find' command, as it might return non zero
-    set +euo pipefail
-    LIST=($(find /local* /opt* /lib* /usr* /bin* -type f -name "libortools.so*" 2>/dev/null))
-    # Bring back exit on error
-    set -euo pipefail
-    # Return if right version of or-tools is installed
-    for lib in ${LIST[@]}; do
-        if [[ "$lib" =~ .*"/libortools.so.${orToolsVersionSmall}" ]]; then
-            echo "OR-Tools is already installed"
-            CMAKE_PACKAGE_ROOT_ARGS+=" -D ortools_ROOT=$(realpath $(dirname $lib)/..) "
-            return
-        fi
-    done
+    if [[ "${skipSystemOrTools}" == "false" ]]; then
+      set +euo pipefail
+      LIST=($(find /local* /opt* /lib* /usr* /bin* -type f -name "libortools.so*" 2>/dev/null))
+      # Bring back exit on error
+      set -euo pipefail
+      # Return if right version of or-tools is installed
+      for lib in ${LIST[@]}; do
+          if [[ "$lib" =~ .*"/libortools.so.${orToolsVersionSmall}" ]]; then
+              echo "OR-Tools is already installed"
+              CMAKE_PACKAGE_ROOT_ARGS+=" -D ortools_ROOT=$(realpath $(dirname $lib)/..) "
+              return
+          fi
+      done
+    fi
 
     orToolsPath=${PREFIX:-"/opt/or-tools"}
     if [ "$(uname -m)" == "aarch64" ]; then
@@ -791,6 +819,11 @@ Usage: $0 -all
                                 #    like working around a firewall. This opens
                                 #    vulnerability to man-in-the-middle (MITM)
                                 #    attacks.
+       $0 -skip-system-or-tools
+                                # If true, does not perform a search of system
+                                # paths for a pre-installed or-tools library.
+                                # Instead, will install a separate version 
+                                # of or-tools
        $0 -save-deps-prefixes=FILE
                                 # Dumps OpenROAD build arguments and variables
                                 # to FILE
@@ -813,6 +846,7 @@ equivalenceDeps="no"
 CI="no"
 saveDepsPrefixes=""
 numThreads=$(nproc)
+skipSystemOrTools="false"
 # temp dir to download and compile
 baseDir=$(mktemp -d /tmp/DependencyInstaller-XXXXXX)
 
@@ -886,6 +920,9 @@ while [ "$#" -gt 0 ]; do
             alias wget="wget --no-check-certificate"
             export GIT_SSL_NO_VERIFY=true
             ;;
+        -skip-system-or-tools)
+            skipSystemOrTools="true"
+            ;;
         -save-deps-prefixes=*)
             saveDepsPrefixes=$(realpath ${1#*=})
             ;;
@@ -956,7 +993,7 @@ case "${os}" in
             else
                 ubuntuVersion=20.04
             fi
-            _installOrTools "ubuntu" "${ubuntuVersion}" "amd64"
+            _installOrTools "ubuntu" "${ubuntuVersion}" "amd64" ${skipSystemOrTools}
         fi
         ;;
     "Red Hat Enterprise Linux" | "Rocky Linux" | "AlmaLinux")
@@ -982,10 +1019,10 @@ case "${os}" in
         if [[ "${option}" == "common" || "${option}" == "all" ]]; then
             _installCommonDev
             if [[ "${rhelVersion}" == "8" ]]; then
-                    _installOrTools "AlmaLinux" "8.10" "x86_64"
+                    _installOrTools "AlmaLinux" "8.10" "x86_64" ${skipSystemOrTools}
             fi
             if [[ "${rhelVersion}" == "9" ]]; then
-                    _installOrTools "rockylinux" "9" "amd64"
+                    _installOrTools "rockylinux" "9" "amd64" ${skipSystemOrTools}
             fi
         fi
         ;;
@@ -1012,7 +1049,7 @@ EOF
         fi
         if [[ "${option}" == "common" || "${option}" == "all" ]]; then
             _installCommonDev
-            _installOrTools "opensuse" "leap" "amd64"
+            _installOrTools "opensuse" "leap" "amd64" ${skipSystemOrTools}
         fi
         cat <<EOF
 To enable GCC-11 you need to run:
@@ -1035,7 +1072,7 @@ EOF
         fi
         if [[ "${option}" == "common" || "${option}" == "all" ]]; then
             _installCommonDev
-            _installOrTools "debian" "${debianVersion}" "amd64"
+            _installOrTools "debian" "${debianVersion}" "amd64" ${skipSystemOrTools}
         fi
         ;;
     *)

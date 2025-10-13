@@ -20,6 +20,7 @@
 #include "OdbCallBack.h"
 #include "db_sta/SpefWriter.hh"
 #include "db_sta/dbNetwork.hh"
+#include "db_sta/dbSta.hh"
 #include "grt/GlobalRouter.h"
 #include "odb/db.h"
 #include "odb/dbSet.h"
@@ -28,10 +29,16 @@
 #include "sta/ArcDelayCalc.hh"
 #include "sta/Corner.hh"
 #include "sta/DcalcAnalysisPt.hh"
+#include "sta/Liberty.hh"
+#include "sta/MinMax.hh"
+#include "sta/NetworkClass.hh"
 #include "sta/Parasitics.hh"
 #include "sta/Report.hh"
 #include "sta/Sdc.hh"
+#include "sta/Transition.hh"
 #include "sta/Units.hh"
+#include "sta/Vector.hh"
+#include "stt/SteinerTreeBuilder.h"
 #include "utl/CallBackHandler.h"
 #include "utl/Logger.h"
 
@@ -47,36 +54,31 @@ using odb::dbInst;
 using odb::dbMasterType;
 using odb::dbModInst;
 
-EstimateParasitics::EstimateParasitics()
-    : estimate_parasitics_cbk_(
+EstimateParasitics::EstimateParasitics(Logger* logger,
+                                       utl::CallBackHandler* callback_handler,
+                                       dbDatabase* db,
+                                       dbSta* sta,
+                                       SteinerTreeBuilder* stt_builder,
+                                       GlobalRouter* global_router)
+    : logger_(logger),
+      estimate_parasitics_cbk_(
           std::make_unique<EstimateParasiticsCallBack>(this)),
+      stt_builder_(stt_builder),
+      global_router_(global_router),
+      db_network_(sta->getDbNetwork()),
+      db_(db),
+      db_cbk_(std::make_unique<OdbCallBack>(this, network_, db_network_)),
       wire_signal_res_(0.0),
       wire_signal_cap_(0.0),
       wire_clk_res_(0.0),
       wire_clk_cap_(0.0)
 {
+  estimate_parasitics_cbk_->setOwner(callback_handler);
+  dbStaState::init(sta);
+  db_cbk_ = std::make_unique<OdbCallBack>(this, network_, db_network_);
 }
 
 EstimateParasitics::~EstimateParasitics() = default;
-
-void EstimateParasitics::init(Logger* logger,
-                              utl::CallBackHandler* callback_handler,
-                              dbDatabase* db,
-                              dbSta* sta,
-                              SteinerTreeBuilder* stt_builder,
-                              GlobalRouter* global_router)
-{
-  logger_ = logger;
-  estimate_parasitics_cbk_->setOwner(callback_handler);
-  db_ = db;
-  block_ = nullptr;
-  dbStaState::init(sta);
-  stt_builder_ = stt_builder;
-  global_router_ = global_router;
-  incr_groute_ = nullptr;
-  db_network_ = sta->getDbNetwork();
-  db_cbk_ = std::make_unique<OdbCallBack>(this, network_, db_network_);
-}
 
 void EstimateParasitics::initSteinerRenderer(
     std::unique_ptr<est::AbstractSteinerRenderer> steiner_renderer)
@@ -320,7 +322,7 @@ double EstimateParasitics::wireClkVCapacitance(const Corner* corner) const
 
 ////////////////////////////////////////////////////////////////
 
-void EstimateParasitics::setDbCbkOwner(dbBlock* block)
+void EstimateParasitics::setDbCbkOwner(odb::dbBlock* block)
 {
   db_cbk_->addOwner(block);
 }
@@ -403,6 +405,12 @@ void EstimateParasitics::updateParasitics(bool save_guides)
         109,
         "updateParasitics() called with incremental parasitics disabled");
   }
+
+  // Call clearNetDrvrPinMap only without full blown ConcreteNetwork::clear()
+  // This is because netlist changes may invalidate cached net driver pin data
+  sta::LibertyLibrary* default_lib = network_->defaultLibertyLibrary();
+  network_->Network::clear();
+  network_->setDefaultLibertyLibrary(default_lib);
 
   switch (parasitics_src_) {
     case ParasiticsSrc::placement:
@@ -673,7 +681,7 @@ void EstimateParasitics::estimateWireParasiticSteiner(const Pin* drvr_pin,
       int branch_count = tree->branchCount();
       size_t resistor_id = 1;
       for (int i = 0; i < branch_count; i++) {
-        Point pt1, pt2;
+        odb::Point pt1, pt2;
         SteinerPt steiner_pt1, steiner_pt2;
         int wire_length_dbu;
         tree->branch(i, pt1, steiner_pt1, pt2, steiner_pt2, wire_length_dbu);
@@ -1091,7 +1099,7 @@ static void connectedPins(const Net* net,
     // hit moditerms/modbterms).
     //
     if (iterm || bterm) {
-      Point loc = db_network->location(pin);
+      odb::Point loc = db_network->location(pin);
       pins.push_back({pin, loc});
     }
   }
@@ -1099,8 +1107,8 @@ static void connectedPins(const Net* net,
 }
 
 SteinerTree* EstimateParasitics::makeSteinerTree(
-    Point drvr_location,
-    const std::vector<Point>& sink_locations)
+    odb::Point drvr_location,
+    const std::vector<odb::Point>& sink_locations)
 {
   SteinerTree* tree = new SteinerTree(drvr_location, logger_);
   sta::Vector<PinLoc>& pinlocs = tree->pinlocs();

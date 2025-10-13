@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025, The OpenROAD Authors
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:python_wrap_cc.bzl", "python_wrap_cc")
 load("//bazel:tcl_encode_or.bzl", "tcl_encode")
 load("//bazel:tcl_wrap_cc.bzl", "tcl_wrap_cc")
@@ -18,7 +19,6 @@ cc_library(
         "src/CtsObserver.h",
         "src/HTreeBuilder.h",
         "src/LatencyBalancer.h",
-        "src/LevelBalancer.h",
         "src/SinkClustering.h",
         "src/TreeBuilder.h",
         "src/Util.h",
@@ -40,7 +40,6 @@ cc_library(
         "src/CtsOptions.cpp",
         "src/HTreeBuilder.cpp",
         "src/LatencyBalancer.cpp",
-        "src/LevelBalancer.cpp",
         "src/SinkClustering.cpp",
         "src/TechChar.cpp",
         "src/TreeBuilder.cpp",

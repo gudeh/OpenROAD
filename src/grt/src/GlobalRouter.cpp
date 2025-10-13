@@ -46,6 +46,8 @@
 #include "odb/geom_boost.h"
 #include "odb/wOrder.h"
 #include "sta/Clock.hh"
+#include "sta/Delay.hh"
+#include "sta/Liberty.hh"
 #include "sta/MinMax.hh"
 #include "sta/Parasitics.hh"
 #include "sta/Set.hh"
@@ -59,11 +61,18 @@ namespace grt {
 using boost::icl::interval;
 using utl::GRT;
 
-GlobalRouter::GlobalRouter()
-    : logger_(nullptr),
-      stt_builder_(nullptr),
-      antenna_checker_(nullptr),
-      opendp_(nullptr),
+GlobalRouter::GlobalRouter(utl::Logger* logger,
+                           utl::CallBackHandler* callback_handler,
+                           stt::SteinerTreeBuilder* stt_builder,
+                           odb::dbDatabase* db,
+                           sta::dbSta* sta,
+                           ant::AntennaChecker* antenna_checker,
+                           dpl::Opendp* opendp)
+    : logger_(logger),
+      callback_handler_(callback_handler),
+      stt_builder_(stt_builder),
+      antenna_checker_(antenna_checker),
+      opendp_(opendp),
       fastroute_(nullptr),
       cugr_(nullptr),
       grid_origin_(0, 0),
@@ -80,8 +89,8 @@ GlobalRouter::GlobalRouter()
       seed_(0),
       caps_perturbation_percentage_(0),
       perturbation_amount_(1),
-      sta_(nullptr),
-      db_(nullptr),
+      sta_(sta),
+      db_(db),
       block_(nullptr),
       repair_antennas_(nullptr),
       rudy_(nullptr),
@@ -90,31 +99,16 @@ GlobalRouter::GlobalRouter()
       congestion_file_name_(nullptr),
       grouter_cbk_(nullptr)
 {
-}
-
-void GlobalRouter::init(utl::Logger* logger,
-                        utl::CallBackHandler* callback_handler,
-                        stt::SteinerTreeBuilder* stt_builder,
-                        odb::dbDatabase* db,
-                        sta::dbSta* sta,
-                        ant::AntennaChecker* antenna_checker,
-                        dpl::Opendp* opendp,
-                        std::unique_ptr<AbstractRoutingCongestionDataSource>
-                            routing_congestion_data_source,
-                        std::unique_ptr<AbstractRoutingCongestionDataSource>
-                            routing_congestion_data_source_rudy)
-{
-  logger_ = logger;
-  callback_handler_ = callback_handler;
-  stt_builder_ = stt_builder;
-  db_ = db;
-  stt_builder_ = stt_builder;
-  antenna_checker_ = antenna_checker;
-  opendp_ = opendp;
-  sta_ = sta;
   fastroute_
       = new FastRouteCore(db_, logger_, callback_handler_, stt_builder_, sta_);
   cugr_ = new CUGR(db_, logger_, stt_builder_);
+}
+
+void GlobalRouter::initGui(std::unique_ptr<AbstractRoutingCongestionDataSource>
+                               routing_congestion_data_source,
+                           std::unique_ptr<AbstractRoutingCongestionDataSource>
+                               routing_congestion_data_source_rudy)
+{
   heatmap_ = std::move(routing_congestion_data_source);
   heatmap_->registerHeatMap();
   heatmap_rudy_ = std::move(routing_congestion_data_source_rudy);
@@ -2064,6 +2058,11 @@ void GlobalRouter::setAllowCongestion(bool allow_congestion)
   allow_congestion_ = allow_congestion;
 }
 
+void GlobalRouter::setResistanceAware(bool resistance_aware)
+{
+  resistance_aware_ = resistance_aware;
+}
+
 void GlobalRouter::setMacroExtension(int macro_extension)
 {
   macro_extension_ = macro_extension;
@@ -2165,6 +2164,7 @@ void GlobalRouter::configFastRoute()
   fastroute_->setVerbose(verbose_);
   fastroute_->setOverflowIterations(congestion_iterations_);
   fastroute_->setCongestionReportIterStep(congestion_report_iter_step_);
+  fastroute_->setResistanceAware(resistance_aware_);
 
   if (congestion_file_name_ != nullptr) {
     fastroute_->setCongestionReportFile(congestion_file_name_);

@@ -20,10 +20,8 @@ class Logger;
 
 namespace rcx {
 
-using odb::dbBlock;
 using odb::dbBox;
 using odb::dbBTerm;
-using odb::dbInst;
 using odb::dbITerm;
 using odb::dbMatrix;
 using odb::dbNet;
@@ -36,7 +34,6 @@ using odb::dbTechLayerDir;
 using odb::dbTechLayerRule;
 using odb::dbTechNonDefaultRule;
 using odb::dbTechVia;
-using odb::Rect;
 
 //
 // This class creates a new net along with a wire.
@@ -47,8 +44,8 @@ class dbCreateNetUtil
   dbCreateNetUtil(utl::Logger* logger);
   ~dbCreateNetUtil();
 
-  void setBlock(dbBlock* block, bool skipInit = false);
-  dbBlock* getBlock() const { return _block; }
+  void setBlock(odb::dbBlock* block, bool skipInit = false);
+  odb::dbBlock* getBlock() const { return _block; }
   dbNet* createNetSingleWire(const char* name,
                              int x1,
                              int y1,
@@ -67,20 +64,23 @@ class dbCreateNetUtil
                              dbTechLayerDir dir,
                              bool skipBterms = false);
 
-  dbNet* createNetSingleWire(Rect& r, uint level, uint netId, uint shapeId);
+  dbNet* createNetSingleWire(odb::Rect& r,
+                             uint level,
+                             uint netId,
+                             uint shapeId);
   dbSBox* createSpecialWire(dbNet* mainNet,
-                            Rect& r,
+                            odb::Rect& r,
                             dbTechLayer* layer,
                             uint sboxId);
   void setCurrentNet(dbNet* net);
-  dbInst* createInst(dbInst* inst0);
+  odb::dbInst* createInst(odb::dbInst* inst0);
   std::vector<dbTechLayer*> getRoutingLayer() { return _routingLayers; };
 
  private:
   uint getFirstShape(dbNet* net, dbShape& s);
   bool setFirstShapeProperty(dbNet* net, uint prop);
   dbTechLayerRule* getRule(int routingLayer, int width);
-  dbTechVia* getVia(int l1, int l2, Rect& bbox);
+  dbTechVia* getVia(int l1, int l2, odb::Rect& bbox);
   std::pair<dbBTerm*, dbBTerm*> createTerms4SingleNet(dbNet* net,
                                                       int x1,
                                                       int y1,
@@ -90,7 +90,7 @@ class dbCreateNetUtil
 
   using RuleMap = std::map<int, dbTechLayerRule*>;
   dbTech* _tech;
-  dbBlock* _block;
+  odb::dbBlock* _block;
   std::vector<RuleMap> _rules;
   std::vector<dbTechLayer*> _routingLayers;
   int _ruleNameHint;

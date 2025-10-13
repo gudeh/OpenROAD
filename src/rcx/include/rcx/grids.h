@@ -11,6 +11,7 @@
 #include "odb/array1.h"
 #include "odb/db.h"
 #include "odb/geom.h"
+#include "odb/util.h"
 #include "rcx/box.h"
 #include "rcx/extRCap.h"
 #include "rcx/rcx.h"
@@ -19,10 +20,8 @@ namespace rcx {
 
 using odb::Ath__array1D;
 using odb::AthPool;
-using odb::dbBlock;
 using odb::dbBox;
 using odb::dbNet;
-using odb::Rect;
 
 enum OverlapAdjust
 {
@@ -489,7 +488,7 @@ class GridTable
                               bool startSearchTrack,
                               int startXY);
 
-  void setExtControl_v2(dbBlock* block,
+  void setExtControl_v2(odb::dbBlock* block,
                         bool useDbSdb,
                         uint adj,
                         uint npsrc,
@@ -513,7 +512,7 @@ class GridTable
                         AthPool<SEQ>* seqPool);
 
   // -------------------------------------------------------------
-  GridTable(Rect* bb,
+  GridTable(odb::Rect* bb,
             uint rowCnt,
             uint colCnt,
             uint* pitch,
@@ -613,7 +612,7 @@ class GridTable
   void setNoPowerTarget(uint npt) { _noPowerTarget = npt; };
   void incrCCshorts() { _CCshorts++; };
 
-  void setExtControl(dbBlock* block,
+  void setExtControl(odb::dbBlock* block,
                      bool useDbSdb,
                      uint adj,
                      uint npsrc,
@@ -641,8 +640,8 @@ class GridTable
   void incrMultiTrackWireCnt(bool isPower);
   void adjustOverlapMakerEnd();
   void dumpTrackCounts(FILE* fp);
-  dbBlock* getBlock() { return _block; };
-  void setBlock(dbBlock* block) { _block = block; };
+  odb::dbBlock* getBlock() { return _block; };
+  void setBlock(odb::dbBlock* block) { _block = block; };
 
   int couplingCaps(int hiXY,
                    uint couplingDist,
@@ -680,7 +679,7 @@ class GridTable
   Box _bbox;
   Box _maxSearchBox;
   bool _setMaxArea;
-  Rect _rectBB;
+  odb::Rect _rectBB;
   uint _rowCnt;
   uint _colCnt;
   uint _rowSize;
@@ -723,7 +722,7 @@ class GridTable
   int* _dgContextHiTrack;     // array
   int** _dgContextTrackBase;  // array
 
-  dbBlock* _block;
+  odb::dbBlock* _block;
 
   uint _wireCnt;
 
