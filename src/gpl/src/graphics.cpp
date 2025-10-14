@@ -69,31 +69,32 @@ Graphics::Graphics(utl::Logger* logger,
   chart_->setYAxisMin({std::nullopt, 0});
 
   // Useful for debugging multiple NesterovBase: Density penalty and PhiCoef
-  // if (!nbVec_.empty()) {
-  //   std::vector<std::string> series_names;
-  //   series_names.reserve(nbVec_.size());
-  //   for (size_t i = 0; i < nbVec_.size(); ++i) {
-  //     std::string name;
-  //     if (nbVec_[i] && nbVec_[i]->getPb() && nbVec_[i]->getPb()->group()) {
-  //       name = fmt::format("nb[{}] {}", i,
-  //       nbVec_[i]->getPb()->group()->getName());
-  //     } else {
-  //       name = fmt::format("nb[{}]", i);
-  //     }
-  //     series_names.push_back(name);
-  //   }
-  //   density_chart_ = gui->addChart("GPL Density Penalty", "Iteration",
-  //   series_names); density_chart_->setXAxisFormat("%d");
-  //   std::vector<std::string> y_formats(nbVec_.size(), "%.3f");
-  //   density_chart_->setYAxisFormats(y_formats);
-  //   std::vector<std::optional<double>> y_mins(nbVec_.size(), 0.0);
-  //   density_chart_->setYAxisMin(y_mins);
+  if (!nbVec_.empty()) {
+    std::vector<std::string> series_names;
+    series_names.reserve(nbVec_.size());
+    for (size_t i = 0; i < nbVec_.size(); ++i) {
+      std::string name;
+      if (nbVec_[i] && nbVec_[i]->getPb() && nbVec_[i]->getPb()->group()) {
+        name = fmt::format(
+            "nb[{}] {}", i, nbVec_[i]->getPb()->group()->getName());
+      } else {
+        name = fmt::format("nb[{}]", i);
+      }
+      series_names.push_back(name);
+    }
+    density_chart_
+        = gui->addChart("GPL Density Penalty", "Iteration", series_names);
+    density_chart_->setXAxisFormat("%d");
+    std::vector<std::string> y_formats(nbVec_.size(), "%.3f");
+    density_chart_->setYAxisFormats(y_formats);
+    std::vector<std::optional<double>> y_mins(nbVec_.size(), 0.0);
+    density_chart_->setYAxisMin(y_mins);
 
-  //   phi_chart_ = gui->addChart("GPL Density Penalty", "Iteration",
-  //   series_names); phi_chart_->setXAxisFormat("%d");
-  //   phi_chart_->setYAxisFormats(y_formats);
-  //   phi_chart_->setYAxisMin(y_mins);
-  // }
+    phi_chart_ = gui->addChart("GPL PhiCoef", "Iteration", series_names);
+    phi_chart_->setXAxisFormat("%d");
+    phi_chart_->setYAxisFormats(y_formats);
+    phi_chart_->setYAxisMin(y_mins);
+  }
 
   initHeatmap();
   if (db_inst) {
@@ -505,26 +506,26 @@ void Graphics::addIter(const int iter, const double overflow)
   odb::dbBlock* block = pbc_->db()->getChip()->getBlock();
   chart_->addPoint(iter, {block->dbuToMicrons(nbc_->getHpwl()), overflow});
 
-  // // Add density penalties snapshot for each NesterovBase
-  // if (density_chart_) {
-  //   std::vector<double> penalties;
-  //   penalties.reserve(nbVec_.size());
-  //   for (const auto& nb : nbVec_) {
-  //     double penalty = nb ? static_cast<double>(nb->getDensityPenalty()) :
-  //     0.0; penalties.push_back(penalty);
-  //   }
-  //   density_chart_->addPoint(iter, penalties);
-  // }
+  // Add density penalties snapshot for each NesterovBase
+  if (density_chart_) {
+    std::vector<double> penalties;
+    penalties.reserve(nbVec_.size());
+    for (const auto& nb : nbVec_) {
+      double penalty = nb ? static_cast<double>(nb->getDensityPenalty()) : 0.0;
+      penalties.push_back(penalty);
+    }
+    density_chart_->addPoint(iter, penalties);
+  }
 
-  // if (phi_chart_) {
-  //   std::vector<double> coefs;
-  //   coefs.reserve(nbVec_.size());
-  //   for (const auto& nb : nbVec_) {
-  //     double coef = nb ? static_cast<double>(nb->getStoredPhiCoef()) : 0.0;
-  //     coefs.push_back(coef);
-  //   }
-  //   phi_chart_->addPoint(iter, coefs);
-  // }
+  if (phi_chart_) {
+    std::vector<double> coefs;
+    coefs.reserve(nbVec_.size());
+    for (const auto& nb : nbVec_) {
+      double coef = nb ? static_cast<double>(nb->getStoredPhiCoef()) : 0.0;
+      coefs.push_back(coef);
+    }
+    phi_chart_->addPoint(iter, coefs);
+  }
 }
 
 void Graphics::addTimingDrivenIter(const int iter)

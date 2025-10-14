@@ -756,9 +756,9 @@ class NesterovPlaceVars
  public:
   int maxNesterovIter = 5000;
   int maxBackTrack = 10;
-  float initDensityPenalty = 0.00008;  // INIT_LAMBDA
-  float initWireLengthCoef = 0.25;     // base_wcof
-  float targetOverflow = 0.1;          // overflow                  // pcof_max
+  float initDensityPenalty = 0.00008;       // INIT_LAMBDA
+  float initWireLengthCoef = 0.25;          // base_wcof
+  float targetOverflow = 0.1;               // overflow
   float minPreconditioner = 1.0;            // MIN_PRE
   float initialPrevCoordiUpdateCoef = 100;  // z_ref_alpha
   float referenceHpwl = 446000000;          // refDeltaHpwl
@@ -1076,8 +1076,6 @@ class NesterovBase
   void nesterovUpdateCoordinates(float coeff);
   bool nesterovUpdateStepLength();
   void nesterovAdjustPhi();
-  // void setMinPhiCoef(float minPhiCoef) { minPhiCoef_ = minPhiCoef; }
-  // void setMaxPhiCoef(float maxPhiCoef) { maxPhiCoef_ = maxPhiCoef; }
 
   void resetMinSumOverflow();
 
