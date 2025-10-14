@@ -978,6 +978,9 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
   cleanReportsDirs(timing_driven_dir, routability_driven_dir);
 
   // Core Nesterov Loop
+  std::ofstream penalty_csv_file("penalty_data.csv", std::ios::out);
+  penalty_csv_file << "iter,phiCoef,hpwl,prev_hpwl, abs diff hpwl, referenceHpwl, density_penalty, region\n";
+  penalty_csv_file.close();
   int nesterov_iter = start_iter;
   for (; nesterov_iter < npVars_.maxNesterovIter; nesterov_iter++) {
     const float prevA = curA;

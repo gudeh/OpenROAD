@@ -1057,6 +1057,7 @@ class NesterovBase
   void updateNextIter(int iter);
   void setTrueReprintIterHeader() { reprint_iter_header_ = true; }
   float getPhiCoef(float scaledDiffHpwl) const;
+  float phiCoef_;
 
   bool checkConvergence(int gpl_iter_count,
                         int routability_gpl_iter_count,

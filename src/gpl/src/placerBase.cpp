@@ -991,6 +991,15 @@ PlacerBase::~PlacerBase()
 void PlacerBase::init()
 {
   die_ = pbCommon_->getDie();
+  if(group_ != nullptr) {
+    region_area_ = 0;
+    auto boundaries = group_->getRegion()->getBoundaries();
+    for (auto boundary : boundaries) {
+      region_area_ += boundary->getBox().area();
+    }
+  } else {
+    region_area_ = die_.coreArea();
+  }
 
   // siteSize update
   siteSizeX_ = pbCommon_->siteSizeX();
@@ -1292,16 +1301,34 @@ void PlacerBase::printInfo() const
              block->dbuToMicrons(die_.coreLy()),
              block->dbuToMicrons(die_.coreUx()),
              block->dbuToMicrons(die_.coreUy()));
+  int64_t region_area; 
+  if (group_ != nullptr) {
+    region_area = 0;
+    auto boundaries = group_->getRegion()->getBoundaries();
+    for (auto boundary : boundaries) {
+      region_area += boundary->getBox().area();
+    }
+  } else {
+    region_area = die_.coreArea();
+  }
 
-  const int64_t coreArea = die_.coreArea();
   float util = static_cast<float>(placeInstsArea_)
-               / (coreArea - nonPlaceInstsArea_) * 100;
+               / (region_area - nonPlaceInstsArea_) * 100;
 
   log_->info(GPL,
              16,
              format_label_um2,
              "Core area:",
-             block->dbuAreaToMicrons(coreArea));
+             block->dbuAreaToMicrons(die_.coreArea()));
+  log_->info(GPL,
+          14,
+          "Region name: {}.",
+          (group_ != nullptr) ? group_->getName() : "top-level");
+  log_->info(GPL,
+          15,
+          format_label_um2,
+          "Region area:",
+          block->dbuAreaToMicrons(region_area_));
   log_->info(GPL,
              17,
              format_label_um2,

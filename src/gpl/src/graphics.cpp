@@ -87,6 +87,13 @@ Graphics::Graphics(utl::Logger* logger,
     density_chart_->setYAxisFormats(y_formats);
     std::vector<std::optional<double>> y_mins(nbVec_.size(), 0.0);
     density_chart_->setYAxisMin(y_mins);
+
+    phi_chart_ = gui->addChart("GPL Density Penalty", "Iteration", series_names);
+    phi_chart_->setXAxisFormat("%d");
+    // std::vector<std::string> y_formats(nbVec_.size(), "%.3f");
+    phi_chart_->setYAxisFormats(y_formats);
+    // std::vector<std::optional<double>> y_mins(nbVec_.size(), 0.0);
+    phi_chart_->setYAxisMin(y_mins);
   }
 
 
@@ -522,9 +529,20 @@ void Graphics::addIter(const int iter, const double overflow)
       penalties.push_back(penalty);
     }
     density_chart_->addPoint(iter, penalties);
-
-    // Log the penalties
     // logger_->report("Iteration {}: Density penalties: {}", iter, penalties);
+  }
+
+  if (phi_chart_) {
+    std::vector<double> coefs;
+    coefs.reserve(nbVec_.size());
+    for (const auto& nb : nbVec_) {
+      double coef = nb ? static_cast<double>(nb->phiCoef_) : 0.0;
+      coefs.push_back(coef);
+    }
+    for(auto coef : coefs) {
+      logger_->report("Iteration {}: Phi coefs: {}", iter, coef);
+    }
+    phi_chart_->addPoint(iter, coefs);
   }
 }
 

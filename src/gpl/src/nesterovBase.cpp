@@ -1838,16 +1838,7 @@ void NesterovBase::initFillerGCells()
   fillerDx_ = static_cast<int>(dxSum / (maxIdx - minIdx));
   fillerDy_ = static_cast<int>(dySum / (maxIdx - minIdx));
 
-  // int64_t coreArea = pb_->getDie().coreArea();
-  int64_t region_area = 0;
-  if (pb_->group()) {
-    auto boundaries = pb_->group()->getRegion()->getBoundaries();
-    for (auto boundary : boundaries) {
-      region_area += boundary->getBox().area();
-    }
-  } else {
-    region_area = pb_->getDie().coreArea();
-  }
+  int64_t region_area = pb_->getRegionArea();
   whiteSpaceArea_ = region_area - static_cast<int64_t>(pb_->nonPlaceInstsArea());
 
   // if(pb_->group() == nullptr) {
@@ -2683,6 +2674,15 @@ float NesterovBase::getPhiCoef(float scaledDiffHpwl) const
   debugPrint(
       log_, GPL, "getPhiCoef", 1, "InputScaleDiffHPWL: {:g}", scaledDiffHpwl);
 
+  // float retCoef;
+  // if (scaledDiffHpwl <= 0) {
+  //   retCoef = npVars_->maxPhiCoef;
+  //   log_->report("getPhiCoef: scaledDiffHpwl ({:g}) <= 0, using maxPhiCoef: {:g}", scaledDiffHpwl, retCoef);
+  // } else {
+  //   retCoef = npVars_->maxPhiCoef * pow(npVars_->maxPhiCoef, 1-scaledDiffHpwl);
+  //   log_->report("getPhiCoef: scaledDiffHpwl ({:g}) > 0, computed retCoef: {:g}", scaledDiffHpwl, retCoef);
+  // }
+
   float retCoef = (scaledDiffHpwl < 0)
                       ? npVars_->maxPhiCoef
                       : npVars_->maxPhiCoef
@@ -2737,9 +2737,7 @@ void NesterovBase::updateNextIter(const int iter)
   sum_overflow_ = getOverflowArea() / overflowDenominator;
   sum_overflow_unscaled_ = getOverflowAreaUnscaled() / overflowDenominator;
 
-  int64_t hpwl = nbc_->getHpwl();
-  float phiCoef = getPhiCoef(static_cast<float>(hpwl - prev_hpwl_)
-                             / npVars_->referenceHpwl);
+  int64_t hpwl = nbc_->getHpwl();                           
 
   float hpwl_percent_change = 0.0;
   if (iter == 0 || (iter) % 10 == 0) {
@@ -2787,6 +2785,9 @@ void NesterovBase::updateNextIter(const int iter)
                  group_name);
   }
 
+  float phiCoef = getPhiCoef(static_cast<float>(hpwl - prev_hpwl_)
+                            / npVars_->referenceHpwl);
+  phiCoef_ = phiCoef;
   debugPrint(log_, GPL, "updateNextIter", 1, "PreviousHPWL: {}", prev_hpwl_);
   debugPrint(log_, GPL, "updateNextIter", 1, "NewHPWL: {}", hpwl);
   debugPrint(log_, GPL, "updateNextIter", 1, "PhiCoef: {:g}", phiCoef);
@@ -2799,11 +2800,22 @@ void NesterovBase::updateNextIter(const int iter)
   debugPrint(log_, GPL, "updateNextIter", 1, "Phi: {:g}", getSumPhi());
   debugPrint(
       log_, GPL, "updateNextIter", 1, "Overflow: {:g}", sum_overflow_unscaled_);
+  
+  densityPenalty_ *= phiCoef;
+
+  // Write penalty data to CSV
+  std::string penalty_csv_filename = "penalty_data.csv";
+  std::ofstream penalty_csv_file(penalty_csv_filename, std::ios::app);
+  
+  if (penalty_csv_file.is_open()) {
+    std::string group_name = pb_->group() ? pb_->group()->getName() : "default";
+    penalty_csv_file << iter << "," << phiCoef << "," << hpwl << "," 
+             << prev_hpwl_ <<"," << (hpwl - prev_hpwl_)<< "," << npVars_->referenceHpwl << "," 
+             << densityPenalty_ << "," << group_name << "\n";
+    penalty_csv_file.close();
+  }
 
   prev_hpwl_ = hpwl;
-  densityPenalty_ *= phiCoef;
-  // debugPrint(log_, GPL, "penalty", 1, "PhiCoef        : {:g}", phiCoef);
-  // debugPrint(log_, GPL, "penalty", 1, "densityPenalty_: {:g}", densityPenalty_);
 
   if (iter > 50 && minSumOverflow_ > sum_overflow_unscaled_) {
     minSumOverflow_ = sum_overflow_unscaled_;
@@ -2879,9 +2891,9 @@ void NesterovBase::nesterovAdjustPhi()
     return;
   }
 
-  // dynamic adjustment for
-  // better convergence with
-  // large designs
+  // // dynamic adjustment for
+  // // better convergence with
+  // // large designs
   if (!isMaxPhiCoefChanged_ && sum_overflow_unscaled_ < 0.35f) {
     isMaxPhiCoefChanged_ = true;
     npVars_->maxPhiCoef *= 0.99;

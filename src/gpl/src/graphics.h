@@ -143,6 +143,7 @@ class Graphics : public gui::Renderer, public gui::HeatMapDataSource
   Mode mode_;
   gui::Chart* chart_{nullptr};
   gui::Chart* density_chart_{nullptr};
+  gui::Chart* phi_chart_{nullptr};
 
   void initHeatmap();
   void drawNesterov(gui::Painter& painter);
