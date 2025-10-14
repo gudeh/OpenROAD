@@ -2651,10 +2651,10 @@ float NesterovBase::getPhiCoef(float scaledDiffHpwl) const
       log_, GPL, "getPhiCoef", 1, "InputScaleDiffHPWL: {:g}", scaledDiffHpwl);
 
   float retCoef = (scaledDiffHpwl < 0)
-                      ? npVars_->maxPhiCoef
-                      : npVars_->maxPhiCoef
-                            * pow(npVars_->maxPhiCoef, scaledDiffHpwl * -1.0);
-  retCoef = std::max(npVars_->minPhiCoef, retCoef);
+                      ? nbVars_.maxPhiCoef
+                      : nbVars_.maxPhiCoef
+                            * pow(nbVars_.maxPhiCoef, scaledDiffHpwl * -1.0);
+  retCoef = std::max(nbVars_.minPhiCoef, retCoef);
   return retCoef;
 }
 
@@ -2848,9 +2848,13 @@ void NesterovBase::nesterovAdjustPhi()
   // dynamic adjustment for
   // better convergence with
   // large designs
-  if (!isMaxPhiCoefChanged_ && sum_overflow_unscaled_ < 0.35f) {
-    isMaxPhiCoefChanged_ = true;
-    npVars_->maxPhiCoef *= 0.99;
+  if (!nbVars_.isMaxPhiCoefChanged && sum_overflow_unscaled_ < 0.35f) {
+    nbVars_.isMaxPhiCoefChanged = true;
+    nbVars_.maxPhiCoef *= 0.99;
+  }
+  // keep maxPhiCoef > 1.0, avoid decreasing densityPenalty
+  if (nbVars_.maxPhiCoef <= 1.0f) {
+    nbVars_.maxPhiCoef = std::max(nbVars_.maxPhiCoef, 1.01f);
   }
 }
 

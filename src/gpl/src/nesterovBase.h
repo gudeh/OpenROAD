@@ -744,6 +744,10 @@ class NesterovBaseVars
   bool isSetBinCnt = false;
   bool useUniformTargetDensity = false;
 
+  float minPhiCoef = 0.95;  // pcof_min
+  float maxPhiCoef = 1.05;  // pcof_max
+  bool isMaxPhiCoefChanged = false;
+
   void reset();
 };
 
@@ -752,11 +756,9 @@ class NesterovPlaceVars
  public:
   int maxNesterovIter = 5000;
   int maxBackTrack = 10;
-  float initDensityPenalty = 0.00008;       // INIT_LAMBDA
-  float initWireLengthCoef = 0.25;          // base_wcof
-  float targetOverflow = 0.1;               // overflow
-  float minPhiCoef = 0.95;                  // pcof_min
-  float maxPhiCoef = 1.05;                  // pcof_max
+  float initDensityPenalty = 0.00008;  // INIT_LAMBDA
+  float initWireLengthCoef = 0.25;     // base_wcof
+  float targetOverflow = 0.1;          // overflow                  // pcof_max
   float minPreconditioner = 1.0;            // MIN_PRE
   float initialPrevCoordiUpdateCoef = 100;  // z_ref_alpha
   float referenceHpwl = 446000000;          // refDeltaHpwl
@@ -1019,7 +1021,7 @@ class NesterovBase
   void setIter(int iter) { iter_ = iter; }
   void setMaxPhiCoefChanged(bool maxPhiCoefChanged)
   {
-    isMaxPhiCoefChanged_ = maxPhiCoefChanged;
+    nbVars_.isMaxPhiCoefChanged = maxPhiCoefChanged;
   }
 
   void updateGradients(std::vector<FloatPoint>& sumGrads,
@@ -1074,6 +1076,8 @@ class NesterovBase
   void nesterovUpdateCoordinates(float coeff);
   bool nesterovUpdateStepLength();
   void nesterovAdjustPhi();
+  // void setMinPhiCoef(float minPhiCoef) { minPhiCoef_ = minPhiCoef; }
+  // void setMaxPhiCoef(float maxPhiCoef) { maxPhiCoef_ = maxPhiCoef; }
 
   void resetMinSumOverflow();
 
@@ -1225,8 +1229,6 @@ class NesterovBase
   bool isDiverged_ = false;
 
   NesterovPlaceVars* npVars_ = nullptr;
-
-  bool isMaxPhiCoefChanged_ = false;
 
   float minSumOverflow_ = 1e30;
   float hpwlWithMinSumOverflow_ = 1e30;
