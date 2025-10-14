@@ -981,7 +981,7 @@ PlacerBase::PlacerBase(odb::dbDatabase* db,
   log_->info(GPL,
              32,
              "Initializing region: {}",
-             (group_ == nullptr) ? "No region" : group_->getName());
+             (group_ == nullptr) ? "Top-level" : group_->getName());
   init();
 }
 
