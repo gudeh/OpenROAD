@@ -106,7 +106,7 @@ Graphics::Graphics(utl::Logger* logger,
       }
     }
 
-    for (auto nb : nbVec_) {
+    for (const auto& nb : nbVec_) {
       for (size_t idx = 0; idx < nb->getGCells().size(); ++idx) {
         GCellHandle cell_handle = nb->getGCells()[idx];
         if (cell_handle->contains(db_inst)) {
