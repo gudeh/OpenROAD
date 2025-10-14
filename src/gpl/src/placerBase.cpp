@@ -1224,7 +1224,6 @@ void PlacerBase::initInstsForUnusableSites()
       }
     }
   }
-
 }
 
 void PlacerBase::reset()
