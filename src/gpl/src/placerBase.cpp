@@ -1225,30 +1225,6 @@ void PlacerBase::initInstsForUnusableSites()
     }
   }
 
-  //
-  // Search the "Blocked" coordinates on site-grid
-  // --> These sites need to be dummyInstance
-  //
-  // if(group_==nullptr) {
-  //   for (int j = 0; j < siteCountY; j++) {
-  //     for (int i = 0; i < siteCountX; i++) {
-  //       // if Blocked spot found
-  //       if (siteGrid[j * siteCountX + i] == Blocked) {
-  //         int startX = i;
-  //         // find end points
-  //         while (i < siteCountX && siteGrid[j * siteCountX + i] == Blocked) {
-  //           i++;
-  //         }
-  //         int endX = i;
-  //         Instance dummy(die_.coreLx() + siteSizeX_ * startX,
-  //                         die_.coreLy() + siteSizeY_ * j,
-  //                         die_.coreLx() + siteSizeX_ * endX,
-  //                         die_.coreLy() + siteSizeY_ * (j + 1));
-  //         instStor_.push_back(dummy);
-  //       }
-  //     }
-  //   }
-  // }
 }
 
 void PlacerBase::reset()
