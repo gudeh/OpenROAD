@@ -2848,14 +2848,14 @@ void NesterovBase::nesterovAdjustPhi()
   // dynamic adjustment for
   // better convergence with
   // large designs
-  // if (!nbVars_.isMaxPhiCoefChanged && sum_overflow_unscaled_ < 0.35f) {
-  //   nbVars_.isMaxPhiCoefChanged = true;
-  //   nbVars_.maxPhiCoef *= 0.99;
-  // }
-  // // keep maxPhiCoef > 1.0, avoid decreasing densityPenalty
-  // if (nbVars_.maxPhiCoef <= 1.0f) {
-  //   nbVars_.maxPhiCoef = std::max(nbVars_.maxPhiCoef, 1.01f);
-  // }
+  if (!nbVars_.isMaxPhiCoefChanged && sum_overflow_unscaled_ < 0.35f) {
+    nbVars_.isMaxPhiCoefChanged = true;
+    nbVars_.maxPhiCoef *= 0.99;
+  }
+  // keep maxPhiCoef > 1.0, avoid decreasing densityPenalty
+  if (nbVars_.maxPhiCoef <= 1.0f) {
+    nbVars_.maxPhiCoef = std::max(nbVars_.maxPhiCoef, 1.01f);
+  }
 }
 
 void NesterovBase::saveSnapshot()
