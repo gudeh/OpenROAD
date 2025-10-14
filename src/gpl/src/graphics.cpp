@@ -511,8 +511,8 @@ void Graphics::addIter(const int iter, const double overflow)
   //   std::vector<double> penalties;
   //   penalties.reserve(nbVec_.size());
   //   for (const auto& nb : nbVec_) {
-  //     double penalty = nb ? static_cast<double>(nb->getDensityPenalty()) : 0.0;
-  //     penalties.push_back(penalty);
+  //     double penalty = nb ? static_cast<double>(nb->getDensityPenalty()) :
+  //     0.0; penalties.push_back(penalty);
   //   }
   //   density_chart_->addPoint(iter, penalties);
   // }
