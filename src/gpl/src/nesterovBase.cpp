@@ -2924,6 +2924,8 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
   if (sum_overflow_unscaled_ <= npVars_->targetOverflow) {
     const bool has_group = pb_->group();
     const std::string group_name = has_group ? pb_->group()->getName() : "";
+    const bool has_group = pb_->group();
+    const std::string group_name = has_group ? pb_->group()->getName() : "";
     const int final_iter = gpl_iter_count;
     dbBlock* block = pb_->db()->getChip()->getBlock();
 
@@ -3319,9 +3321,9 @@ void NesterovBase::destroyCbkGCell(odb::dbInst* db_inst)
     size_t replacer_index = gcell_index;
     if (replacer_index != last_index) {
       if (!nb_gcells_[replacer_index]->isFiller()) {
-      odb::dbInst* replacer_inst
-          = nb_gcells_[replacer_index]->insts()[0]->dbInst();
-      db_inst_to_nb_index_[replacer_inst] = replacer_index;
+        odb::dbInst* replacer_inst
+            = nb_gcells_[replacer_index]->insts()[0]->dbInst();
+        db_inst_to_nb_index_[replacer_inst] = replacer_index;
       } else {
         size_t filler_stor_index = nb_gcells_[replacer_index].getStorageIndex();
         filler_stor_index_to_nb_index_[filler_stor_index] = replacer_index;

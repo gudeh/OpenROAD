@@ -10,8 +10,9 @@
 #include <QCoreApplication>
 #include <QMimeData>
 #include <QScrollBar>
+#include <QSettings>
 #include <QTextStream>
-#include <cstddef>
+#include <QWidget>
 #include <functional>
 #include <memory>
 #include <regex>
