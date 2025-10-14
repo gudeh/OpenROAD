@@ -1057,7 +1057,7 @@ class NesterovBase
   void updateNextIter(int iter);
   void setTrueReprintIterHeader() { reprint_iter_header_ = true; }
   float getPhiCoef(float scaledDiffHpwl) const;
-  float phiCoef_;
+  float getStoredPhiCoef() const { return phiCoef_; }
 
   bool checkConvergence(int gpl_iter_count,
                         int routability_gpl_iter_count,
@@ -1100,6 +1100,7 @@ class NesterovBase
                               bool write_header) const;
 
   std::shared_ptr<PlacerBase> getPb() const { return pb_; }
+
  private:
   NesterovBaseVars nbVars_;
   std::shared_ptr<PlacerBase> pb_;
@@ -1154,6 +1155,7 @@ class NesterovBase
   std::vector<RemovedFillerState> removed_fillers_;
 
   float sumPhi_ = 0;
+  float phiCoef_ = 0;
   float targetDensity_ = 0;
   float uniformTargetDensity_ = 0;
 

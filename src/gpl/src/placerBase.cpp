@@ -978,8 +978,10 @@ PlacerBase::PlacerBase(odb::dbDatabase* db,
   log_ = log;
   pbCommon_ = std::move(pbCommon);
   group_ = group;
-  log_->report("Initializing PlacerBase region: {}",
-               (group_ == nullptr) ? "No region" : group_->getName());
+  log_->info(GPL,
+             32,
+             "Initializing region: {}",
+             (group_ == nullptr) ? "No region" : group_->getName());
   init();
 }
 
@@ -991,7 +993,7 @@ PlacerBase::~PlacerBase()
 void PlacerBase::init()
 {
   die_ = pbCommon_->getDie();
-  if(group_ != nullptr) {
+  if (group_ != nullptr) {
     region_area_ = 0;
     auto boundaries = group_->getRegion()->getBoundaries();
     for (auto boundary : boundaries) {
@@ -1282,9 +1284,6 @@ void PlacerBase::printInfo() const
              "Number of pins:",
              pbCommon_->getPins().size());
 
-
-  //TODO print die and core only for top placer, group == nullptr
-  // otherwise print group bbox             
   log_->info(GPL,
              12,
              "{:10} ( {:6.3f} {:6.3f} ) ( {:6.3f} {:6.3f} ) um",
@@ -1301,7 +1300,7 @@ void PlacerBase::printInfo() const
              block->dbuToMicrons(die_.coreLy()),
              block->dbuToMicrons(die_.coreUx()),
              block->dbuToMicrons(die_.coreUy()));
-  int64_t region_area; 
+  int64_t region_area;
   if (group_ != nullptr) {
     region_area = 0;
     auto boundaries = group_->getRegion()->getBoundaries();
@@ -1321,14 +1320,14 @@ void PlacerBase::printInfo() const
              "Core area:",
              block->dbuAreaToMicrons(die_.coreArea()));
   log_->info(GPL,
-          14,
-          "Region name: {}.",
-          (group_ != nullptr) ? group_->getName() : "top-level");
+             14,
+             "Region name: {}.",
+             (group_ != nullptr) ? group_->getName() : "top-level");
   log_->info(GPL,
-          15,
-          format_label_um2,
-          "Region area:",
-          block->dbuAreaToMicrons(region_area_));
+             15,
+             format_label_um2,
+             "Region area:",
+             block->dbuAreaToMicrons(region_area_));
   log_->info(GPL,
              17,
              format_label_um2,

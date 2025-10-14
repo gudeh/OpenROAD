@@ -790,10 +790,6 @@ void BinGrid::initBins()
              block->dbuToMicrons(binSizeX_),
              block->dbuToMicrons(binSizeY_));
 
-  if(binSizeX_ * binSizeY_ < idealBinArea) {
-    log_->report("binSizeX * binSizeY < idealBinArea");
-  }
-
   // initialize bins_ vector
   bins_.resize(binCntX_ * (size_t) binCntY_);
 #pragma omp parallel for num_threads(num_threads_)
@@ -1679,12 +1675,15 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
                            std::shared_ptr<PlacerBase> pb,
                            std::shared_ptr<NesterovBaseCommon> nbc,
                            utl::Logger* log)
-{  
+{
   nbVars_ = nbVars;
   pb_ = std::move(pb);
   nbc_ = std::move(nbc);
   log_ = log;
-  log_->report("Initialize NesterovBase region: {}", pb_->group() ? pb_->group()->getName() : "No region");
+  log_->info(GPL,
+             33,
+             "Initializing Nesterov region: {}",
+             pb_->group() ? pb_->group()->getName() : "No region");
 
   // Set a fixed seed
   srand(42);
@@ -1766,12 +1765,16 @@ NesterovBase::NesterovBase(NesterovBaseVars nbVars,
       }
       bg_.setRegionPoints(bbox.xMin(), bbox.yMin(), bbox.xMax(), bbox.yMax());
     } else {
-      bg_.setRegionPoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
-                        pb_->getDie().coreUx(), pb_->getDie().coreUy());
+      bg_.setRegionPoints(pb_->getDie().coreLx(),
+                          pb_->getDie().coreLy(),
+                          pb_->getDie().coreUx(),
+                          pb_->getDie().coreUy());
     }
   } else {
-    bg_.setRegionPoints(pb_->getDie().coreLx(), pb_->getDie().coreLy(), 
-                      pb_->getDie().coreUx(), pb_->getDie().coreUy());
+    bg_.setRegionPoints(pb_->getDie().coreLx(),
+                        pb_->getDie().coreLy(),
+                        pb_->getDie().coreUx(),
+                        pb_->getDie().coreUy());
   }
   bg_.setTargetDensity(targetDensity_);
 
@@ -1839,7 +1842,8 @@ void NesterovBase::initFillerGCells()
   fillerDy_ = static_cast<int>(dySum / (maxIdx - minIdx));
 
   int64_t region_area = pb_->getRegionArea();
-  whiteSpaceArea_ = region_area - static_cast<int64_t>(pb_->nonPlaceInstsArea());
+  whiteSpaceArea_
+      = region_area - static_cast<int64_t>(pb_->nonPlaceInstsArea());
 
   // if(pb_->group() == nullptr) {
   //   // nonPlaceInstsArea should not have density downscaling!!!
@@ -1890,7 +1894,6 @@ void NesterovBase::initFillerGCells()
   const double filler_scale_factor = std::sqrt(
       totalFillerArea_ / (limit_filler_ratio * nesterovInstanceArea));
   if (filler_scale_factor > 1.0) {
-    log_->report("limiting filler cells with scale factor {:.4f}", filler_scale_factor);
     debugPrint(log_,
                GPL,
                "FillerInit",
@@ -1986,8 +1989,8 @@ void NesterovBase::initFillerGCells()
     auto randY = randVal();
 
     // place filler cells on random coordi and
-    // set size as avgDx and avgDy    
-   GCell myGCell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
+    // set size as avgDx and avgDy
+    GCell myGCell(randX % pb_->getDie().coreDx() + pb_->getDie().coreLx(),
                   randY % pb_->getDie().coreDy() + pb_->getDie().coreLy(),
                   fillerDx_,
                   fillerDy_);
@@ -2004,42 +2007,16 @@ NesterovBase::~NesterovBase() = default;
 void NesterovBase::updateGCellCenterLocation(
     const std::vector<FloatPoint>& coordis)
 {
-  //   auto region = pb_->group()->getRegion();
-  //   int region_x_min = std::numeric_limits<int>::max();
-  //   int region_y_min = std::numeric_limits<int>::max();
-  //   int region_x_max = std::numeric_limits<int>::min();
-  //   int region_y_max = std::numeric_limits<int>::min();
-  //   for (auto boundary : region->getBoundaries()) {
-  //       region_x_min = std::min(region_x_min, boundary->xMin());
-  //       region_y_min = std::min(region_y_min, boundary->yMin());
-  //       region_x_max = std::max(region_x_max, boundary->xMax());
-  //       region_y_max = std::max(region_y_max, boundary->yMax());
-  //     }
-  // int y_center = (region_y_min + region_y_max) / 2;
   for (int idx = 0; idx < coordis.size(); ++idx) {
     nb_gcells_[idx]->setCenterLocation(coordis[idx].x, coordis[idx].y);
-    // nb_gcells_[idx]->setCenterLocation(coordis[idx].x, y_center);    
   }
 }
 
 void NesterovBase::updateGCellDensityCenterLocation(
     const std::vector<FloatPoint>& coordis)
 {
-  //   auto region = pb_->group()->getRegion();
-  //   int region_x_min = std::numeric_limits<int>::max();
-  //   int region_y_min = std::numeric_limits<int>::max();
-  //   int region_x_max = std::numeric_limits<int>::min();
-  //   int region_y_max = std::numeric_limits<int>::min();
-  //   for (auto boundary : region->getBoundaries()) {
-  //       region_x_min = std::min(region_x_min, boundary->xMin());
-  //       region_y_min = std::min(region_y_min, boundary->yMin());
-  //       region_x_max = std::max(region_x_max, boundary->xMax());
-  //       region_y_max = std::max(region_y_max, boundary->yMax());
-  //     }
-  // int y_center = (region_y_min + region_y_max) / 2;
   for (int idx = 0; idx < coordis.size(); ++idx) {
     nb_gcells_[idx]->setDensityCenterLocation(coordis[idx].x, coordis[idx].y);
-    // nb_gcells_[idx]->setDensityCenterLocation(coordis[idx].x, y_center);
   }
   bg_.updateBinsGCellDensityArea(nb_gcells_);
 }
@@ -2297,7 +2274,6 @@ FloatPoint NesterovBase::getDensityGradient(const GCell* gCell) const
     }
   }
 
-  // log_->report("getDensityGradient - gcell {} final electroForce: ({}, {})", gCell->getName(), electroForce.x, electroForce.y);
   return electroForce;
 }
 
@@ -2674,15 +2650,6 @@ float NesterovBase::getPhiCoef(float scaledDiffHpwl) const
   debugPrint(
       log_, GPL, "getPhiCoef", 1, "InputScaleDiffHPWL: {:g}", scaledDiffHpwl);
 
-  // float retCoef;
-  // if (scaledDiffHpwl <= 0) {
-  //   retCoef = npVars_->maxPhiCoef;
-  //   log_->report("getPhiCoef: scaledDiffHpwl ({:g}) <= 0, using maxPhiCoef: {:g}", scaledDiffHpwl, retCoef);
-  // } else {
-  //   retCoef = npVars_->maxPhiCoef * pow(npVars_->maxPhiCoef, 1-scaledDiffHpwl);
-  //   log_->report("getPhiCoef: scaledDiffHpwl ({:g}) > 0, computed retCoef: {:g}", scaledDiffHpwl, retCoef);
-  // }
-
   float retCoef = (scaledDiffHpwl < 0)
                       ? npVars_->maxPhiCoef
                       : npVars_->maxPhiCoef
@@ -2737,7 +2704,7 @@ void NesterovBase::updateNextIter(const int iter)
   sum_overflow_ = getOverflowArea() / overflowDenominator;
   sum_overflow_unscaled_ = getOverflowAreaUnscaled() / overflowDenominator;
 
-  int64_t hpwl = nbc_->getHpwl();                           
+  int64_t hpwl = nbc_->getHpwl();
 
   float hpwl_percent_change = 0.0;
   if (iter == 0 || (iter) % 10 == 0) {
@@ -2786,7 +2753,7 @@ void NesterovBase::updateNextIter(const int iter)
   }
 
   float phiCoef = getPhiCoef(static_cast<float>(hpwl - prev_hpwl_)
-                            / npVars_->referenceHpwl);
+                             / npVars_->referenceHpwl);
   phiCoef_ = phiCoef;
   debugPrint(log_, GPL, "updateNextIter", 1, "PreviousHPWL: {}", prev_hpwl_);
   debugPrint(log_, GPL, "updateNextIter", 1, "NewHPWL: {}", hpwl);
@@ -2800,21 +2767,8 @@ void NesterovBase::updateNextIter(const int iter)
   debugPrint(log_, GPL, "updateNextIter", 1, "Phi: {:g}", getSumPhi());
   debugPrint(
       log_, GPL, "updateNextIter", 1, "Overflow: {:g}", sum_overflow_unscaled_);
-  
+
   densityPenalty_ *= phiCoef;
-
-  // Write penalty data to CSV
-  std::string penalty_csv_filename = "penalty_data.csv";
-  std::ofstream penalty_csv_file(penalty_csv_filename, std::ios::app);
-  
-  if (penalty_csv_file.is_open()) {
-    std::string group_name = pb_->group() ? pb_->group()->getName() : "default";
-    penalty_csv_file << iter << "," << phiCoef << "," << hpwl << "," 
-             << prev_hpwl_ <<"," << (hpwl - prev_hpwl_)<< "," << npVars_->referenceHpwl << "," 
-             << densityPenalty_ << "," << group_name << "\n";
-    penalty_csv_file.close();
-  }
-
   prev_hpwl_ = hpwl;
 
   if (iter > 50 && minSumOverflow_ > sum_overflow_unscaled_) {
@@ -2891,9 +2845,9 @@ void NesterovBase::nesterovAdjustPhi()
     return;
   }
 
-  // // dynamic adjustment for
-  // // better convergence with
-  // // large designs
+  // dynamic adjustment for
+  // better convergence with
+  // large designs
   if (!isMaxPhiCoefChanged_ && sum_overflow_unscaled_ < 0.35f) {
     isMaxPhiCoefChanged_ = true;
     npVars_->maxPhiCoef *= 0.99;
@@ -2922,8 +2876,6 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
     return true;
   }
   if (sum_overflow_unscaled_ <= npVars_->targetOverflow) {
-    const bool has_group = pb_->group();
-    const std::string group_name = has_group ? pb_->group()->getName() : "";
     const bool has_group = pb_->group();
     const std::string group_name = has_group ? pb_->group()->getName() : "";
     const int final_iter = gpl_iter_count;

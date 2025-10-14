@@ -282,7 +282,7 @@ void NesterovPlace::updateIterGraphics(
 
   const int debug_start_iter = npVars_.debug_start_iter;
   if (debug_start_iter == 0 || iter + 1 >= debug_start_iter) {
-    graphics_->addIter(iter, average_overflow_unscaled_ );
+    graphics_->addIter(iter, average_overflow_unscaled_);
     bool update
         = (iter == 0 || (iter + 1) % npVars_.debug_update_iterations == 0);
     if (update) {
@@ -978,9 +978,6 @@ int NesterovPlace::doNesterovPlace(const int start_iter)
   cleanReportsDirs(timing_driven_dir, routability_driven_dir);
 
   // Core Nesterov Loop
-  std::ofstream penalty_csv_file("penalty_data.csv", std::ios::out);
-  penalty_csv_file << "iter,phiCoef,hpwl,prev_hpwl, abs diff hpwl, referenceHpwl, density_penalty, region\n";
-  penalty_csv_file.close();
   int nesterov_iter = start_iter;
   for (; nesterov_iter < npVars_.maxNesterovIter; nesterov_iter++) {
     const float prevA = curA;
@@ -1150,34 +1147,16 @@ void NesterovPlace::updateDb()
 // divergence detection on
 // Wirelength / density gradient calculation
 void NesterovPlace::checkInvalidValues(float wireLengthGradSum,
-                     float densityGradSum)
+                                       float densityGradSum)
 {
-  // Check wirelength gradient first
-  if (std::isnan(wireLengthGradSum)) {
-  divergeMsg_ = "RePlAce diverged: wirelength gradient sum is NaN.";
-  divergeCode_ = 306;
-  num_region_diverged_ = 1;
-  return;
-  }
-  if (std::isinf(wireLengthGradSum)) {
-  divergeMsg_ = "RePlAce diverged: wirelength gradient sum is Inf.";
-  divergeCode_ = 306;
-  num_region_diverged_ = 1;
-  return;
-  }
-
-  // Check density gradient
-  if (std::isnan(densityGradSum)) {
-  divergeMsg_ = "RePlAce diverged: density gradient sum is NaN.";
-  divergeCode_ = 306;
-  num_region_diverged_ = 1;
-  return;
-  }
-  if (std::isinf(densityGradSum)) {
-  divergeMsg_ = "RePlAce diverged: density gradient sum is Inf.";
-  divergeCode_ = 306;
-  num_region_diverged_ = 1;
-  return;
+  if (std::isnan(wireLengthGradSum) || std::isnan(densityGradSum)
+      || std::isinf(wireLengthGradSum) || std::isinf(densityGradSum)) {
+    divergeMsg_
+        = "RePlAce diverged at wire/density gradient Sum. An internal value is "
+          "NaN or Inf.";
+    divergeCode_ = 306;
+    num_region_diverged_ = 1;
+    return;
   }
 }
 

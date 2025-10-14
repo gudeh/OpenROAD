@@ -122,10 +122,22 @@ class Graphics : public gui::Renderer, public gui::HeatMapDataSource
     Nesterov
   };
 
+  // Colors for different regions
+  std::vector<gui::Painter::Color> colors_ = {gui::Painter::kRed,
+                                              gui::Painter::kBlue,
+                                              gui::Painter::kGreen,
+                                              gui::Painter::kMagenta,
+                                              gui::Painter::kCyan,
+                                              gui::Painter::kOrange};
+
   void drawForce(gui::Painter& painter);
   void drawCells(const std::vector<GCell*>& cells, gui::Painter& painter);
-  void drawCells(const std::vector<GCellHandle>& cells, gui::Painter& painter, size_t nb_index);
-  void drawSingleGCell(const GCell* gCell, gui::Painter& painter, size_t nb_index = 0);
+  void drawCells(const std::vector<GCellHandle>& cells,
+                 gui::Painter& painter,
+                 size_t nb_index);
+  void drawSingleGCell(const GCell* gCell,
+                       gui::Painter& painter,
+                       size_t nb_index = 0);
 
   std::shared_ptr<PlacerBaseCommon> pbc_;
   std::shared_ptr<NesterovBaseCommon> nbc_;
