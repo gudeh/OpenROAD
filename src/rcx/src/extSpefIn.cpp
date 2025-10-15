@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "name.h"
+#include "odb/array1.h"
 #include "odb/db.h"
+#include "odb/dbSet.h"
 #include "odb/dbShape.h"
 #include "parse.h"
 #include "rcx/extRCap.h"
@@ -16,8 +18,7 @@
 #include "rcx/grids.h"
 #include "utl/Logger.h"
 
-namespace rcx {
-
+using odb::Ath__array1D;
 using odb::dbBTerm;
 using odb::dbCapNode;
 using odb::dbCCSeg;
@@ -32,6 +33,8 @@ using odb::dbWirePath;
 using odb::dbWirePathItr;
 using odb::dbWirePathShape;
 using utl::RCX;
+
+namespace rcx {
 
 dbInst* extSpef::getDbInst(const uint id)
 {

@@ -5,11 +5,13 @@
 #include <set>
 #include <string>
 
+#include "dpl/Opendp.h"
 #include "infrastructure/Grid.h"
 #include "infrastructure/Objects.h"
 #include "infrastructure/Padding.h"
 #include "odb/db.h"
 #include "odb/dbTransform.h"
+#include "odb/dbTypes.h"
 #include "odb/geom.h"
 
 namespace dpl {
@@ -25,7 +27,7 @@ odb::Rect transformEdgeRect(const odb::Rect& edge_rect,
   cell->getDbInst()->getMaster()->getPlacementBoundary(bbox);
   odb::dbTransform transform(orient);
   transform.apply(bbox);
-  Point offset(x.v - bbox.xMin(), y.v - bbox.yMin());
+  odb::Point offset(x.v - bbox.xMin(), y.v - bbox.yMin());
   transform.setOffset(offset);
   odb::Rect result(edge_rect);
   transform.apply(result);
@@ -103,7 +105,7 @@ bool PlacementDRC::checkEdgeSpacing(const Node* cell) const
 bool PlacementDRC::checkEdgeSpacing(const Node* cell,
                                     const GridX x,
                                     const GridY y,
-                                    const dbOrientType& orient) const
+                                    const odb::dbOrientType& orient) const
 {
   if (!hasCellEdgeSpacingTable()) {
     return true;
@@ -218,7 +220,7 @@ bool PlacementDRC::checkDRC(const Node* cell) const
 bool PlacementDRC::checkDRC(const Node* cell,
                             const GridX x,
                             const GridY y,
-                            const dbOrientType& orient) const
+                            const odb::dbOrientType& orient) const
 {
   return checkEdgeSpacing(cell, x, y, orient) && checkPadding(cell, x, y)
          && checkBlockedLayers(cell, x, y) && checkOneSiteGap(cell, x, y)
@@ -229,6 +231,8 @@ bool PlacementDRC::checkDRC(const Node* cell,
 namespace {
 bool isCrWtBlClass(const Node* cell)
 {
+  using odb::dbMasterType;
+
   dbMasterType type = cell->getDbInst()->getMaster()->getType();
   // Use switch so if new types are added we get a compiler warning.
   switch (type.getValue()) {
@@ -280,8 +284,8 @@ bool isCrWtBlClass(const Node* cell)
 
 bool isWellTap(const Node* cell)
 {
-  dbMasterType type = cell->getDbInst()->getMaster()->getType();
-  return type == dbMasterType::CORE_WELLTAP;
+  odb::dbMasterType type = cell->getDbInst()->getMaster()->getType();
+  return type == odb::dbMasterType::CORE_WELLTAP;
 }
 
 bool allowOverlap(const Node* cell1, const Node* cell2)
@@ -347,10 +351,8 @@ bool PlacementDRC::checkPadding(const Node* cell,
       if (hasPaddingConflict(cell, pixel->cell)) {
         return false;
       }
-      for (auto padding_cell : pixel->padding_reserved_by) {
-        if (hasPaddingConflict(cell, padding_cell)) {
-          return false;
-        }
+      if (hasPaddingConflict(cell, pixel->padding_reserved_by)) {
+        return false;
       }
     }
   }

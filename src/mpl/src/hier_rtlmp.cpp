@@ -161,12 +161,6 @@ void HierRTLMP::setSignatureNetThreshold(int signature_net_threshold)
   tree_->min_net_count_for_connection = signature_net_threshold;
 }
 
-void HierRTLMP::setPinAccessThreshold(float pin_access_th)
-{
-  pin_access_th_ = pin_access_th;
-  pin_access_th_orig_ = pin_access_th;
-}
-
 void HierRTLMP::setTargetUtil(float target_util)
 {
   target_util_ = target_util;
@@ -185,6 +179,11 @@ void HierRTLMP::setMinAR(float min_ar)
 void HierRTLMP::setReportDirectory(const char* report_directory)
 {
   report_directory_ = report_directory;
+}
+
+void HierRTLMP::setKeepClusteringData(bool keep_clustering_data)
+{
+  keep_clustering_data_ = keep_clustering_data;
 }
 
 // Top Level Function
@@ -211,6 +210,10 @@ void HierRTLMP::run()
   if (skip_macro_placement_) {
     logger_->info(MPL, 13, "Skipping macro placement.");
     return;
+  }
+
+  if (keep_clustering_data_) {
+    commitClusteringDataToDb();
   }
 
   if (!tree_->has_std_cells) {
@@ -1478,8 +1481,6 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
         soft_macro_id_map[tree_->maps.id_to_cluster[cluster1]->getName()],
         soft_macro_id_map[tree_->maps.id_to_cluster[cluster2]->getName()],
         tree_->virtual_weight);
-    net.src_cluster_id = cluster1;
-    net.target_cluster_id = cluster2;
     nets.push_back(net);
   }
 
@@ -1500,8 +1501,6 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
       if (src_id > cluster_id) {
         BundledNet net(
             soft_macro_id_map[src_name], soft_macro_id_map[name], weight);
-        net.src_cluster_id = src_id;
-        net.target_cluster_id = cluster_id;
         nets.push_back(net);
       }
     }
@@ -2329,9 +2328,6 @@ std::vector<BundledNet> HierRTLMP::computeBundledNets(
     for (auto [cluster_id, weight] : macro_cluster->getConnectionsMap()) {
       BundledNet net(
           cluster_to_macro.at(src_id), cluster_to_macro.at(cluster_id), weight);
-
-      net.src_cluster_id = src_id;
-      net.target_cluster_id = cluster_id;
       nets.push_back(net);
     }
   }
@@ -2572,6 +2568,44 @@ void HierRTLMP::commitMacroPlacementToDb()
     snapper.snapMacro();
 
     inst->setPlacementStatus(odb::dbPlacementStatus::LOCKED);
+  }
+}
+
+void HierRTLMP::commitClusteringDataToDb() const
+{
+  createGroupForCluster(tree_->root.get(), nullptr);
+}
+
+void HierRTLMP::createGroupForCluster(Cluster* cluster,
+                                      odb::dbGroup* parent_group) const
+{
+  if (cluster->isIOCluster()) {
+    return;
+  }
+
+  odb::dbGroup* cluster_group
+      = parent_group != nullptr
+            ? odb::dbGroup::create(parent_group, cluster->getName().c_str())
+            : odb::dbGroup::create(block_, cluster->getName().c_str());
+
+  cluster_group->setType(odb::dbGroupType::VISUAL_DEBUG);
+
+  for (odb::dbInst* inst : cluster->getLeafStdCells()) {
+    cluster_group->addInst(inst);
+  }
+
+  for (odb::dbInst* macro : cluster->getLeafMacros()) {
+    cluster_group->addInst(macro);
+  }
+
+  for (odb::dbModule* module : cluster->getDbModules()) {
+    for (odb::dbInst* inst : module->getLeafInsts()) {
+      cluster_group->addInst(inst);
+    }
+  }
+
+  for (const auto& child : cluster->getChildren()) {
+    createGroupForCluster(child.get(), cluster_group);
   }
 }
 

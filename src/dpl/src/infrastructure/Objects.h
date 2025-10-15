@@ -9,6 +9,8 @@
 
 #include "Coordinates.h"
 #include "dpl/Opendp.h"
+#include "odb/db.h"
+#include "odb/dbTypes.h"
 #include "odb/geom.h"
 
 namespace odb {
@@ -85,8 +87,8 @@ class Master
   const std::map<uint, dbBox*> getPins() const;
   void setBottomPowerType(int bottom_pwr);
   void setTopPowerType(int top_pwr);
-  void setDbMaster(dbMaster* db_master);
-  dbMaster* getDbMaster() const;
+  void setDbMaster(odb::dbMaster* db_master);
+  odb::dbMaster* getDbMaster() const;
   void setFunction(MasterFunction* function);
   MasterFunction* getFunction() const;
   int getFunctionBits() const;
@@ -108,7 +110,7 @@ class Master
   bool hasPinPermutes() const;
 
  private:
-  dbMaster* db_master_{nullptr};
+  odb::dbMaster* db_master_{nullptr};
   odb::Rect boundary_box_;
   bool is_multi_row_{false};
   std::vector<MasterEdge> edges_;
@@ -148,12 +150,12 @@ class Node
   DbuY getHeight() const;
   DbuX getCenterX() const;
   DbuY getCenterY() const;
-  dbInst* getDbInst() const;
-  dbOrientType getOrient() const;
+  odb::dbInst* getDbInst() const;
+  odb::dbOrientType getOrient() const;
   bool isFixed() const;
   bool isPlaced() const;
   bool isHold() const;
-  dbSite* getSite() const;
+  odb::dbSite* getSite() const;
   DbuX siteWidth() const;
   bool isHybrid() const;
   bool isHybridParent() const;
@@ -176,18 +178,18 @@ class Node
   bool isToBeRemoved() const;
   const std::map<uint, uint>& getConnections() const { return pin_to_net_; }
   odb::Rect getBBox() const;
-  dbBTerm* getBTerm() const;
+  odb::dbBTerm* getBTerm() const;
   uint8_t getUsedLayers() const;
   Pin* getPin(const std::string& pin_name) const;
 
   // setters
   void setId(int id);
   void setFixed(bool in);
-  void setDbInst(dbInst* inst);
-  void setBTerm(dbBTerm* term);
+  void setDbInst(odb::dbInst* inst);
+  void setBTerm(odb::dbBTerm* term);
   void setLeft(DbuX x);
   void setBottom(DbuY y);
-  void setOrient(const dbOrientType& in);
+  void setOrient(const odb::dbOrientType& in);
   void setWidth(DbuX width);
   void setHeight(DbuY height);
   void setPlaced(bool in);
@@ -206,7 +208,7 @@ class Node
   void setToBeRemoved(bool in);
   void addConnection(uint pin_id, uint net_id) { pin_to_net_[pin_id] = net_id; }
 
-  bool adjustCurrOrient(const dbOrientType& newOrient);
+  bool adjustCurrOrient(const odb::dbOrientType& newOrient);
 
  protected:
   int id_{0};
@@ -214,7 +216,7 @@ class Node
   // Current position; bottom corner.
   DbuX left_{0};
   DbuY bottom_{0};
-  dbOrientType orient_;
+  odb::dbOrientType orient_;
   // Original position.
   DbuX orig_left_{0};
   DbuY orig_bottom_{0};

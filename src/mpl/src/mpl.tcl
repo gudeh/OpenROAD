@@ -24,12 +24,12 @@ sta::define_cmd_args "rtl_macro_placer" { -max_num_macro  max_num_macro \
                                           -boundary_weight boundary_weight \
                                           -notch_weight notch_weight \
                                           -macro_blockage_weight macro_blockage_weight \
-                                          -pin_access_th pin_access_th \
                                           -target_util   target_util \
                                           -target_dead_space target_dead_space \
                                           -min_ar  min_ar \
                                           -report_directory report_directory \
                                           -write_macro_placement file_name \
+                                          -keep_clustering_data \
                                         }
 proc rtl_macro_placer { args } {
   sta::parse_key_args "rtl_macro_placer" args \
@@ -38,12 +38,12 @@ proc rtl_macro_placer { args } {
          -signature_net_threshold -halo_width -halo_height \
          -fence_lx   -fence_ly  -fence_ux   -fence_uy  \
          -area_weight  -outline_weight -wirelength_weight -guidance_weight -fence_weight \
-         -boundary_weight -notch_weight -macro_blockage_weight  \
-         -pin_access_th -target_util \
+         -boundary_weight -notch_weight \
+         -macro_blockage_weight -target_util \
          -target_dead_space -min_ar \
          -report_directory \
          -write_macro_placement } \
-    flags {}
+    flags {-keep_clustering_data}
 
   sta::check_argc_eq0 "rtl_macro_placer" $args
 
@@ -79,7 +79,6 @@ proc rtl_macro_placer { args } {
   set boundary_weight 50.0
   set notch_weight 10.0
   set macro_blockage_weight 10.0
-  set pin_access_th 0.00
   set target_util 0.25
   set target_dead_space 0.05
   set min_ar 0.33
@@ -162,9 +161,6 @@ proc rtl_macro_placer { args } {
   if { [info exists keys(-macro_blockage_weight)] } {
     set macro_blockage_weight $keys(-macro_blockage_weight)
   }
-  if { [info exists keys(-pin_access_th)] } {
-    set pin_access_th $keys(-pin_access_th)
-  }
   if { [info exists keys(-target_util)] } {
     set target_util $keys(-target_util)
   }
@@ -200,11 +196,11 @@ proc rtl_macro_placer { args } {
       $area_weight $outline_weight $wirelength_weight \
       $guidance_weight $fence_weight $boundary_weight \
       $notch_weight $macro_blockage_weight \
-      $pin_access_th \
       $target_util \
       $target_dead_space \
       $min_ar \
-      $report_directory]
+      $report_directory \
+      [info exists flags(-keep_clustering_data)]]
   } {
     return false
   }

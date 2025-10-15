@@ -9,15 +9,16 @@
 #include <cstdio>
 
 #include "gseq.h"
+#include "odb/array1.h"
 #include "odb/db.h"
+#include "odb/dbSet.h"
 #include "odb/dbShape.h"
 #include "odb/dbTypes.h"
 #include "rcx/dbUtil.h"
 #include "rcx/extRCap.h"
 #include "utl/Logger.h"
 
-namespace rcx {
-
+using odb::Ath__array1D;
 using odb::dbBTerm;
 using odb::dbCapNode;
 using odb::dbCCSeg;
@@ -33,6 +34,8 @@ using odb::dbWirePath;
 using odb::dbWirePathItr;
 using odb::dbWirePathShape;
 using utl::RCX;
+
+namespace rcx {
 
 bool extMeasure::getFirstShape(dbNet* net, dbShape& s)
 {

@@ -4,8 +4,10 @@
 #include "clockWidget.h"
 
 #include <QApplication>
+#include <QColor>
 #include <QComboBox>
 #include <QFontMetrics>
+#include <QGraphicsItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsTextItem>
@@ -16,6 +18,7 @@
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QPolygonF>
 #include <QPushButton>
 #include <QString>
 #include <QToolTip>
