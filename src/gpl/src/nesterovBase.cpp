@@ -2854,7 +2854,7 @@ void NesterovBase::nesterovAdjustPhi()
   }
   // keep maxPhiCoef > 1.0, avoid decreasing densityPenalty
   if (nbVars_.maxPhiCoef <= 1.0f) {
-    nbVars_.maxPhiCoef = std::max(nbVars_.maxPhiCoef, 1.01f);
+    nbVars_.maxPhiCoef = 1.01f;
   }
 }
 
