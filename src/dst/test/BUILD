@@ -21,7 +21,9 @@ cc_test(
     includes = [
         "../src",
     ],
-    linkstatic = True,  # TODO: remove once deps define all symbols
+
+    # TODO(https://github.com/The-OpenROAD-Project/OpenROAD/issues/8599): re-enable once issue is resolved.
+    tags = ["manual"],
     deps = [
         ":test_helpers",
         "//src/dst",
@@ -44,7 +46,8 @@ cc_test(
     includes = [
         "../src",
     ],
-    linkstatic = True,  # TODO: remove once deps define all symbols
+    # TODO(https://github.com/The-OpenROAD-Project/OpenROAD/issues/8599): re-enable once issue is resolved.
+    tags = ["manual"],
     deps = [
         ":test_helpers",
         "//src/dst",
@@ -68,7 +71,9 @@ cc_test(
     includes = [
         "../src",
     ],
-    linkstatic = True,  # TODO: remove once deps define all symbols
+
+    # TODO(https://github.com/The-OpenROAD-Project/OpenROAD/issues/8599): re-enable once issue is resolved.
+    tags = ["manual"],
     deps = [
         ":test_helpers",
         "//src/dst",

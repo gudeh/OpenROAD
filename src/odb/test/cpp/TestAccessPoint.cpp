@@ -1,27 +1,27 @@
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <string>
 #include <vector>
 
-#include "env.h"
 #include "gtest/gtest.h"
 #include "helper.h"
 #include "odb/db.h"
+#include "odb/dbTypes.h"
 
 namespace odb {
 namespace {
 
-TEST(AccessPoint, test_default)
+TEST_F(SimpleDbFixture, test_default)
 {
-  dbDatabase* db;
-  db = createSimpleDB();
-  auto block = db->getChip()->getBlock();
-  auto and2 = db->findMaster("and2");
+  createSimpleDB();
+  auto block = db_->getChip()->getBlock();
+  auto and2 = db_->findMaster("and2");
   auto term = and2->findMTerm("a");
-  auto layer = db->getTech()->findLayer("L1");
+  auto layer = db_->getTech()->findLayer("L1");
   auto pin = dbMPin::create(term);
   auto ap = dbAccessPoint::create(block, pin, 0);
-  auto inst = dbInst::create(db->getChip()->getBlock(), and2, "i1");
+  auto inst = dbInst::create(db_->getChip()->getBlock(), and2, "i1");
   auto iterm = inst->getITerm(term);
   ap->addSegment(Rect(10, 20, 30, 40), true, false);
   ap->setPoint(Point(10, 250));
@@ -29,13 +29,13 @@ TEST(AccessPoint, test_default)
   ap->setHighType(dbAccessType::HalfGrid);
   ap->setAccess(true, dbDirection::DOWN);
   iterm->setAccessPoint(pin, ap);
-  std::string path = testTmpPath("results", "TestAccessPointDbRW");
+  std::filesystem::create_directory("results");
+  std::string path = "results/TestAccessPointDbRW";
   std::ofstream write;
   write.exceptions(std::ifstream::failbit | std::ifstream::badbit
                    | std::ios::eofbit);
   write.open(path, std::ios::binary);
-  db->write(write);
-  dbDatabase::destroy(db);
+  db_->write(write);
 
   dbDatabase* db2 = dbDatabase::create();
   std::ifstream read;

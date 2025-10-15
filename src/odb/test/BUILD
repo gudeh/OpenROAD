@@ -142,6 +142,8 @@ py_test(
 # From CMakeLists.txt or_integration_tests(TESTS
 COMPULSORY_TESTS = [
     "abstract_origin",
+    "all_pins_placed1",
+    "all_pins_placed2",
     "bterm_hier_create",
     "check_routing_tracks",
     "create_blockage",
@@ -193,11 +195,15 @@ COMPULSORY_TESTS = [
     "smash_vias",
     "transform",
     "wire_encoder",
+    "write_cdl",
     "write_def58",
     "write_def58_gzip",
     "write_lef_and_def",
     "write_lef_polygon",
     "write_macro_placement",
+]
+
+PASSFAIL_TESTS = [
     # pass-fail
     "test_block",
     "test_bterm",
@@ -216,7 +222,14 @@ MANUAL_TESTS = [
     "odb_readme_msgs_check",
 ]
 
-ALL_TESTS = COMPULSORY_TESTS + MANUAL_TESTS
+# TODO: Enable once difference between bazel and ctest is resolved.
+MANUAL_FOR_BAZEL_TESTS = [
+    "dump_netlists",
+    "dump_netlists_withfill",
+    "replace_hier_mod1",
+]
+
+ALL_TESTS = COMPULSORY_TESTS + MANUAL_TESTS + PASSFAIL_TESTS
 
 filegroup(
     name = "regression_resources",
@@ -256,8 +269,6 @@ filegroup(
         "NangateOpenCellLibrary.cdl",
         "data/ICEWall/dummy_pads.lef",
         "data/ICEWall/octilinear.def",
-        "data/Nangate45/NangateOpenCellLibrary.mod.lef",
-        "data/Nangate45/OpenCellLibraryLicenseSi2.txt",
         "data/design.def",
         "data/design.def.gz",
         "data/design.odb",
@@ -279,7 +290,6 @@ filegroup(
         "data/gscl45nm_polygon.lef",
         "data/lef58class_gscl45nm.lef",
         "data/mask.lef",
-        "data/nangate45_polygon_floorplan.def",
         "data/ndr.def",
         "data/parser_test.def",
         "data/rounding.def",
@@ -327,6 +337,12 @@ filegroup(
                 test_name + ".*",
             ],
         ) + {
+            "all_pins_placed1": [
+                "floorplan_initialize3.def",
+            ],
+            "all_pins_placed2": [
+                "design_is_routed1.def",
+            ],
             "dump_netlists": [
                 "dump_netlists_cdl.ok",
             ],
@@ -339,6 +355,9 @@ filegroup(
             "replace_hier_mod4": [
                 "gcd_abstract_lef.lefok",
             ],
+            "write_cdl": [
+                "write_cdl_escaped.cdl",
+            ],
         }.get(
             test_name,
             [],
@@ -350,8 +369,11 @@ filegroup(
 [
     regression_test(
         name = test_name,
+        check_log = False if test_name in PASSFAIL_TESTS else True,
+        check_passfail = True if test_name in PASSFAIL_TESTS else False,
         data = [":" + test_name + "_resources"],
-        tags = [] if test_name in COMPULSORY_TESTS else ["manual"],
+        tags = ["manual"] if test_name in MANUAL_TESTS or
+                             test_name in MANUAL_FOR_BAZEL_TESTS else [],
         visibility = ["//visibility:public"],
     )
     for test_name in ALL_TESTS

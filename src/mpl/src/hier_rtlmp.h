@@ -101,11 +101,11 @@ class HierRTLMP
   void setBoundaryWeight(float boundary_weight);
   void setNotchWeight(float notch_weight);
   void setMacroBlockageWeight(float macro_blockage_weight);
-  void setPinAccessThreshold(float pin_access_th);
   void setTargetUtil(float target_util);
   void setTargetDeadSpace(float target_dead_space);
   void setMinAR(float min_ar);
   void setReportDirectory(const char* report_directory);
+  void setKeepClusteringData(bool keep_clustering_data);
   void setDebug(std::unique_ptr<MplObserver>& graphics);
   void setDebugShowBundledNets(bool show_bundled_nets);
   void setDebugShowClustersIds(bool show_clusters_ids);
@@ -135,6 +135,9 @@ class HierRTLMP
   void updateMacrosOnDb();
   void updateMacroOnDb(const HardMacro* hard_macro);
   void commitMacroPlacementToDb();
+  void commitClusteringDataToDb() const;
+  void createGroupForCluster(Cluster* cluster,
+                             odb::dbGroup* parent_group) const;
   void clear();
   void computeWireLength() const;
 
@@ -274,8 +277,6 @@ class HierRTLMP
   float min_ar_ = 0.3;  // the aspect ratio range for StdCellCluster (min_ar_, 1
                         // / min_ar_)
 
-  float pin_access_th_ = 0.1;  // each pin access is modeled as a SoftMacro
-  float pin_access_th_orig_ = 0.1;
   float notch_v_th_ = 10.0;
   float notch_h_th_ = 10.0;
 
@@ -313,6 +314,7 @@ class HierRTLMP
   const float conversion_tolerance_ = 0.01;
 
   bool skip_macro_placement_ = false;
+  bool keep_clustering_data_{false};
 
   std::unique_ptr<MplObserver> graphics_;
   bool is_debug_only_final_result_{false};
