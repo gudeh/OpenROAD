@@ -9,6 +9,7 @@
 #include "infrastructure/Grid.h"
 #include "infrastructure/Objects.h"
 #include "infrastructure/network.h"
+#include "odb/db.h"
 #include "odb/dbTypes.h"
 #include "utl/Logger.h"
 
@@ -23,7 +24,7 @@ using odb::dbPlacementStatus;
 
 using utl::format_as;
 
-static dbTechLayer* getImplant(dbMaster* master)
+static odb::dbTechLayer* getImplant(dbMaster* master)
 {
   if (!master) {
     return nullptr;
@@ -49,6 +50,47 @@ Opendp::MasterByImplant Opendp::splitByImplant(
   return mapping;
 }
 
+dbMasterSeq Opendp::filterFillerMasters(const dbMasterSeq& filler_masters) const
+{
+  // Remove fillers that cannot be used
+  dbMasterSeq filtered_masters = filler_masters;
+
+  if (logger_->debugCheck(DPL, "filler", 2)) {
+    debugPrint(logger_,
+               DPL,
+               "filler",
+               1,
+               "Starting fillers: {}",
+               filtered_masters.size()) for (auto* master : filtered_masters)
+    {
+      debugPrint(logger_, DPL, "filler", 2, "    {}", master->getName());
+    }
+  }
+
+  // Remove fillers with PAD or BLOCK classes
+  filtered_masters.erase(std::remove_if(filtered_masters.begin(),
+                                        filtered_masters.end(),
+                                        [](dbMaster* master) -> bool {
+                                          return master->isPad()
+                                                 || master->isBlock();
+                                        }),
+                         filtered_masters.end());
+
+  if (logger_->debugCheck(DPL, "filler", 2)) {
+    debugPrint(logger_,
+               DPL,
+               "filler",
+               1,
+               "Final filterered fillers: {}",
+               filtered_masters.size()) for (auto* master : filtered_masters)
+    {
+      debugPrint(logger_, DPL, "filler", 2, "    {}", master->getName());
+    }
+  }
+
+  return filtered_masters;
+}
+
 void Opendp::fillerPlacement(const dbMasterSeq& filler_masters,
                              const char* prefix,
                              bool verbose)
@@ -58,7 +100,9 @@ void Opendp::fillerPlacement(const dbMasterSeq& filler_masters,
     adjustNodesOrient();
   }
 
-  auto filler_masters_by_implant = splitByImplant(filler_masters);
+  const auto filtered_masters = filterFillerMasters(filler_masters);
+
+  auto filler_masters_by_implant = splitByImplant(filtered_masters);
 
   for (auto& [layer, masters] : filler_masters_by_implant) {
     std::sort(masters.begin(),
@@ -137,7 +181,7 @@ void Opendp::placeRowFillers(GridY row,
       k++;
     }
 
-    dbTechLayer* implant = nullptr;
+    odb::dbTechLayer* implant = nullptr;
     if (j > 0) {
       auto pixel = grid_->gridPixel(j - 1, row);
       if (pixel->cell && pixel->cell->getDbInst()) {
@@ -173,10 +217,10 @@ void Opendp::placeRowFillers(GridY row,
       for (dbMaster* master : fillers) {
         std::string inst_name
             = prefix + to_string(row.v) + "_" + to_string(k.v);
-        dbInst* inst = dbInst::create(block_,
-                                      master,
-                                      inst_name.c_str(),
-                                      /* physical_only */ true);
+        odb::dbInst* inst = odb::dbInst::create(block_,
+                                                master,
+                                                inst_name.c_str(),
+                                                /* physical_only */ true);
         DbuX x{core_.xMin() + gridToDbu(k, site_width)};
         DbuY y{core_.yMin() + grid_->gridYToDbu(row)};
         inst->setOrient(orient);
@@ -209,7 +253,7 @@ const char* Opendp::gridInstName(GridY row, GridX col)
 
 // Return list of masters to fill gap (in site width units).
 dbMasterSeq& Opendp::gapFillers(
-    dbTechLayer* implant,
+    odb::dbTechLayer* implant,
     GridX gap,
     const MasterByImplant& filler_masters_by_implant)
 {
@@ -249,7 +293,7 @@ dbMasterSeq& Opendp::gapFillers(
 void Opendp::removeFillers()
 {
   block_ = db_->getChip()->getBlock();
-  for (dbInst* db_inst : block_->getInsts()) {
+  for (odb::dbInst* db_inst : block_->getInsts()) {
     if (isFiller(db_inst)) {
       odb::dbInst::destroy(db_inst);
     }
@@ -257,7 +301,7 @@ void Opendp::removeFillers()
 }
 
 /* static */
-bool Opendp::isFiller(dbInst* db_inst)
+bool Opendp::isFiller(odb::dbInst* db_inst)
 {
   dbMaster* db_master = db_inst->getMaster();
   return db_master->getType() == odb::dbMasterType::CORE_SPACER
@@ -355,29 +399,31 @@ static std::optional<std::pair<GridX, GridY>> findPhiCutPosition(
 }
 
 // Helper function to safely swap a cell's master
-static void swapCellMaster(Node* node, dbMaster* new_master, dbBlock* block)
+static void swapCellMaster(Node* node,
+                           odb::dbMaster* new_master,
+                           odb::dbBlock* block)
 {
-  dbInst* old_inst = node->getDbInst();
+  odb::dbInst* old_inst = node->getDbInst();
   if (!old_inst || !new_master) {
     return;
   }
 
   // Save old instance properties
   std::string inst_name = old_inst->getName();
-  dbOrientType orient = old_inst->getOrient();
+  odb::dbOrientType orient = old_inst->getOrient();
   int x = old_inst->getLocation().x();
   int y = old_inst->getLocation().y();
-  dbPlacementStatus placement_status = old_inst->getPlacementStatus();
+  odb::dbPlacementStatus placement_status = old_inst->getPlacementStatus();
   odb::dbSourceType source_type = old_inst->getSourceType();
 
   // Delete old instance
-  dbInst::destroy(old_inst);
+  odb::dbInst::destroy(old_inst);
 
   // Create new instance with the desired master at the same position
-  dbInst* new_inst = dbInst::create(block,
-                                    new_master,
-                                    inst_name.c_str(),
-                                    /* physical_only */ true);
+  odb::dbInst* new_inst = odb::dbInst::create(block,
+                                              new_master,
+                                              inst_name.c_str(),
+                                              /* physical_only */ true);
 
   // Restore properties
   new_inst->setOrient(orient);
@@ -492,10 +538,10 @@ void Opendp::placeRowPhiCutCells(GridY row, int& phi_cut_count)
 
       // Create and place phi cut cell
       std::string inst_name = "PHI_CUT_" + std::to_string(phi_cut_count++);
-      dbInst* inst = dbInst::create(block_,
-                                    phi_cut_cell_,
-                                    inst_name.c_str(),
-                                    /* physical_only */ true);
+      odb::dbInst* inst = odb::dbInst::create(block_,
+                                              phi_cut_cell_,
+                                              inst_name.c_str(),
+                                              /* physical_only */ true);
 
       DbuX x{core_.xMin() + gridToDbu(best_x, site_width)};
       DbuY y{core_.yMin() + grid_->gridYToDbu(best_y)};

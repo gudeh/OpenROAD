@@ -217,20 +217,33 @@ def bazelTest = {
             checkout scm;
             sh label: 'Setup Docker Image', script: 'docker build -f docker/Dockerfile.bazel -t openroad/bazel-ci .';
         }
-        withDockerContainer(args: '-u root -v /var/run/docker.sock:/var/run/docker.sock', image: 'openroad/bazel-ci:latest') {
-            stage('bazelisk test ...') {
-                withCredentials([string(credentialsId: 'bazel-auth-token-b64', variable: 'BAZEL_AUTH_TOKEN_B64')]) {
-                    timeout(time: 120, unit: 'MINUTES') {
-                        def cmd = 'bazelisk test --config=ci --show_timestamps --test_output=errors --curses=no --force_pic --remote_header="Authorization=Basic $BAZEL_AUTH_TOKEN_B64"'
-                        try {
-                            sh label: 'Bazel Build', script: cmd + ' ...';
-                        } catch (e) {
-                            currentBuild.result = 'FAILURE';
-                            sh label: 'Bazel Build (keep_going)', script: cmd + ' --keep_going ...';
+        try {
+            withDockerContainer(args: '-u root -v /var/run/docker.sock:/var/run/docker.sock', image: 'openroad/bazel-ci:latest') {
+                stage('bazelisk test ...') {
+                    withCredentials([string(credentialsId: 'bazel-auth-token-b64', variable: 'BAZEL_AUTH_TOKEN_B64')]) {
+                        timeout(time: 120, unit: 'MINUTES') {
+                            def cmd = 'bazelisk test --config=ci --show_timestamps --test_output=errors --curses=no --force_pic --remote_header="Authorization=Basic $BAZEL_AUTH_TOKEN_B64" --profile=build.profile'
+                            try {
+                                try {
+                                    sh label: 'Test, using cached results and building a minimum of dependencies', script: cmd + ' ...';
+                                } finally {
+                                    sh label: 'Analyze build times', script: 'bazelisk analyze-profile build.profile';
+                                }
+                            } catch (e) {
+                                try {
+                                    sh label: 'Test (keep_going)', script: cmd + ' --keep_going ...';
+                                } catch (e2) {
+                                    currentBuild.result = 'FAILURE';
+                                } finally {
+                                    sh label: 'Analyze build times', script: 'bazelisk analyze-profile build.profile';
+                                }
+                            }
                         }
                     }
                 }
             }
+        } catch (IOException e) {
+            echo "Caught: ${e}";
         }
     }
 }

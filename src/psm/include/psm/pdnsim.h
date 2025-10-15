@@ -8,8 +8,8 @@
 #include <optional>
 #include <string>
 
+#include "odb/db.h"
 #include "odb/dbBlockCallBackObj.h"
-#include "odb/dbCompare.h"
 
 namespace odb {
 class dbDatabase;
@@ -42,8 +42,6 @@ enum class GeneratedSourceType
   kStraps,
   kBumps
 };
-
-using odb::dbMaster;
 
 class PDNSim : public odb::dbBlockCallBackObj
 {
@@ -115,7 +113,7 @@ class PDNSim : public odb::dbBlockCallBackObj
                          IRDropByPoint& ir_drop) const;
 
   // Functions of decap cells
-  void addDecapMaster(dbMaster* decap_master, double decap_cap);
+  void addDecapMaster(odb::dbMaster* decap_master, double decap_cap);
   void insertDecapCells(double target, const char* net_name);
 
  private:

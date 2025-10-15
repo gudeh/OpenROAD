@@ -29,7 +29,9 @@
 #include "sta/Clock.hh"
 #include "sta/MinMax.hh"
 #include "sta/PortDirection.hh"
+#include "sta/SdcClass.hh"
 #include "sta/Units.hh"
+#include "utl/Logger.h"
 #include "utl/histogram.h"
 
 namespace gui {

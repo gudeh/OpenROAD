@@ -934,8 +934,14 @@ bool GlobalRouter::findPinAccessPointPositions(
       access_points.insert(
           access_points.begin(), bpin_pas.begin(), bpin_pas.end());
     }
-  } else {
+  } else if (pin.isCorePin()) {
     access_points = pin.getITerm()->getPrefAccessPoints();
+  } else {
+    // For non-core cells, DRT does not assign preferred APs.
+    // Use all APs to ensure the guides covering at least one AP.
+    for (const auto& [pin, aps] : pin.getITerm()->getAccessPoints()) {
+      access_points.insert(access_points.end(), aps.begin(), aps.end());
+    }
   }
 
   if (access_points.empty()) {
@@ -2058,6 +2064,11 @@ void GlobalRouter::setAllowCongestion(bool allow_congestion)
   allow_congestion_ = allow_congestion;
 }
 
+void GlobalRouter::setResistanceAware(bool resistance_aware)
+{
+  resistance_aware_ = resistance_aware;
+}
+
 void GlobalRouter::setMacroExtension(int macro_extension)
 {
   macro_extension_ = macro_extension;
@@ -2159,6 +2170,7 @@ void GlobalRouter::configFastRoute()
   fastroute_->setVerbose(verbose_);
   fastroute_->setOverflowIterations(congestion_iterations_);
   fastroute_->setCongestionReportIterStep(congestion_report_iter_step_);
+  fastroute_->setResistanceAware(resistance_aware_);
 
   if (congestion_file_name_ != nullptr) {
     fastroute_->setCongestionReportFile(congestion_file_name_);
@@ -4541,6 +4553,15 @@ std::vector<GSegment> GlobalRouter::createConnectionForPositions(
     connection.emplace_back(x1, y1, layer_hor, x2, y1, layer_hor);
     connection.emplace_back(x2, y1, conn_layer + layer_fix, x2, y1, conn_layer);
     connection.emplace_back(x2, y1, layer_ver, x2, y2, layer_ver);
+
+    // Add vias if the additional connections are not touching the existing
+    // routing.
+    if (layer1 < layer_hor) {
+      connection.emplace_back(x1, y1, layer1, x1, y1, layer_hor);
+    }
+    if (layer2 < layer_ver) {
+      connection.emplace_back(x2, y2, layer_ver, x2, y2, layer2);
+    }
   }
 
   odb::Point via_pos1 = pin_pos1;

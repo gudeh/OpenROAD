@@ -29,8 +29,14 @@ COMPONENTS 16 ;
     - r2 LONG_PIN + PLACED ( 9500 14000 ) FS ;
 END COMPONENTS
 PINS 2 ;
-    - clk1 + NET clk1 + DIRECTION INPUT + USE SIGNAL ;
-    - clk2 + NET clk2 + DIRECTION INPUT + USE SIGNAL ;
+    - clk1 + NET clk1 + DIRECTION INPUT + USE SIGNAL
+      + PORT
+        + LAYER metal2 ( -70 -70 ) ( 70 70 )
+        + PLACED ( 2470 70 ) N ;
+    - clk2 + NET clk2 + DIRECTION INPUT + USE SIGNAL
+      + PORT
+        + LAYER metal2 ( -70 -70 ) ( 70 70 )
+        + PLACED ( 3230 70 ) N ;
 END PINS
 NETS 2 ;
     - clk1 ( PIN clk1 ) ( r1 ZN ) + USE SIGNAL ;
