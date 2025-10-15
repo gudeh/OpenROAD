@@ -3,8 +3,6 @@
 
 #include "nesterovBase.h"
 
-#include <omp.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -24,6 +22,7 @@
 #include "fft.h"
 #include "nesterovPlace.h"
 #include "odb/db.h"
+#include "omp.h"
 #include "placerBase.h"
 #include "utl/Logger.h"
 
@@ -3162,13 +3161,14 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
       // analogous to updatePrevGradient()
       updateSinglePrevGradient(gcells_index, wlCoeffX, wlCoeffY);
     } else {
+      // Not finding a db_inst in the map should not be a problem. Just ignore
+      // Occurs when instance created and destroyed in same iteration.
       debugPrint(log_,
                  GPL,
                  "callbacks",
                  1,
                  "warning: updateGCellState, db_inst not found in "
-                 "db_inst_index_map_ for instance: {}",
-                 db_inst->getName());
+                 "db_inst_to_nb_index_");
     }
   }
   new_instances_.clear();
@@ -3176,6 +3176,12 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
 
 void NesterovBase::createCbkGCell(odb::dbInst* db_inst, size_t stor_index)
 {
+  debugPrint(log_,
+             GPL,
+             "callbacks",
+             2,
+             "NesterovBase: createGCell {}",
+             db_inst->getName());
   auto gcell = nbc_->getGCellByIndex(stor_index);
   if (gcell != nullptr) {
     new_instances_.push_back(db_inst);
@@ -3222,7 +3228,7 @@ size_t NesterovBaseCommon::createCbkGCell(odb::dbInst* db_inst)
 
 void NesterovBaseCommon::createCbkGNet(odb::dbNet* db_net, bool skip_io_mode)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NBC createGNet");
+  debugPrint(log_, GPL, "callbacks", 3, "NBC createGNet");
   Net gpl_net(db_net, skip_io_mode);
   pb_nets_stor_.push_back(gpl_net);
   GNet gnet(&pb_nets_stor_.back());
@@ -3234,7 +3240,7 @@ void NesterovBaseCommon::createCbkGNet(odb::dbNet* db_net, bool skip_io_mode)
 
 void NesterovBaseCommon::createCbkITerm(odb::dbITerm* iTerm)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NBC createITerm");
+  debugPrint(log_, GPL, "callbacks", 3, "NBC createITerm");
   Pin gpl_pin(iTerm);
   pb_pins_stor_.push_back(gpl_pin);
   GPin gpin(&pb_pins_stor_.back());
@@ -3248,7 +3254,12 @@ void NesterovBaseCommon::createCbkITerm(odb::dbITerm* iTerm)
 //  maintaining consistency in NBC::gcellStor_ and NB::gCells_
 void NesterovBase::destroyCbkGCell(odb::dbInst* db_inst)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBase::destroyGCel");
+  debugPrint(log_,
+             GPL,
+             "callbacks",
+             2,
+             "NesterovBase: destroyCbkGCell {}",
+             db_inst->getName());
   auto db_it = db_inst_to_nb_index_.find(db_inst);
   if (db_it != db_inst_to_nb_index_.end()) {
     size_t last_index = nb_gcells_.size() - 1;
@@ -3308,7 +3319,7 @@ void NesterovBase::destroyCbkGCell(odb::dbInst* db_inst)
         GPL,
         "callbacks",
         1,
-        "warning: db_inst not found in db_inst_index_map_ for instance: {}",
+        "warning: db_inst not found in db_inst_to_nb_index_ for instance: {}",
         db_inst->getName());
   }
 }
@@ -3475,8 +3486,9 @@ void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
              GPL,
              "callbacks",
              2,
-             "destroy filler nb index: {}",
-             nb_index_remove);
+             "destroy filler nb index: {}, nb_gcells_ size: {}",
+             nb_index_remove,
+             nb_gcells_.size());
   size_t stor_last_index = fillerStor_.size() - 1;
   GCellHandle& gcell_remove = nb_gcells_[nb_index_remove];
   size_t stor_index_remove = gcell_remove.getStorageIndex();
@@ -3626,7 +3638,7 @@ void NesterovBase::restoreRemovedFillers()
 
 void NesterovBaseCommon::destroyCbkGNet(odb::dbNet* db_net)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyGNet");
+  debugPrint(log_, GPL, "callbacks", 3, "NBC destroyGNet");
   auto db_it = db_net_to_index_map_.find(db_net);
   if (db_it == db_net_to_index_map_.end()) {
     log_->error(GPL,
@@ -3662,7 +3674,7 @@ void NesterovBaseCommon::destroyCbkGNet(odb::dbNet* db_net)
 
 void NesterovBaseCommon::destroyCbkITerm(odb::dbITerm* db_iterm)
 {
-  debugPrint(log_, GPL, "callbacks", 2, "NesterovBaseCommon::destroyITerm");
+  debugPrint(log_, GPL, "callbacks", 3, "NBC destroyITerm");
   auto db_it = db_iterm_to_index_map_.find(db_iterm);
   if (db_it != db_iterm_to_index_map_.end()) {
     size_t last_index = gPinStor_.size() - 1;
@@ -3810,16 +3822,27 @@ void NesterovBase::appendGCellCSVNote(const std::string& filename,
 
 void NesterovBase::writeGCellVectorsToCSV(const std::string& filename,
                                           int iteration,
-                                          bool write_header) const
+                                          int start_iteration,
+                                          int iteration_stride,
+                                          int gcell_index_stride) const
 {
-  std::ofstream file(filename, std::ios::app);
-  if (!file.is_open()) {
-    log_->report("Could not open file: {}", filename);
+  if (iteration != 0
+      && (iteration < start_iteration || iteration % iteration_stride != 0)) {
     return;
   }
 
-  // Write header only on first call
-  if (write_header) {
+  bool file_exists = std::ifstream(filename).good();
+  std::ofstream file(filename, std::ios::app);
+  if (!file.is_open()) {
+    file.open(filename, std::ios::out | std::ios::app);
+    if (!file.is_open()) {
+      log_->report("Could not create or open file: {}", filename);
+      return;
+    }
+  }
+
+  // Write header only if file didn't exist before
+  if (!file_exists) {
     file << "iteration,index,name";
     file << ",insts_size,gPins_size";
     file << ",lx,ly,ux,uy";
@@ -3858,7 +3881,7 @@ void NesterovBase::writeGCellVectorsToCSV(const std::string& filename,
 
   size_t num_rows = curSLPCoordi_.size();
 
-  for (size_t i = 0; i < num_rows; i += 10) {
+  for (size_t i = 0; i < num_rows; i += gcell_index_stride) {
     file << iteration << "," << i;
     file << "," << nb_gcells_[i]->getName();
     nb_gcells_[i]->writeAttributesToCSV(file);

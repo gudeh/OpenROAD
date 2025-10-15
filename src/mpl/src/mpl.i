@@ -49,11 +49,11 @@ bool rtl_macro_placer_cmd(const int max_num_macro,
                           const float boundary_weight,
                           const float notch_weight,
                           const float macro_blockage_weight,
-                          const float pin_access_th,
                           const float target_util,
                           const float target_dead_space,
                           const float min_ar,
-                          const char* report_directory) {
+                          const char* report_directory,
+                          const bool keep_clustering_data) {
 
   auto macro_placer = getMacroPlacer();
   const int num_threads = ord::OpenRoad::openRoad()->getThreadCount();
@@ -81,11 +81,11 @@ bool rtl_macro_placer_cmd(const int max_num_macro,
                              boundary_weight,
                              notch_weight,
                              macro_blockage_weight,
-                             pin_access_th,
                              target_util,
                              target_dead_space,
                              min_ar,
-                             report_directory);
+                             report_directory,
+                             keep_clustering_data);
 }
 
 void set_debug_cmd(odb::dbBlock* block,

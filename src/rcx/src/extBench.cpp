@@ -5,17 +5,16 @@
 #include <cassert>
 #include <cstdio>
 
+#include "odb/array1.h"
 #include "odb/db.h"
+#include "odb/dbSet.h"
 #include "odb/geom.h"
 #include "rcx/extRCap.h"
 #include "rcx/extSpef.h"
 #include "rcx/extprocess.h"
 #include "utl/Logger.h"
 
-namespace rcx {
-
-using utl::RCX;
-
+using odb::Ath__array1D;
 using odb::dbBlock;
 using odb::dbBox;
 using odb::dbChip;
@@ -26,6 +25,9 @@ using odb::dbTechLayerRule;
 using odb::dbTechNonDefaultRule;
 using odb::dbWire;
 using odb::Rect;
+using utl::RCX;
+
+namespace rcx {
 
 extMainOptions::extMainOptions()
 {
