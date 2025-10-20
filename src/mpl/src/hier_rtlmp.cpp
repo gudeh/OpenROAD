@@ -1307,7 +1307,6 @@ void HierRTLMP::mergeNets(std::vector<BundledNet>& nets)
   }
 }
 
-// TODO: Evaluate removing this once floating point code is gone.
 void HierRTLMP::discardInvalidTilings(const UniqueClusterVector& children,
                                       const Rect& outline) const
 {
