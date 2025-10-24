@@ -3,6 +3,8 @@
 
 #include "ord/OpenRoad.hh"
 
+#include <tcl.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -267,6 +269,7 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   rsz::initResizer(tcl_interp);
   ppl::initIoplacer(tcl_interp);
   gpl::initReplace(tcl_interp);
+  gpl::initReplaceGraphics(replace_, logger_);
   dpl::initOpendp(tcl_interp);
   fin::initFinale(tcl_interp);
   ram::initRamGen(tcl_interp);
@@ -485,13 +488,13 @@ void OpenRoad::writeCdl(const char* out_filename,
 
 void OpenRoad::read3Dbv(const std::string& filename)
 {
-  odb::ThreeDBlox parser(logger_, db_);
+  odb::ThreeDBlox parser(logger_, db_, sta_);
   parser.readDbv(filename);
 }
 
 void OpenRoad::read3Dbx(const std::string& filename)
 {
-  odb::ThreeDBlox parser(logger_, db_);
+  odb::ThreeDBlox parser(logger_, db_, sta_);
   parser.readDbx(filename);
 }
 

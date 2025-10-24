@@ -24,8 +24,6 @@
 
 namespace dpl {
 
-using odb::dbSite;
-
 struct GridIntervalX
 {
   GridX lo;
@@ -46,8 +44,8 @@ struct Pixel
   bool is_valid = false;     // false for dummy cells
   bool is_hopeless = false;  // too far from sites for diamond search
   uint8_t blocked_layers = 0;
-  // Cells that reserved this pixel for padding
-  std::unordered_set<Node*> padding_reserved_by;
+  // Cell that reserved this pixel for padding
+  Node* padding_reserved_by = nullptr;
   std::vector<odb::dbShape> via_boxes;
 };
 
@@ -71,7 +69,7 @@ class Grid
  public:
   void init(Logger* logger) { logger_ = logger; }
   void setCore(const odb::Rect& core) { core_ = core; }
-  void initGrid(dbDatabase* db,
+  void initGrid(odb::dbDatabase* db,
                 odb::dbBlock* block,
                 std::shared_ptr<Padding> padding,
                 int max_displacement_x,
@@ -141,9 +139,9 @@ class Grid
 
   std::optional<odb::dbOrientType> getSiteOrientation(GridX x,
                                                       GridY y,
-                                                      dbSite* site) const;
-  std::pair<dbSite*, odb::dbOrientType> getShortestSite(GridX grid_x,
-                                                        GridY grid_y);
+                                                      odb::dbSite* site) const;
+  std::pair<odb::dbSite*, odb::dbOrientType> getShortestSite(GridX grid_x,
+                                                             GridY grid_y);
 
   void resize(int size) { pixels_.resize(size); }
   void resize(GridY size) { pixels_.resize(size.v); }
@@ -157,11 +155,11 @@ class Grid
   odb::Rect getCore() const { return core_; }
   bool cellFitsInCore(Node* cell) const;
 
-  bool isMultiHeight(dbMaster* master) const;
+  bool isMultiHeight(odb::dbMaster* master) const;
 
  private:
   // Maps a site to the right orientation to use in a given row
-  using SiteToOrientation = std::map<dbSite*, odb::dbOrientType>;
+  using SiteToOrientation = std::map<odb::dbSite*, odb::dbOrientType>;
 
   // Used to combine the SiteToOrientation for two intervals when merged
   template <typename MapType>

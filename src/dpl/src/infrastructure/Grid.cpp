@@ -259,7 +259,7 @@ std::vector<odb::dbShape> via_boxes;
   }
 }
 
-void Grid::initGrid(dbDatabase* db,
+void Grid::initGrid(odb::dbDatabase* db,
                     odb::dbBlock* block,
                     std::shared_ptr<Padding> padding,
                     int max_displacement_x,
@@ -274,10 +274,10 @@ void Grid::initGrid(dbDatabase* db,
   markBlocked(block);
 }
 
-std::pair<dbSite*, odb::dbOrientType> Grid::getShortestSite(GridX grid_x,
-                                                            GridY grid_y)
+std::pair<odb::dbSite*, odb::dbOrientType> Grid::getShortestSite(GridX grid_x,
+                                                                 GridY grid_y)
 {
-  dbSite* selected_site = nullptr;
+  odb::dbSite* selected_site = nullptr;
   odb::dbOrientType selected_orient;
   DbuY min_height{std::numeric_limits<int>::max()};
 
@@ -298,9 +298,8 @@ std::pair<dbSite*, odb::dbOrientType> Grid::getShortestSite(GridX grid_x,
   return {selected_site, selected_orient};
 }
 
-std::optional<odb::dbOrientType> Grid::getSiteOrientation(GridX x,
-                                                          GridY y,
-                                                          dbSite* site) const
+std::optional<odb::dbOrientType>
+Grid::getSiteOrientation(GridX x, GridY y, odb::dbSite* site) const
 {
   const RowSitesMap& sites_map = row_sites_[y.v];
   auto interval_it = sites_map.find(x.v);
@@ -411,7 +410,7 @@ void Grid::visitCellBoundaryPixels(
     }
   };
 
-  dbMaster* master = inst->getMaster();
+  odb::dbMaster* master = inst->getMaster();
   auto obstructions = master->getObstructions();
   bool have_obstructions = false;
   const odb::Rect core = getCore();
@@ -483,9 +482,8 @@ void Grid::erasePixel(Node* cell)
       }
 
       // Clear padding reservations made by this cell
-      if (pixel->padding_reserved_by.find(cell)
-          != pixel->padding_reserved_by.end()) {
-        pixel->padding_reserved_by.erase(cell);
+      if (pixel->padding_reserved_by == cell) {
+        pixel->padding_reserved_by = nullptr;
       }
     }
   }
@@ -537,7 +535,7 @@ void Grid::paintCellPadding(Node* cell,
       if (pixel == nullptr) {
         continue;
       }
-      pixel->padding_reserved_by.insert(cell);
+      pixel->padding_reserved_by = cell;
     }
   }
 
@@ -548,7 +546,7 @@ void Grid::paintCellPadding(Node* cell,
       if (pixel == nullptr) {
         continue;
       }
-      pixel->padding_reserved_by.insert(cell);
+      pixel->padding_reserved_by = cell;
     }
   }
 }
@@ -736,10 +734,10 @@ void Grid::examineRows(odb::dbBlock* block)
   block_ = block;
   has_hybrid_rows_ = false;
   bool has_non_hybrid_rows = false;
-  dbSite* first_site = nullptr;
+  odb::dbSite* first_site = nullptr;
 
   visitDbRows(block, [&](odb::dbRow* row) {
-    dbSite* site = row->getSite();
+    odb::dbSite* site = row->getSite();
     if (site->isHybrid()) {
       has_hybrid_rows_ = true;
     } else {
@@ -815,7 +813,7 @@ std::unordered_set<int> Grid::getRowCoordinates() const
   return coords;
 }
 
-bool Grid::isMultiHeight(dbMaster* master) const
+bool Grid::isMultiHeight(odb::dbMaster* master) const
 {
   if (uniform_row_height_) {
     return master->getHeight() > uniform_row_height_.value();
