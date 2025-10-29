@@ -240,8 +240,10 @@ void HierRTLMP::run()
     graphics_->drawResult();
   }
 
-  Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
-  pusher.pushMacrosToCoreBoundaries();
+  if (!create_regions_for_std_cells_) {
+    Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
+    pusher.pushMacrosToCoreBoundaries();
+  }
 
   updateMacrosOnDb();
 
@@ -2633,26 +2635,25 @@ void HierRTLMP::createRegionForStdCells(Cluster* cluster) const
     return;
   }
 
-  /*
-    TO THINK: - What to do with tiny std cell clusters?
-              - What to do when the pusher creates std cell overlap?
-                  We can get rid of the pusher or include std cell overlap
-                  as a parameter for the pushing.
-  */
   if (cluster->getClusterType() == StdCellCluster && cluster->isLeaf()) {
-    odb::dbRegion* cluster_region
-        = odb::dbRegion::create(block_, cluster->getName().c_str());
     SoftMacro* soft_macro = cluster->getSoftMacro();
-    const Rect micron_cluster_shape = soft_macro->getBBox();
-    const odb::Rect cluster_shape = micronsToDbu(block_, micron_cluster_shape);
-    odb::dbBox::create(cluster_region,
-                       cluster_shape.xMin(),
-                       cluster_shape.yMin(),
-                       cluster_shape.xMax(),
-                       cluster_shape.yMax());
+    const bool is_tiny = soft_macro->getArea() == 0.0;
 
-    cluster_region->addGroup(cluster->group());
-   }
+    if (!is_tiny) {
+      odb::dbRegion* cluster_region
+          = odb::dbRegion::create(block_, cluster->getName().c_str());
+      const Rect micron_cluster_shape = soft_macro->getBBox();
+      const odb::Rect cluster_shape
+          = micronsToDbu(block_, micron_cluster_shape);
+      odb::dbBox::create(cluster_region,
+                         cluster_shape.xMin(),
+                         cluster_shape.yMin(),
+                         cluster_shape.xMax(),
+                         cluster_shape.yMax());
+
+      cluster_region->addGroup(cluster->group());
+    }
+  }
 
   for (const auto& child : cluster->getChildren()) {
     createRegionForStdCells(child.get());
