@@ -3468,4 +3468,50 @@ void Snapper::alignWithManufacturingGrid(int& origin)
            * manufacturing_grid;
 }
 
+void HierRTLMP::reportAreaData(const std::vector<SoftMacro>& soft_macros,
+                               const Rect& outline) const
+{
+  float macro_area = 0.0f;
+  float mixed_area = 0.0f;
+  float std_cell_area = 0.0f;
+
+  for (auto& macro : soft_macros) {
+    Cluster* cluster = macro.getCluster();
+
+    if (cluster && !cluster->isIOCluster()) {
+      switch (cluster->getClusterType()) {
+        case StdCellCluster: {
+          std_cell_area += macro.getArea();
+          break;
+        }
+        case HardMacroCluster: {
+          macro_area += macro.getArea();
+          break;
+        }
+        case MixedCluster: {
+          mixed_area += macro.getArea();
+          break;
+        }
+      }
+    }
+  }
+
+  const float occupied_area = std_cell_area + macro_area + mixed_area;
+
+  logger_->report("  Cluster Type  |      Area      ");
+  logger_->report("---------------------------------");
+  logger_->report("          Mixed | {:>15.2f}", mixed_area);
+  logger_->report("       Std Cell | {:>15.2f}", std_cell_area);
+  logger_->report("          Macro | {:>15.2f}", macro_area);
+  logger_->report("---------------------------------");
+  logger_->report("  Occupied        {:>15.2f}\n", occupied_area);
+
+  const float empty_area = outline.getArea() - occupied_area;
+
+  logger_->report("          |      Area      ");
+  logger_->report("---------------------------");
+  logger_->report("  Outline | {:>15.2f}", outline.getArea());
+  logger_->report("    Empty | {:>15.2f}\n", empty_area);
+}
+
 }  // namespace mpl
