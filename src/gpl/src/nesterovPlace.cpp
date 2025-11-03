@@ -791,11 +791,19 @@ bool NesterovPlace::isConverged(int gpl_iter_count,
                                 int routability_gpl_iter_count)
 {
   // check each for converge and if all are converged then stop
+  int64_t rough_inflated_std_cell_area = 0;
   int num_region_converge = 0;
   for (auto& nb : nbVec_) {
     num_region_converge += nb->checkConvergence(
         gpl_iter_count, routability_gpl_iter_count, rb_.get());
+
+    rough_inflated_std_cell_area += nb->getAreaOfBinsWithMovableInsts();
   }
+
+  odb::dbDatabase* db = pbc_->db();
+  odb::dbBlock* block = db->getChip()->getBlock();
+  log_->report("Rough Inflated Std Cell Area: {}",
+      block->dbuAreaToMicrons(rough_inflated_std_cell_area));
 
   if (num_region_converge == nbVec_.size()) {
     if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {

@@ -1124,6 +1124,9 @@ class NesterovBase
 
   std::shared_ptr<PlacerBase> getPb() const { return pb_; }
 
+  // Debug
+  int64_t getAreaOfBinsWithMovableInsts() const;
+
  private:
   NesterovBaseVars nbVars_;
   std::shared_ptr<PlacerBase> pb_;

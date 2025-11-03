@@ -3965,6 +3965,20 @@ void NesterovBase::writeGCellVectorsToCSV(const std::string& filename,
   file.close();
 }
 
+int64_t NesterovBase::getAreaOfBinsWithMovableInsts() const
+{
+  const std::vector<gpl::Bin>& bins = getBinsConst();
+  int64_t movable_insts_area = 0;
+
+  for (const Bin& bin : bins) {
+    if (bin.instPlacedArea() > 0) { // The instances movable by GPL.
+      movable_insts_area += bin.getBinArea();
+    }
+  }
+
+  return movable_insts_area;
+}
+
 static float getOverlapDensityArea(const Bin& bin, const GCell* cell)
 {
   const int rectLx = std::max(bin.lx(), cell->dLx());
