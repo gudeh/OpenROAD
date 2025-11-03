@@ -1307,6 +1307,7 @@ void HierRTLMP::mergeNets(std::vector<BundledNet>& nets)
   }
 }
 
+// TO DO: Evaluate removing this once floating point code is gone.
 void HierRTLMP::discardInvalidTilings(const UniqueClusterVector& children,
                                       const Rect& outline) const
 {
@@ -1359,6 +1360,18 @@ void HierRTLMP::discardInvalidTilings(const UniqueClusterVector& children,
       }
 
       child->setTilings(valid_tilings);
+    }
+  }
+}
+
+void HierRTLMP::setMacroClustersShapes(
+    std::vector<SoftMacro>& soft_macros) const
+{
+  for (SoftMacro& soft_macro : soft_macros) {
+    if (soft_macro.isMacroCluster() && !soft_macro.isFixed()) {
+      Cluster* cluster = soft_macro.getCluster();
+      const TilingList& tilings = cluster->getTilings();
+      soft_macro.setShapes(tilings);
     }
   }
 }
@@ -1618,6 +1631,7 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
   float best_cost = std::numeric_limits<float>::max();
 
   discardInvalidTilings(parent->getChildren(), outline);
+  setMacroClustersShapes(macros);
 
   while (remaining_runs > 0) {
     SoftSAVector sa_batch;
@@ -1932,70 +1946,63 @@ bool HierRTLMP::validUtilization(
 std::vector<SoftMacro> HierRTLMP::applyUtilization(
     const float utilization,
     const Rect& outline,
-    const std::vector<SoftMacro>& original_macros) const
+    const std::vector<SoftMacro>& original_soft_macros) const
 {
-  std::vector<SoftMacro> inflated_macros = original_macros;
+  std::vector<SoftMacro> new_soft_macros = original_soft_macros;
 
-  for (SoftMacro& soft_macro : inflated_macros) {
-    Cluster* cluster = soft_macro.getCluster();
+  for (SoftMacro& new_soft_macro : new_soft_macros) {
+    Cluster* cluster = new_soft_macro.getCluster();
 
     if (!cluster || cluster->isIOCluster() || cluster->isFixedMacro()) {
       continue;
     }
 
-    switch (cluster->getClusterType()) {
-      case StdCellCluster: {
-        float area = cluster->getArea();
-        float width = std::sqrt(area);
-        float height = width;
+    if (new_soft_macro.isStdCellCluster()) {
+      float area = cluster->getArea();
+      float width = std::sqrt(area);
+      float height = width;
 
-        const float dust_threshold = 1.0 / inflated_macros.size();
-        const int dust_std_cell = 100;
+      const float dust_threshold = 1.0 / new_soft_macros.size();
+      const int dust_std_cell = 100;
 
-        if ((width / outline.getWidth() <= dust_threshold
-             && height / outline.getHeight() <= dust_threshold)
-            || cluster->getNumStdCell() <= dust_std_cell) {
-          width = 1e-3;
-          height = 1e-3;
-          area = width * height;
-        } else {
-          area = cluster->getArea() / utilization;
-          width = std::sqrt(area / min_ar_);
+      if ((width / outline.getWidth() <= dust_threshold
+           && height / outline.getHeight() <= dust_threshold)
+          || cluster->getNumStdCell() <= dust_std_cell) {
+        width = 1e-3;
+        height = 1e-3;
+        area = width * height;
+      } else {
+        area = cluster->getArea() / utilization;
+        width = std::sqrt(area / min_ar_);
+      }
+
+      const float minimum_width = area / width;
+      const float maximum_width = width;
+      Interval width_interval(minimum_width, maximum_width);
+
+      new_soft_macro.setShapes({width_interval}, area);
+    }
+
+    if (new_soft_macro.isMixedCluster()) {
+      const TilingList& tilings = cluster->getTilings();
+      IntervalList width_intervals;
+      float area = tilings.back().area();
+
+      area += cluster->getStdCellArea() / utilization;
+
+      for (const Tiling& tiling : tilings) {
+        if (tiling.area() <= area) {
+          const float minimum_width = tiling.width();
+          const float maximum_width = area / tiling.height();
+          width_intervals.emplace_back(minimum_width, maximum_width);
         }
-
-        const float minimum_width = area / width;
-        const float maximum_width = width;
-        Interval width_interval(minimum_width, maximum_width);
-
-        soft_macro.setShapes({width_interval}, area);
-        break;
       }
-      case HardMacroCluster: {
-        soft_macro.setShapes(cluster->getTilings());
-        break;
-      }
-      case MixedCluster: {
-        const TilingList& tilings = cluster->getTilings();
-        IntervalList width_intervals;
-        float area = tilings.back().area();
 
-        area += cluster->getStdCellArea() / utilization;
-
-        for (const Tiling& tiling : tilings) {
-          if (tiling.area() <= area) {
-            const float minimum_width = tiling.width();
-            const float maximum_width = area / tiling.height();
-            width_intervals.emplace_back(minimum_width, maximum_width);
-          }
-        }
-
-        soft_macro.setShapes(width_intervals, area);
-        break;
-      }
+      new_soft_macro.setShapes(width_intervals, area);
     }
   }
 
-  return inflated_macros;
+  return new_soft_macros;
 }
 
 void HierRTLMP::placeMacros(Cluster* cluster)

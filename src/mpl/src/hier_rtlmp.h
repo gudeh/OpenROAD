@@ -168,13 +168,14 @@ class HierRTLMP
   // Fine Shaping
   void discardInvalidTilings(const UniqueClusterVector& children,
                              const Rect& outline) const;
+  void setMacroClustersShapes(std::vector<SoftMacro>& soft_macros) const;
   bool validUtilization(float utilization,
                         const Rect& outline,
                         const std::vector<SoftMacro>& soft_macros) const;
   std::vector<SoftMacro> applyUtilization(
       float utilization,
       const Rect& outline,
-      const std::vector<SoftMacro>& original_macros) const;
+      const std::vector<SoftMacro>& original_soft_macros) const;
 
   // Hierarchical Macro Placement 1st stage: Cluster Placement
   void adjustMacroBlockageWeight();
