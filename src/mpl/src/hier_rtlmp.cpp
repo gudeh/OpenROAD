@@ -227,11 +227,12 @@ void HierRTLMP::run()
   if (save_graphics) {
     graphics_ = std::move(save_graphics);
     graphics_->setMaxLevel(tree_->max_level);
+    graphics_->setBlockages(io_blockages_);
     graphics_->drawResult();
   }
 
-  Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
-  pusher.pushMacrosToCoreBoundaries();
+  // Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
+  // pusher.pushMacrosToCoreBoundaries();
 
   updateMacrosOnDb();
 
@@ -1731,9 +1732,10 @@ void HierRTLMP::placeChildren(Cluster* parent, bool ignore_std_cell_area)
       logger_->error(MPL, 40, "Failed on cluster {}", parent->getName());
     }
   } else {
-    best_sa->fillDeadSpace();
+    // best_sa->fillDeadSpace();
 
     std::vector<SoftMacro> final_macros = best_sa->getMacros();
+    reportAreaData(final_macros, outline);
 
     if (logger_->debugCheck(MPL, "hierarchical_macro_placement", 1)) {
       logger_->report("Cluster Placement Summary");

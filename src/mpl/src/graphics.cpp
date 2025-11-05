@@ -347,11 +347,10 @@ void Graphics::drawCluster(Cluster* cluster, gui::Painter& painter)
 
 void Graphics::drawAllBlockages(gui::Painter& painter)
 {
-  if (!macro_blockages_.empty()) {
-    painter.setPen(gui::Painter::kGray, true);
-    painter.setBrush(gui::Painter::kGray, gui::Painter::kDiagonal);
+  if (!blockages_.empty()) {
+    painter.setBrush(gui::Painter::kDarkGreen);
 
-    for (const auto& blockage : macro_blockages_) {
+    for (const auto& blockage : blockages_) {
       drawOffsetRect(blockage, "", painter);
     }
   }
@@ -412,13 +411,14 @@ void Graphics::drawObjects(gui::Painter& painter)
     painter.setBrush(gui::Painter::kTransparent);
     drawCluster(root_, painter);
   }
+  
+  painter.setPen(gui::Painter::kWhite, true);
 
   // Draw blockages only during SA for SoftMacros
   if (!soft_macros_.empty()) {
     drawAllBlockages(painter);
   }
 
-  painter.setPen(gui::Painter::kWhite, true);
 
   int i = 0;
   for (const auto& macro : soft_macros_) {
@@ -677,9 +677,9 @@ void Graphics::setSoftMacroBrush(gui::Painter& painter,
   }
 }
 
-void Graphics::setMacroBlockages(const std::vector<mpl::Rect>& macro_blockages)
+void Graphics::setBlockages(const std::vector<mpl::Rect>& blockages)
 {
-  macro_blockages_ = macro_blockages;
+  blockages_ = blockages;
 }
 
 void Graphics::setPlacementBlockages(
@@ -776,6 +776,7 @@ void Graphics::eraseDrawing()
   hard_macros_.clear();
   macro_blockages_.clear();
   placement_blockages_.clear();
+  blockages_.clear();
   bundled_nets_.clear();
   outline_.reset(0, 0, 0, 0);
   outlines_.clear();

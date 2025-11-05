@@ -1018,6 +1018,8 @@ void PlacerBase::init()
   siteSizeX_ = pbCommon_->siteSizeX();
   siteSizeY_ = pbCommon_->siteSizeY();
 
+  log_->report("Number of GPL Instances in PlacerBaseCommon: {}",pbCommon_->getInsts().size());
+
   for (auto& inst : pbCommon_->getInsts()) {
     if (!inst->isInstance()) {
       continue;

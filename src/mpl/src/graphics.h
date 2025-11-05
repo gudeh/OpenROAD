@@ -53,8 +53,7 @@ class Graphics : public gui::Renderer, public MplObserver
 
   void drawObjects(gui::Painter& painter) override;
 
-  void setMacroBlockages(
-      const std::vector<mpl::Rect>& macro_blockages) override;
+  void setBlockages(const std::vector<mpl::Rect>& blockages) override;
   void setPlacementBlockages(
       const std::vector<mpl::Rect>& placement_blockages) override;
   void setBundledNets(const std::vector<BundledNet>& bundled_nets) override;
@@ -113,6 +112,7 @@ class Graphics : public gui::Renderer, public MplObserver
   std::vector<HardMacro> hard_macros_;
   std::vector<mpl::Rect> macro_blockages_;
   std::vector<mpl::Rect> placement_blockages_;
+  std::vector<mpl::Rect> blockages_;
   std::vector<BundledNet> bundled_nets_;
   odb::Rect outline_;
   int target_cluster_id_{-1};

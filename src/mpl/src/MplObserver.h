@@ -37,9 +37,7 @@ class MplObserver
   virtual void finishedClustering(PhysicalHierarchy* tree) {}
 
   virtual void setMaxLevel(int max_level) {}
-  virtual void setMacroBlockages(const std::vector<mpl::Rect>& macro_blockages)
-  {
-  }
+  virtual void setBlockages(const std::vector<mpl::Rect>& blockages)  {}
   virtual void setPlacementBlockages(
       const std::vector<mpl::Rect>& placement_blockages)
   {

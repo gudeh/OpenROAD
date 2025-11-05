@@ -791,19 +791,11 @@ bool NesterovPlace::isConverged(int gpl_iter_count,
                                 int routability_gpl_iter_count)
 {
   // check each for converge and if all are converged then stop
-  int64_t rough_inflated_std_cell_area = 0;
   int num_region_converge = 0;
   for (auto& nb : nbVec_) {
     num_region_converge += nb->checkConvergence(
         gpl_iter_count, routability_gpl_iter_count, rb_.get());
-
-    rough_inflated_std_cell_area += nb->getAreaOfBinsWithMovableInsts();
   }
-
-  odb::dbDatabase* db = pbc_->db();
-  odb::dbBlock* block = db->getChip()->getBlock();
-  log_->report("Rough Inflated Std Cell Area: {}",
-      block->dbuAreaToMicrons(rough_inflated_std_cell_area));
 
   if (num_region_converge == nbVec_.size()) {
     if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
@@ -957,9 +949,15 @@ void NesterovPlace::reportResults(int nesterov_iter,
   }
 
   int64_t new_area = 0;
+  int64_t rough_inflated_std_cell_area = 0;
   for (auto& nb : nbVec_) {
     new_area += nb->getNesterovInstsArea();
+    rough_inflated_std_cell_area += nb->getAreaOfBinsWithMovableInsts();
   }
+
+  log_->report("Rough Inflated Std Cell Area: {}",
+      block->dbuAreaToMicrons(rough_inflated_std_cell_area));
+
   const float placement_diff
       = 100.0 * (new_area - original_area) / original_area;
   log_->info(GPL,
@@ -975,6 +973,20 @@ int NesterovPlace::doNesterovPlace(int start_iter)
   if (num_region_diverged_ > 0) {
     log_->error(GPL, divergeCode_, divergeMsg_);
   }
+
+  auto block = pbc_->db()->getChip()->getBlock();
+  int64_t number_of_movable_insts = 0;
+  int64_t movable_insts_area = 0;
+  for (odb::dbInst* inst : block->getInsts()) {
+    if (!inst->isFixed()) {
+      ++number_of_movable_insts;
+      movable_insts_area += inst->getBBox()->getBox().area();
+    }
+  }
+
+  log_->report("Number of Unfixed Instances: {}, Their area: {}",
+      number_of_movable_insts,
+      block->dbuAreaToMicrons(movable_insts_area));
 
   // routability snapshot info
   bool is_routability_snapshot_saved = false;
