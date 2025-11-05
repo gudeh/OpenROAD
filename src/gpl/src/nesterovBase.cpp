@@ -3967,12 +3967,24 @@ void NesterovBase::writeGCellVectorsToCSV(const std::string& filename,
 
 int64_t NesterovBase::getAreaOfBinsWithMovableInsts() const
 {
-  const std::vector<gpl::Bin>& bins = getBinsConst();
   int64_t movable_insts_area = 0;
+  for(const GCell* gCell : nb_gcells_) {
+    if(gCell->isFiller()) {
+      continue;
+    }
+    // Calculate the bin indices that intersect with the gcell using the original (non-density-adjusted) coordinates
+    int lowerIdxX = std::max(static_cast<int>((gCell->lx() - bg_.lx()) / bg_.getBinSizeX()), 0);
+    int upperIdxX = std::min(static_cast<int>(std::ceil((gCell->ux() - bg_.lx()) / bg_.getBinSizeX())), getBinCntX());
+    int lowerIdxY = std::max(static_cast<int>((gCell->ly() - bg_.ly()) / bg_.getBinSizeY()), 0);
+    int upperIdxY = std::min(static_cast<int>(std::ceil((gCell->uy() - bg_.ly()) / bg_.getBinSizeY())), getBinCntY());
+    std::pair<int, int> pairX = std::make_pair(lowerIdxX, upperIdxX);
+    std::pair<int, int> pairY = std::make_pair(lowerIdxY, upperIdxY);
 
-  for (const Bin& bin : bins) {
-    if (bin.instPlacedArea() > 0) { // The instances movable by GPL.
-      movable_insts_area += bin.getBinArea();
+    for (int i = pairX.first; i < pairX.second; i++) {
+      for (int j = pairY.first; j < pairY.second; j++) {
+        const Bin& bin = bg_.getBinsConst()[j * getBinCntX() + i];
+        movable_insts_area += bin.getBinArea();
+      }
     }
   }
 
