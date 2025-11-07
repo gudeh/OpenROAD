@@ -146,17 +146,32 @@ void InitialPlace::placeInstsCenter()
         region_y_max = std::max(region_y_max, boundary->yMax());
       }
 
-      inst->setCenterLocation(region_x_max - (region_x_max - region_x_min) / 2,
-                              region_y_max - (region_y_max - region_y_min) / 2);
+      int region_center_x = region_x_max - (region_x_max - region_x_min) / 2;
+      int region_center_y = region_y_max - (region_y_max - region_y_min) / 2;
+      inst->setCenterLocation(region_center_x, region_center_y);
+      // log_->report("[InitialPlace] Instance {} placed at region center ({}, {})",
+      //              db_inst->getName(),
+      //              region_center_x,
+      //              region_center_y);
       ++count_region_center;
     } else if (pbc_->isSkipIoMode() && db_inst->isPlaced()) {
       // It is helpful to pick up the placement from mpl if available,
       // particularly when you are going to run skip_io.
       const auto bbox = db_inst->getBBox()->getBox();
-      inst->setCenterLocation(bbox.xCenter(), bbox.yCenter());
+      int db_center_x = bbox.xCenter();
+      int db_center_y = bbox.yCenter();
+      inst->setCenterLocation(db_center_x, db_center_y);
+      // log_->report("[InitialPlace] Instance {} placed at DB location ({}, {})",
+      //              db_inst->getName(),
+      //              db_center_x,
+      //              db_center_y);
       ++count_db_location;
     } else {
       inst->setCenterLocation(center_x, center_y);
+      // log_->report("[InitialPlace] Instance {} placed at core center ({}, {})",
+      //              db_inst->getName(),
+      //              center_x,
+      //              center_y);
       ++count_core_center;
     }
   }

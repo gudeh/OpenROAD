@@ -235,7 +235,7 @@ void HierRTLMP::run()
   }
 
   Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
-  pusher.pushMacrosToCoreBoundaries();
+  // pusher.pushMacrosToCoreBoundaries();
 
   updateMacrosOnDb();
     

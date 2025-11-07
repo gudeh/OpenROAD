@@ -185,16 +185,6 @@ void Replace::doIncrementalPlace(int threads)
 void Replace::doInitialPlace(int threads)
 {
   log_->info(GPL, 5, "Execute conjugate gradient initial placement.");
-
-    for (auto inst : db_->getChip()->getBlock()->getInsts()) {
-    if (inst->isFixed()) {
-      continue;
-    }
-    int x, y;
-    inst->getLocation(x, y);
-    initial_positions_[inst] = std::make_pair(x, y);
-  }  
-
   if (pbc_ == nullptr) {
     PlacerBaseVars pbVars;
     pbVars.padLeft = padLeft_;
@@ -210,8 +200,6 @@ void Replace::doInitialPlace(int threads)
         pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
       }
     }
-
-    pbc_->mplPositions();
     if (pbVec_.front()->placeInsts().empty()) {
       pbVec_.erase(pbVec_.begin());
     }
@@ -233,7 +221,18 @@ void Replace::doInitialPlace(int threads)
   std::unique_ptr<InitialPlace> ip(
       new InitialPlace(ipVars, pbc_, pbVec_, log_));
   ip_ = std::move(ip);
+  log_->info(GPL, 778, "Initial placement completed.");
   ip_->doBicgstabPlace(threads);
+  for (auto inst : db_->getChip()->getBlock()->getInsts()) {
+    if (inst->isFixed()) {
+      continue;
+    }
+    int x, y;
+    inst->getLocation(x, y);
+    initial_positions_[inst] = std::make_pair(x, y);
+  }
+  log_->info(GPL, 777, "Initial placement completed.");
+  pbc_->mplPositions();
 }
 
 void Replace::runMBFF(int max_sz,
