@@ -4,9 +4,12 @@
 #include "ram/ram.h"
 
 #include <array>
+#include <cmath>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "db_sta/dbNetwork.hh"
@@ -572,6 +575,7 @@ void RamGen::generate(const int bytes_per_word,
   int max_x_coord = ram_grid.getRowWidth();
 
   block_->setDieArea(odb::Rect(0, 0, max_x_coord, max_y_coord));
+  block_->setCoreArea(block_->computeCoreArea());
 }
 
 }  // namespace ram

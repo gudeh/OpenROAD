@@ -27,7 +27,6 @@
 #include "sta/Search.hh"
 #include "sta/Sta.hh"
 #include "sta/Units.hh"
-#include "tcl.h"
 #include "tst/fixture.h"
 #include "utl/Logger.h"
 #include "utl/deleter.h"
@@ -946,7 +945,6 @@ TEST_F(TestHconn, ConnectionMade)
   // Journalling test.
   // Undo everything and check initial state preserved
   //
-  odb::dbDatabase::endEco(block_);
   odb::dbDatabase::undoEco(block_);
 
   size_t restored_db_net_count = block_->getNets().size();

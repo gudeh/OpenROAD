@@ -208,15 +208,11 @@ static void resetConversions()
       = [](const std::string& value, bool*) { return 0; };
 }
 
-Gui* Gui::singleton_ = nullptr;
-
 Gui* Gui::get()
 {
-  if (singleton_ == nullptr) {
-    singleton_ = new Gui();
-  }
+  static Gui* singleton = new Gui();
 
-  return singleton_;
+  return singleton;
 }
 
 Gui::Gui()
@@ -332,6 +328,11 @@ void Gui::addSelectedInst(const char* name)
   }
 
   main_window->addSelected(makeSelected(inst));
+}
+
+const SelectionSet& Gui::selection()
+{
+  return main_window->selection();
 }
 
 bool Gui::anyObjectInSet(bool selection_set, odb::dbObjectType obj_type) const
@@ -778,7 +779,7 @@ void Gui::saveImage(const std::string& filename,
     if (tech == nullptr) {
       logger_->error(utl::GUI, 16, "No design loaded.");
     }
-    const double dbu_per_micron = tech->getLefUnits();
+    const double dbu_per_micron = tech->getDbUnitsPerMicron();
 
     std::string save_cmds;
     // build display control commands
@@ -1450,6 +1451,10 @@ void Gui::gifStart(const std::string& filename)
     logger_->error(utl::GUI, 49, "Cannot generate GIF without GUI enabled");
   }
 
+  if (filename.empty()) {
+    logger_->error(utl::GUI, 81, "Filename is required to save a GIF.");
+  }
+
   gif_ = std::make_unique<GIF>();
   gif_->filename = filename;
   gif_->writer = nullptr;
@@ -1543,6 +1548,15 @@ void Gui::gifEnd()
 {
   if (gif_ == nullptr) {
     logger_->warn(utl::GUI, 58, "GIF not active");
+    return;
+  }
+
+  if (gif_->writer == nullptr) {
+    logger_->warn(utl::GUI,
+                  75,
+                  "Nothing to save to {}. No frames added to gif.",
+                  gif_->filename);
+    gif_ = nullptr;
     return;
   }
 

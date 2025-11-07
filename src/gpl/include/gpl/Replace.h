@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "AbstractGraphics.h"
+
 namespace odb {
 class dbDatabase;
 class dbInst;
@@ -49,12 +51,20 @@ using Clusters = std::vector<Cluster>;
 class Replace
 {
  public:
+  // Create a replace object with no graphics.
   Replace(odb::dbDatabase* odb,
           sta::dbSta* sta,
           rsz::Resizer* resizer,
           grt::GlobalRouter* router,
           utl::Logger* logger);
+
   ~Replace();
+
+  // Use the following class as a template for graphics interface.
+  //
+  // Note: no ownership is transfered as the object will create a new
+  // graphics object of the same class.
+  void setGraphicsInterface(const gpl::AbstractGraphics& graphics);
 
   void reset();
 
@@ -133,6 +143,8 @@ class Replace
   grt::GlobalRouter* fr_ = nullptr;
   utl::Logger* log_ = nullptr;
 
+  std::unique_ptr<AbstractGraphics> graphics_;
+
   std::shared_ptr<PlacerBaseCommon> pbc_;
   std::shared_ptr<NesterovBaseCommon> nbc_;
   std::vector<std::shared_ptr<PlacerBase>> pbVec_;
@@ -165,8 +177,8 @@ class Replace
   float routabilityCheckOverflow_ = 0.3;
   float routabilityMaxDensity_ = 0.99;
   float routabilityTargetRcMetric_ = 1.01;
-  float routabilityInflationRatioCoef_ = 3;
-  float routabilityMaxInflationRatio_ = 6;
+  float routabilityInflationRatioCoef_ = 2;
+  float routabilityMaxInflationRatio_ = 3;
   int routabilityMaxInflationIter_ = 4;
 
   // routability RC metric coefficients

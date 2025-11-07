@@ -18,10 +18,18 @@
 #include "dbVector.h"
 #include "odb/db.h"
 // User Code Begin Includes
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "dbModuleModNetBTermItr.h"
 #include "dbModuleModNetITermItr.h"
 #include "dbModuleModNetModBTermItr.h"
 #include "dbModuleModNetModITermItr.h"
+#include "dbUtil.h"
 #include "odb/dbBlockCallBackObj.h"
 #include "utl/Logger.h"
 // User Code End Includes
@@ -202,8 +210,10 @@ void dbModNet::rename(const char* new_name)
                utl::ODB,
                "DB_ECO",
                1,
-               "ECO: mod_net {}, rename to {}",
+               "ECO: dbModNet({} {:p}) '{}', rename to '{}'",
                getId(),
+               static_cast<void*>(this),
+               getHierarchicalName(),
                new_name);
     block->_journal->updateField(this, _dbModNet::NAME, obj->_name, new_name);
   }
@@ -319,6 +329,13 @@ dbModNet* dbModNet::create(dbModule* parentModule, const char* base_name)
   parent->_modnet_hash[base_name] = modnet->getOID();
 
   if (block->_journal) {
+    debugPrint(block->getImpl()->getLogger(),
+               utl::ODB,
+               "DB_ECO",
+               1,
+               "ECO: create dbModNet {} at id {}",
+               base_name,
+               modnet->getId());
     block->_journal->beginAction(dbJournal::CREATE_OBJECT);
     block->_journal->pushParam(dbModNetObj);
     block->_journal->pushParam(base_name);
@@ -344,6 +361,13 @@ void dbModNet::destroy(dbModNet* mod_net)
 
   // journalling
   if (block->_journal) {
+    debugPrint(block->getImpl()->getLogger(),
+               utl::ODB,
+               "DB_ECO",
+               1,
+               "ECO: delete dbModNet {} at id {}",
+               mod_net->getName(),
+               mod_net->getId());
     block->_journal->beginAction(dbJournal::DELETE_OBJECT);
     block->_journal->pushParam(dbModNetObj);
     block->_journal->pushParam(mod_net->getName());
@@ -410,10 +434,95 @@ dbSet<dbITerm> dbModNet::getITerms() const
   return dbSet<dbITerm>(_mod_net, _block->_module_modnet_iterm_itr);
 }
 
-unsigned dbModNet::connectionCount()
+unsigned dbModNet::connectionCount() const
 {
-  return (getITerms().size() + getBTerms().size() + getModITerms().size());
+  return (getITerms().size() + getBTerms().size() + getModITerms().size()
+          + getModBTerms().size());
 }
+
+dbNet* dbModNet::findRelatedNet() const
+{
+  // Helper to find a flat net with ITerms or BTerms connected to this modnet.
+  auto findNetOfTerms = [](const dbModNet* modnet) -> dbNet* {
+    for (dbITerm* iterm : modnet->getITerms()) {
+      if (dbNet* net = iterm->getNet()) {
+        return net;
+      }
+    }
+    for (dbBTerm* bterm : modnet->getBTerms()) {
+      if (dbNet* net = bterm->getNet()) {
+        return net;
+      }
+    }
+    return nullptr;
+  };
+
+  // Fast path: check this modnet's iterms and bterms first.
+  if (dbNet* net = findNetOfTerms(this)) {
+    return net;
+  }
+
+  //
+  // Slow path: traverse hierarchy
+  //
+  std::vector<const dbModNet*> modnets_to_visit;
+  std::set<const dbModNet*> visited_modnets;
+
+  // Helper to add a modnet to the visit queue if it's new.
+  auto visitIfNew = [&](const dbModNet* modnet) {
+    if (modnet && visited_modnets.insert(modnet).second) {
+      modnets_to_visit.push_back(modnet);
+    }
+  };
+
+  const dbModNet* current_modnet = this;
+  while (current_modnet != nullptr) {
+    visited_modnets.insert(current_modnet);
+
+    // Expand search to connected hierarchical nets (dbModNet).
+
+    // Traverse down the hierarchy.
+    for (dbModITerm* mod_iterm : current_modnet->getModITerms()) {
+      if (dbModBTerm* child_bterm = mod_iterm->getChildModBTerm()) {
+        visitIfNew(child_bterm->getModNet());
+      }
+    }
+    // Traverse up the hierarchy.
+    for (dbModBTerm* mod_bterm : current_modnet->getModBTerms()) {
+      if (dbModITerm* parent_iterm = mod_bterm->getParentModITerm()) {
+        visitIfNew(parent_iterm->getModNet());
+      }
+    }
+
+    // Move to the next modnet to visit.
+    if (modnets_to_visit.empty()) {
+      break;  // No more modnets to visit.
+    }
+
+    current_modnet = modnets_to_visit.back();
+    modnets_to_visit.pop_back();
+
+    // Check for a direct connection to a dbNet (flat net).
+    if (dbNet* net = findNetOfTerms(current_modnet)) {
+      return net;
+    }
+  }
+
+  // No related dbNet found
+  return nullptr;
+}
+
+void dbModNet::checkSanity() const
+{
+  std::vector<std::string> drvr_info_list;
+  dbUtil::findBTermDrivers(this, drvr_info_list);
+  dbUtil::findITermDrivers(this, drvr_info_list);
+  dbUtil::findModBTermDrivers(this, drvr_info_list);
+  dbUtil::findModITermDrivers(this, drvr_info_list);
+
+  dbUtil::checkNetSanity(this, drvr_info_list);
+}
+
 // User Code End dbModNetPublicMethods
 }  // namespace odb
    // Generator Code End Cpp
