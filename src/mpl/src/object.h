@@ -234,6 +234,9 @@ class Cluster
   // For Debug
   void reportConnections() const;
 
+  void setGroup(odb::dbGroup* group) { group_ = group; }
+  odb::dbGroup* group() const { return group_; };
+
  private:
   int id_{-1};
   std::string name_;
@@ -260,6 +263,8 @@ class Cluster
 
   ConnectionsMap connections_map_;  // cluster id -> connection weight
   std::vector<std::pair<int, int>> virtual_connections_;  // id -> id
+
+  odb::dbGroup* group_{nullptr};
 
   utl::Logger* logger_;
 };

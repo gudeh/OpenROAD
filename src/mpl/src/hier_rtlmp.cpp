@@ -188,6 +188,11 @@ void HierRTLMP::setKeepClusteringData(bool keep_clustering_data)
   keep_clustering_data_ = keep_clustering_data;
 }
 
+void HierRTLMP::setCreateRegionsForStdCells(bool create_regions_for_std_cells)
+{
+  create_regions_for_std_cells_ = create_regions_for_std_cells;
+}
+
 // Top Level Function
 // The flow of our MacroPlacer is divided into 6 stages.
 // 1) Multilevel Autoclustering:
@@ -236,8 +241,10 @@ void HierRTLMP::run()
     graphics_->drawResult();
   }
 
-  Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
-  // pusher.pushMacrosToCoreBoundaries();
+  if (!create_regions_for_std_cells_) {
+    Pusher pusher(logger_, tree_->root.get(), block_, io_blockages_);
+    pusher.pushMacrosToCoreBoundaries();
+  }
 
   updateMacrosOnDb();
     
@@ -2634,6 +2641,42 @@ void HierRTLMP::commitMacroPlacementToDb()
 
     inst->setPlacementStatus(odb::dbPlacementStatus::LOCKED);
   }
+
+  if (create_regions_for_std_cells_) {
+    createRegionForStdCells(tree_->root.get());
+  }
+}
+
+// Constrain std cells to the area of their cluster.
+void HierRTLMP::createRegionForStdCells(Cluster* cluster) const
+{
+  if (cluster->isIOCluster()) {
+    return;
+  }
+
+  if (cluster->getClusterType() == StdCellCluster && cluster->isLeaf()) {
+    SoftMacro* soft_macro = cluster->getSoftMacro();
+    const bool is_tiny = soft_macro->getArea() == 0.0;
+
+    if (!is_tiny) {
+      odb::dbRegion* cluster_region
+          = odb::dbRegion::create(block_, cluster->getName().c_str());
+      const Rect micron_cluster_shape = soft_macro->getBBox();
+      const odb::Rect cluster_shape
+          = micronsToDbu(block_, micron_cluster_shape);
+      odb::dbBox::create(cluster_region,
+                         cluster_shape.xMin(),
+                         cluster_shape.yMin(),
+                         cluster_shape.xMax(),
+                         cluster_shape.yMax());
+
+      cluster_region->addGroup(cluster->group());
+    }
+  }
+
+  for (const auto& child : cluster->getChildren()) {
+    createRegionForStdCells(child.get());
+  }
 }
 
 void HierRTLMP::commitClusteringDataToDb() const
@@ -2654,6 +2697,7 @@ void HierRTLMP::createGroupForCluster(Cluster* cluster,
             : odb::dbGroup::create(block_, cluster->getName().c_str());
 
   cluster_group->setType(odb::dbGroupType::VISUAL_DEBUG);
+  cluster->setGroup(cluster_group);
 
   for (odb::dbInst* inst : cluster->getLeafStdCells()) {
     cluster_group->addInst(inst);
