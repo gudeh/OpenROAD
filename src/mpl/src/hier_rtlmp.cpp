@@ -252,7 +252,7 @@ void HierRTLMP::run()
   correctAllMacrosOrientation();
 
   commitMacroPlacementToDb();  
-  writeInstanceClusterCSV("macro_cluster_csv_file.csv");
+  //writeInstanceClusterCSV("macro_cluster_csv_file.csv");
   writeMacroPlacement(macro_placement_file_);
 
   clear();
