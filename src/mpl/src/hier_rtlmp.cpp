@@ -2696,7 +2696,10 @@ void HierRTLMP::createGroupForCluster(Cluster* cluster,
             ? odb::dbGroup::create(parent_group, cluster->getName().c_str())
             : odb::dbGroup::create(block_, cluster->getName().c_str());
 
-  cluster_group->setType(odb::dbGroupType::VISUAL_DEBUG);
+  if (!create_regions_for_std_cells_) {
+    cluster_group->setType(odb::dbGroupType::VISUAL_DEBUG);
+  }
+
   cluster->setGroup(cluster_group);
 
   for (odb::dbInst* inst : cluster->getLeafStdCells()) {
