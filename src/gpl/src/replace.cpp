@@ -244,7 +244,7 @@ void Replace::doInitialPlace(int threads)
     initial_positions_[inst] = std::make_pair(x, y);
   }
   log_->info(GPL, 777, "Initial placement completed.");
-  pbc_->mplPositions();
+  // pbc_->mplPositions();
 }
 
 void Replace::runMBFF(int max_sz,
