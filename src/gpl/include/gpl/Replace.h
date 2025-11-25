@@ -9,8 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "AbstractGraphics.h"
-
 namespace odb {
 class dbDatabase;
 class dbInst;
@@ -35,6 +33,7 @@ class Logger;
 namespace gpl {
   
 
+class AbstractGraphics;
 class PlacerBaseCommon;
 class PlacerBase;
 class NesterovBaseCommon;
@@ -220,10 +219,4 @@ class Replace
   std::string gui_debug_images_path_ = "REPORTS_DIR";
 };
 
-inline constexpr const char* format_label_int = "{:27} {:10}";
-inline constexpr const char* format_label_float = "{:27} {:10.4f}";
-inline constexpr const char* format_label_um2 = "{:27} {:10.3f} um^2";
-inline constexpr const char* format_label_percent = "{:27} {:10.2f} %";
-inline constexpr const char* format_label_um2_with_delta
-    = "{:27} {:10.3f} um^2 ({:+.2f}%)";
 }  // namespace gpl

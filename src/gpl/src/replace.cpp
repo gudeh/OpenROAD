@@ -10,9 +10,9 @@
 #include <string>
 #include <utility>
 
+#include "AbstractGraphics.h"
 #include "db_sta/dbNetwork.hh"
 #include "db_sta/dbSta.hh"
-#include "gpl/AbstractGraphics.h"
 #include "graphicsNone.h"
 #include "initialPlace.h"
 #include "mbff.h"
@@ -138,31 +138,36 @@ void Replace::doIncrementalPlace(int threads)
   }
 
   // Lock down already placed objects
-  int locked_cnt = 0;
+  int placed_cnt = 0;
   int unplaced_cnt = 0;
   auto block = db_->getChip()->getBlock();
   for (auto inst : block->getInsts()) {
     auto status = inst->getPlacementStatus();
     if (status == odb::dbPlacementStatus::PLACED) {
       pbc_->dbToPb(inst)->lock();
-      ++locked_cnt;
+      ++placed_cnt;
     } else if (!status.isPlaced()) {
       ++unplaced_cnt;
     }
   }
 
+  log_->info(GPL, 154, "Identified {} placed instances", placed_cnt);
+  log_->info(GPL, 155, "Identified {} not placed instances", unplaced_cnt);
+
   if (unplaced_cnt == 0) {
     // Everything was already placed so we do the old incremental mode
     // which just skips initial placement and runs nesterov.
+    log_->info(GPL,
+               156,
+               "Identified all instances as placed. Unlocking all instances "
+               "and running nesterov from scratch.");
     for (auto& pb : pbVec_) {
       pb->unlockAll();
     }
-    // pbc_->unlockAll();
+
     doNesterovPlace(threads);
     return;
   }
-
-  log_->info(GPL, 132, "Locked {} instances", locked_cnt);
 
   // Roughly place the unplaced objects (allow more overflow).
   // Limit iterations to prevent objects drifting too far or
@@ -179,7 +184,7 @@ void Replace::doIncrementalPlace(int threads)
   setNesterovPlaceMaxIter(previous_max_iter);
 
   // Finish the overflow resolution from the rough placement
-  log_->info(GPL, 133, "Unlocked instances");
+  log_->info(GPL, 133, "Unlocking all instances");
   for (auto& pb : pbVec_) {
     pb->unlockAll();
   }
@@ -528,6 +533,7 @@ void Replace::setInitialPlaceNetWeightScale(float scale)
 
 void Replace::setNesterovPlaceMaxIter(int iter)
 {
+  log_->info(GPL, 158, "Setting nesterov max iterations to {}", iter);
   nesterovPlaceMaxIter_ = iter;
   if (np_) {
     np_->setMaxIters(iter);
@@ -542,6 +548,7 @@ void Replace::setBinGridCnt(int binGridCntX, int binGridCntY)
 
 void Replace::setTargetOverflow(float overflow)
 {
+  log_->info(GPL, 157, "Setting target overflow to {}", overflow);
   overflow_ = overflow;
   if (np_) {
     np_->setTargetOverflow(overflow);
