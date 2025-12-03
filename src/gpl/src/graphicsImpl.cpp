@@ -41,6 +41,7 @@ namespace gpl {
             gui::Painter::kIndigo,            
             gui::Painter::kPink,
     };
+    std::map<std::string, int> cluster_color_map;
 
 GraphicsImpl::GraphicsImpl(utl::Logger* logger)
     : HeatMapDataSource(logger, "gpl", "gpl"), logger_(logger), mode_(Mbff)
@@ -315,9 +316,25 @@ void GraphicsImpl::drawSingleGCell(const GCell* gCell,
       break;
     default:
       if (gCell->isInstance()) {
-        color = gCell->isLocked()
-                    ? gui::Painter::kTurquoise
-                    : instances_colors_[nb_index % instances_colors_.size()];
+        // if (gCell->isLocked()) {
+        //   color = gui::Painter::kTurquoise;
+        // } else 
+        {
+          // Check if instance belongs to a cluster and use cluster color
+          odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
+          auto* group = db_inst->getGroup();
+          if (group) {
+            std::string group_name = group->getName();
+            auto it = cluster_color_map.find(group_name);
+            if (it != cluster_color_map.end()) {
+              color = cluster_colors[it->second % cluster_colors.size()];
+            } else {
+              color = gui::Painter::kDarkGreen;
+            }
+          } else {
+            color = instances_colors_[nb_index % instances_colors_.size()];
+          }
+        }
 
     // if (gCell->isInstance()) {
     //     // if (gCell->isLocked()) {
@@ -387,6 +404,17 @@ void GraphicsImpl::drawNesterov(gui::Painter& painter)
 
   // Draw the placeable objects
   painter.setPen(gui::Painter::kWhite);
+  for(auto gcell : nbc_->getGCells()) {
+    if(gcell->isInstance()) {
+      auto* group = gcell->insts()[0]->dbInst()->getGroup();
+      if (group) {
+        std::string group_name = group->getName();
+        if (cluster_color_map.find(group_name) == cluster_color_map.end()) {
+          cluster_color_map[group_name] = cluster_color_map.size();
+        }
+      }
+    }
+  }
   drawCells(nbc_->getGCells(), painter);
   for (size_t nb_idx = 0; nb_idx < nbVec_.size(); ++nb_idx) {
     const auto& nb = nbVec_[nb_idx];
@@ -506,29 +534,18 @@ void GraphicsImpl::drawNesterov(gui::Painter& painter)
 
     // Draw MPL regions from cluster_regions map
   if (!pbc_->cluster_regions.empty()) {
-    // Define color palette for different clusters
-    // std::vector<gui::Painter::Color> cluster_colors = {
-    //         gui::Painter::kMagenta,
-    //         gui::Painter::kCyan,
-    //         gui::Painter::kOrange,
-    //         gui::Painter::kTurquoise,
-    //         gui::Painter::kPink,
-    //         gui::Painter::kYellow,
-    //         gui::Painter::kGreen,
-    //         gui::Painter::kBlue,
-    //         gui::Painter::kRed,
-    //         gui::Painter::kPurple,
-    //         gui::Painter::kBrown,
-    //         gui::Painter::kIndigo,
-    //         gui::Painter::kTeal
-    // };
-    
     // Draw cluster regions with different colors
     for (const auto& [cluster_name, region_data] : pbc_->cluster_regions) {
       const odb::Rect& region = region_data.first;
-      int cluster_id = region_data.second;
       
-      gui::Painter::Color color = cluster_colors[cluster_id % cluster_colors.size()];
+      auto it = cluster_color_map.find(cluster_name);
+      gui::Painter::Color color;
+      if (it != cluster_color_map.end()) {
+        color = cluster_colors[it->second % cluster_colors.size()];
+      } else {
+        color = gui::Painter::kGray;
+      }
+      
       painter.setPen(color, true, 2);
       painter.setBrush(gui::Painter::Color(color.r, color.g, color.b, 50));
       painter.drawRect(region);

@@ -4,12 +4,14 @@
 #include "placerBase.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "gpl/Replace.h"
 #include "nesterovBase.h"
 #include "odb/db.h"
 #include "odb/dbSet.h"
@@ -716,84 +718,73 @@ void PlacerBaseVars::reset()
 // PlacerBaseCommon
 
 void PlacerBaseCommon::mplPositions(){
-  std::string macro_cluster_csv_file = "macro_cluster_csv_file.csv";
-  std::ifstream csv_file(macro_cluster_csv_file);  
 
-  if (csv_file.is_open()) {
-  log_->info(GPL, 885, "Reading cluster regions from {}", macro_cluster_csv_file);
-  std::string line;    
+  // Read cluster information from ODB regions
+  log_->info(GPL, 885, "Reading cluster regions from ODB");
   
-  // Read cluster information from CSV
-  while (std::getline(csv_file, line)) {
-    std::stringstream ss(line);
-    std::string item;
-    std::vector<std::string> tokens;
-    
-    while (std::getline(ss, item, ',')) {
-    tokens.push_back(item);
-    }
-    
-    if (tokens.size() >= 6) {
-    std::string cluster_name = tokens[0];
-    int cluster_id = std::stoi(tokens[1]);
-    int llx = std::stoi(tokens[2]);
-    int lly = std::stoi(tokens[3]);
-    int urx = std::stoi(tokens[4]);
-    int ury = std::stoi(tokens[5]);
-    
-    odb::Rect region(llx, lly, urx, ury);
-    cluster_regions[cluster_name] = std::make_pair(region, cluster_id);
-    
-    log_->info(GPL, 888, "Cluster '{}' (ID: {}) region: ({}, {}) to ({}, {})", 
-       cluster_name, cluster_id, llx, lly, urx, ury);
+  for (auto* group : db_->getChip()->getBlock()->getGroups()) {
+    if (group->getRegion()) {
+      auto boundaries = group->getRegion()->getBoundaries();
+      if (!boundaries.empty()) {
+        odb::Rect region_bbox;
+        region_bbox.mergeInit();
+        for (auto boundary : boundaries) {
+          region_bbox.merge(boundary->getBox());
+        }
+        
+        std::string cluster_name = group->getName();
+        int cluster_id = group->getId();
+        cluster_regions[cluster_name] = std::make_pair(region_bbox, cluster_id);
+        log_->info(GPL, 888, "Cluster '{}' (ID: {}) region: ({}, {}) to ({}, {})", 
+          cluster_name, cluster_id, 
+          region_bbox.xMin(), region_bbox.yMin(), 
+          region_bbox.xMax(), region_bbox.yMax());
+      }
     }
   }
-  csv_file.close();
   
-  log_->info(GPL, 887, "Loaded {} cluster regions from CSV", cluster_regions.size());
-  } else {
-  log_->info(GPL, 886, "No cluster CSV file found, proceeding with standard initial placement");
-  }
+  log_->info(GPL, 887, "Loaded {} cluster regions from ODB", cluster_regions.size());
   
   int unassigned_instances = 0;
-  for (auto inst : db_->getChip()->getBlock()->getInsts()) {
-  if (inst->isFixed()) {
+  for (auto db_inst : db_->getChip()->getBlock()->getInsts()) {
+  if (db_inst->isFixed()) {
     continue;
   }
   int x, y;
-  inst->getLocation(x, y);
+  db_inst->getLocation(x, y);
 
-  {
-    std::string inst_name = inst->getName();
-    std::string best_cluster = "";
-    int64_t smallest_area = INT64_MAX;
-    
-    // Find all clusters that contain this instance, then pick the smallest one
-    for (const auto& [cluster_name, cluster_info] : cluster_regions) {
-    const odb::Rect& cluster_rect = cluster_info.first;
-    
-    // Check if instance position is within cluster bounding box
-    if (x >= cluster_rect.xMin() && x <= cluster_rect.xMax() && 
-    y >= cluster_rect.yMin() && y <= cluster_rect.yMax()) {
-      // Calculate cluster area
-      int64_t area = static_cast<int64_t>(cluster_rect.dx()) * cluster_rect.dy();
+  // TODO: check if this is still necessary, it was with the csv version
+    {
+      std::string inst_name = db_inst->getName();
+      std::string best_cluster = "";
+      int64_t smallest_area = INT64_MAX;
       
-      // If this is the smallest cluster found so far, use it
-      if (area < smallest_area) {
-        smallest_area = area;
-        best_cluster = cluster_name;
+      // Find all clusters that contain this instance, then pick the smallest one
+      for (const auto& [cluster_name, cluster_info] : cluster_regions) {
+      const odb::Rect& cluster_rect = cluster_info.first;
+      
+        // Check if instance position is within cluster bounding box
+        if (x >= cluster_rect.xMin() && x <= cluster_rect.xMax() && 
+        y >= cluster_rect.yMin() && y <= cluster_rect.yMax()) {
+          // Calculate cluster area
+          int64_t area = static_cast<int64_t>(cluster_rect.dx()) * cluster_rect.dy();
+          
+          // If this is the smallest cluster found so far, use it
+          if (area < smallest_area) {
+            smallest_area = area;
+            best_cluster = cluster_name;
+          }
+        }
+      }
+      
+      if (!best_cluster.empty()) {
+        cluster_instances[best_cluster].push_back(db_inst);
+        instance_to_cluster[db_inst] = best_cluster;
+      } else {
+        unassigned_instances++;
+      log_->info(GPL, 884, "Instance '{}' not assigned to any cluster", inst_name);
       }
     }
-    }
-    
-    if (!best_cluster.empty()) {
-    cluster_instances[best_cluster].push_back(inst);
-    instance_to_cluster[inst] = best_cluster;
-    } else {
-    unassigned_instances++;
-    log_->info(GPL, 884, "Instance '{}' not assigned to any cluster", inst_name);
-    }
-  }
   }
   
   // Report summary statistics
@@ -801,12 +792,12 @@ void PlacerBaseCommon::mplPositions(){
   
   // Report cluster statistics
   for (const auto& [cluster_name, instances] : cluster_instances) {
-  auto cluster_info = cluster_regions.find(cluster_name);
-  if (cluster_info != cluster_regions.end()) {
-    int cluster_id = cluster_info->second.second;
-    log_->info(GPL, 882, "Cluster '{}' (ID: {}) contains {} instances", 
-         cluster_name, cluster_id, instances.size());
-  }
+    auto cluster_info = cluster_regions.find(cluster_name);
+    if (cluster_info != cluster_regions.end()) {
+      int cluster_id = cluster_info->second.second;
+      log_->info(GPL, 882, "Cluster '{}' (ID: {}) contains {} instances", 
+          cluster_name, cluster_id, instances.size());
+    }
   }
 }
 
@@ -1074,7 +1065,12 @@ PlacerBase::PlacerBase(odb::dbDatabase* db,
   db_ = db;
   log_ = log;
   pbCommon_ = std::move(pbCommon);
-  group_ = group;
+  
+  if(ignore_mpl_groups){
+    group = nullptr;
+  } else {
+    group_ = group;
+  }  
   log_->info(GPL,
              32,
              "Initializing region: {}",
@@ -1124,7 +1120,11 @@ void PlacerBase::init()
       continue;
     }
 
-    odb::dbGroup* db_inst_group = db_inst->getGroup();
+    odb::dbGroup* db_inst_group = nullptr;
+    if(!ignore_mpl_groups){
+      db_inst_group = db_inst->getGroup();    
+    }
+      
     if (group_ == nullptr) {
       if (db_inst_group
           && db_inst_group->getType() != odb::dbGroupType::VISUAL_DEBUG) {
@@ -1228,29 +1228,31 @@ void PlacerBase::initInstsForUnusableSites()
     }
 
     // Mark sites intersecting with any region as Blocked
-    for (auto* group : db_->getChip()->getBlock()->getGroups()) {
-      if (group->getRegion()) {
-        auto boundaries = group->getRegion()->getBoundaries();
-        for (auto boundary : boundaries) {
-          Rect rect = boundary->getBox();
+    if(!ignore_mpl_groups){
+      for (auto* group : db_->getChip()->getBlock()->getGroups()) {
+        if (group->getRegion()) {
+          auto boundaries = group->getRegion()->getBoundaries();
+          for (auto boundary : boundaries) {
+            Rect rect = boundary->getBox();
 
-          std::pair<int, int> pairX = getMinMaxIdx(rect.xMin(),
-                                                   rect.xMax(),
-                                                   die_.coreLx(),
-                                                   siteSizeX_,
-                                                   0,
-                                                   siteCountX);
+            std::pair<int, int> pairX = getMinMaxIdx(rect.xMin(),
+                                                    rect.xMax(),
+                                                    die_.coreLx(),
+                                                    siteSizeX_,
+                                                    0,
+                                                    siteCountX);
 
-          std::pair<int, int> pairY = getMinMaxIdx(rect.yMin(),
-                                                   rect.yMax(),
-                                                   die_.coreLy(),
-                                                   siteSizeY_,
-                                                   0,
-                                                   siteCountY);
+            std::pair<int, int> pairY = getMinMaxIdx(rect.yMin(),
+                                                    rect.yMax(),
+                                                    die_.coreLy(),
+                                                    siteSizeY_,
+                                                    0,
+                                                    siteCountY);
 
-          for (int i = pairX.first; i < pairX.second; i++) {
-            for (int j = pairY.first; j < pairY.second; j++) {
-              siteGrid[(j * siteCountX) + i] = Blocked;
+            for (int i = pairX.first; i < pairX.second; i++) {
+              for (int j = pairY.first; j < pairY.second; j++) {
+                siteGrid[(j * siteCountX) + i] = Blocked;
+              }
             }
           }
         }
@@ -1308,7 +1310,10 @@ void PlacerBase::initInstsForUnusableSites()
       continue;
     }
 
-    odb::dbGroup* db_inst_group = db_inst->getGroup();
+    odb::dbGroup* db_inst_group = nullptr;
+    if(!ignore_mpl_groups){
+      db_inst_group = db_inst->getGroup();
+    }
     if (group_ == nullptr) {
       if (db_inst_group
           && db_inst_group->getType() != odb::dbGroupType::VISUAL_DEBUG) {

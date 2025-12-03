@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "AbstractGraphics.h"
+#include "gpl/Replace.h"
+#include "odb/db.h"
 #include "odb/dbTypes.h"
 #include "placerBase.h"
 #include "solver.h"
@@ -135,7 +137,11 @@ void InitialPlace::placeInstsCenter()
     }
 
     const auto db_inst = inst->dbInst();
-    const auto group = db_inst->getGroup();
+    // const odb::dbGroup* group = db_inst->getGroup();
+    const odb::dbGroup* group = nullptr;
+    if(!ignore_mpl_groups){
+      group = db_inst->getGroup();    
+    }
 
     if (group && group->getRegion()) {
       auto region = group->getRegion();
@@ -457,7 +463,10 @@ void InitialPlace::updateCoordi()
 
       // If instance has a region constraint, use that instead
       const auto db_inst = inst->dbInst();
-      const auto group = db_inst->getGroup();
+      const odb::dbGroup* group = nullptr;
+      if(!ignore_mpl_groups){
+        group = db_inst->getGroup();    
+      }
       if (group && group->getRegion()) {
         auto region = group->getRegion();
         int region_x_min = std::numeric_limits<int>::max();

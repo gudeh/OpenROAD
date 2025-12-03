@@ -126,8 +126,10 @@ void Replace::doIncrementalPlace(int threads)
     pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_));
 
     for (auto pd : db_->getChip()->getBlock()->getRegions()) {
-      for (auto group : pd->getGroups()) {
-        pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+      if(!ignore_mpl_groups){
+        for (auto group : pd->getGroups()) {
+          pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+        }
       }
     }
 
@@ -209,8 +211,10 @@ void Replace::doInitialPlace(int threads)
     pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_));
 
     for (auto pd : db_->getChip()->getBlock()->getRegions()) {
-      for (auto group : pd->getGroups()) {
-        pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+      if(!ignore_mpl_groups){
+        for (auto group : pd->getGroups()) {
+          pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+        }
       }
     }
     if (pbVec_.front()->placeInsts().empty()) {
@@ -249,7 +253,7 @@ void Replace::doInitialPlace(int threads)
     initial_positions_[inst] = std::make_pair(x, y);
   }
   log_->info(GPL, 777, "Initial placement completed.");
-  // pbc_->mplPositions();
+  pbc_->mplPositions();
 }
 
 void Replace::runMBFF(int max_sz,
@@ -283,8 +287,10 @@ bool Replace::initNesterovPlace(int threads)
     pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_));
 
     for (auto pd : db_->getChip()->getBlock()->getRegions()) {
-      for (auto group : pd->getGroups()) {
-        pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+      if(!ignore_mpl_groups){
+        for (auto group : pd->getGroups()) {
+          pbVec_.push_back(std::make_shared<PlacerBase>(db_, pbc_, log_, group));
+        }
       }
     }
 
