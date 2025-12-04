@@ -1460,9 +1460,11 @@ void PlacerBase::printInfo() const
              "Large instances area:",
              block->dbuAreaToMicrons(macroInstsArea_));
 
-  // if (util >= 100.1) {
-  //   log_->error(GPL, 301, "Utilization {:.3f} % exceeds 100%.", util);
-  // }
+  if(!ignore_mpl_groups){
+    if (util >= 100.1) {
+      log_->error(GPL, 301, "Utilization {:.3f} % exceeds 100%.", util);
+    }
+  }
 }
 
 void PlacerBase::unlockAll()
