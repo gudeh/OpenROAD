@@ -32,7 +32,7 @@ class Logger;
 
 namespace gpl {
   
-
+static const bool ignore_mpl_groups = true;
 class AbstractGraphics;
 class PlacerBaseCommon;
 class PlacerBase;

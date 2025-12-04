@@ -335,28 +335,6 @@ void GraphicsImpl::drawSingleGCell(const GCell* gCell,
             color = instances_colors_[nb_index % instances_colors_.size()];
           }
         }
-
-    // if (gCell->isInstance()) {
-    //     // if (gCell->isLocked()) {
-    //     //   color = gui::Painter::kDarkCyan;
-    //     // } else {
-    //      {
-    //       // Check if instance belongs to a cluster and use cluster color
-    //       odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
-    //       auto cluster_it = pbc_->instance_to_cluster.find(db_inst);
-    //       if (cluster_it != pbc_->instance_to_cluster.end()) {
-    //     const std::string& cluster_name = cluster_it->second;
-    //     auto region_it = pbc_->cluster_regions.find(cluster_name);
-    //     if (region_it != pbc_->cluster_regions.end()) {
-    //       int cluster_id = region_it->second.second;
-    //       color = cluster_colors[cluster_id % cluster_colors.size()];
-    //     } else {
-    //       color = gui::Painter::kDarkGreen;
-    //     }
-    //       } else {
-    //     color = gui::Painter::kDarkGreen;
-    //       }
-    //     }
       } else if (gCell->isFiller()) {
         // Use different colors for each NesterovBase
         color = region_colors_[nb_index % region_colors_.size()];
