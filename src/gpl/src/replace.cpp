@@ -621,7 +621,7 @@ void Replace::setDebug(int pause_iterations,
                        bool generate_images,
                        std::string images_path)
 {
-  gui_debug_ = true;
+  gui_debug_ = false;
   gui_debug_pause_iterations_ = pause_iterations;
   gui_debug_update_iterations_ = update_iterations;
   gui_debug_draw_bins_ = draw_bins;

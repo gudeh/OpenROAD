@@ -53,9 +53,8 @@ NesterovPlace::NesterovPlace(const NesterovPlaceVars& npVars,
     db_cbk_->addOwner(pbc_->db()->getChip()->getBlock());
   }
 
-  if (npVars_.debug) {
-    graphics_ = std::move(graphics);
-    graphics_->setDebugOn(npVars.debug);
+  graphics_ = std::move(graphics);
+  if (graphics_) {
     graphics_->debugForNesterovPlace(this,
                                      pbc_,
                                      nbc_,
@@ -290,19 +289,19 @@ void NesterovPlace::updateIterGraphics(
     graphics_->addIter(iter, average_overflow_unscaled_);
     bool update
         = (iter == 0 || (iter + 1) % npVars_.debug_update_iterations == 0);
-    if (update) {
-      bool pause
-          = (iter == 0 || (iter + 1) % npVars_.debug_pause_iterations == 0);
-      graphics_->cellPlot(pause);
-    }
+    // if (update) {
+    //   bool pause
+    //       = (iter == 0 || (iter + 1) % npVars_.debug_pause_iterations == 0);
+    //   graphics_->cellPlot(pause);
+    // }
   }
 
-  if (npVars_.debug_generate_images && iter == 0) {
+  if (iter == 0) {
     std::string gif_path = fmt::format("{}/placement.gif", reports_dir);
     graphics_->gifStart(gif_path);
   }
 
-  if (npVars_.debug_generate_images && iter % 10 == 0) {
+  if (iter % 10 == 0) {
     odb::Rect region;
     int width_px = 500;
     odb::Rect bbox = pbc_->db()->getChip()->getBlock()->getBBox()->getBox();
@@ -324,45 +323,43 @@ void NesterovPlace::updateIterGraphics(
   if (npVars_.routability_driven_mode && !is_routability_need_
       && average_overflow_unscaled_ <= npVars_.routability_end_overflow
       && !final_routability_image_saved) {
-    if (npVars_.debug_generate_images) {
-      const std::string label = fmt::format("Iter {} |R: {} |T: {}",
-                                            iter,
-                                            routability_driven_revert_count,
-                                            timing_driven_count);
+    const std::string label = fmt::format("Iter {} |R: {} |T: {}",
+                                          iter,
+                                          routability_driven_revert_count,
+                                          timing_driven_count);
 
-      graphics_->saveLabeledImage(
-          fmt::format("{}/1_routability_final_{:05d}.png",
-                      routability_driven_dir,
-                      iter),
-          label,
-          /* select_buffers = */ false);
+    graphics_->saveLabeledImage(
+        fmt::format("{}/1_routability_final_{:05d}.png",
+                    routability_driven_dir,
+                    iter),
+        label,
+        /* select_buffers = */ false);
 
-      graphics_->saveLabeledImage(
-          fmt::format("{}/1_density_routability_final_{:05d}.png",
-                      routability_driven_dir,
-                      iter),
-          label,
-          false,
-          "Heat Maps/Placement Density");
+    graphics_->saveLabeledImage(
+        fmt::format("{}/1_density_routability_final_{:05d}.png",
+                    routability_driven_dir,
+                    iter),
+        label,
+        false,
+        "Heat Maps/Placement Density");
 
-      graphics_->saveLabeledImage(
-          fmt::format("{}/1_rudy_routability_final_{:05d}.png",
-                      routability_driven_dir,
-                      iter),
-          label,
-          false,
-          "Heat Maps/Estimated Congestion (RUDY)");
+    graphics_->saveLabeledImage(
+        fmt::format("{}/1_rudy_routability_final_{:05d}.png",
+                    routability_driven_dir,
+                    iter),
+        label,
+        false,
+        "Heat Maps/Estimated Congestion (RUDY)");
 
-      graphics_->saveLabeledImage(
-          fmt::format("{}/1_routability_final_{:05d}.png",
-                      routability_driven_dir,
-                      iter),
-          fmt::format("Iter {} |R: {} |T: {} final route",
-                      iter,
-                      routability_driven_revert_count,
-                      timing_driven_count),
-          false);
-    }
+    graphics_->saveLabeledImage(
+        fmt::format("{}/1_routability_final_{:05d}.png",
+                    routability_driven_dir,
+                    iter),
+        fmt::format("Iter {} |R: {} |T: {} final route",
+                    iter,
+                    routability_driven_revert_count,
+                    timing_driven_count),
+        false);
     final_routability_image_saved = true;
   }
 }
@@ -386,15 +383,13 @@ void NesterovPlace::runTimingDriven(int iter,
     if (graphics_ && graphics_->enabled()) {
       graphics_->addTimingDrivenIter(iter);
 
-      if (npVars_.debug_generate_images) {
-        graphics_->saveLabeledImage(
-            fmt::format("{}/timing_{:05d}_0.png", timing_driven_dir, iter),
-            fmt::format("Iter {} |R: {} |T: {} before TD",
-                        iter,
-                        routability_driven_revert_count,
-                        timing_driven_count),
-            /* select_buffers = */ false);
-      }
+      graphics_->saveLabeledImage(
+          fmt::format("{}/timing_{:05d}_0.png", timing_driven_dir, iter),
+          fmt::format("Iter {} |R: {} |T: {} before TD",
+                      iter,
+                      routability_driven_revert_count,
+                      timing_driven_count),
+          /* select_buffers = */ false);
     }
 
     // Call resizer's estimateRC API to fill in PEX using placed locations,
@@ -461,7 +456,7 @@ void NesterovPlace::runTimingDriven(int iter,
                  nb_total_gcells_delta);
     }
 
-    if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
+    if (graphics_ && graphics_->enabled()) {
       updateDb();
       bool select_buffers = !virtual_td_iter;
       graphics_->saveLabeledImage(
@@ -679,7 +674,7 @@ void NesterovPlace::routabilitySnapshot(
     }
 
     // Save image of routability snapshot
-    if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
+    if (graphics_ && graphics_->enabled()) {
       graphics_->saveLabeledImage(
           fmt::format("{}/0_routability_snapshot_{:05d}.png",
                       routability_driven_dir,
@@ -709,7 +704,7 @@ void NesterovPlace::runRoutability(int iter,
     nbVec_[0]->setTrueReprintIterHeader();
     ++routability_driven_revert_count;
 
-    if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
+    if (graphics_ && graphics_->enabled()) {
       updateDb();
       std::string label = fmt::format("Iter {} |R: {} |T: {}",
                                       iter,
@@ -798,7 +793,7 @@ bool NesterovPlace::isConverged(int gpl_iter_count,
   }
 
   if (num_region_converge == nbVec_.size()) {
-    if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
+    if (graphics_ && graphics_->enabled() /* && npVars_.debug_generate_images */) {
       graphics_->gifEnd();
     }
     return true;
@@ -833,7 +828,7 @@ void NesterovPlace::cleanReportsDirs(
           }
         };
 
-  if (graphics_ && graphics_->enabled() && npVars_.debug_generate_images) {
+  if (graphics_ && graphics_->enabled() /* && npVars_.debug_generate_images */) {
     clean_directory(timing_driven_dir);
     clean_directory(routability_driven_dir);
   }
@@ -903,7 +898,7 @@ void NesterovPlace::reportResults(int nesterov_iter,
 {
   auto block = pbc_->db()->getChip()->getBlock();
 
-  if (graphics_ && npVars_.debug_generate_images) {
+  if (graphics_/* && npVars_.debug_generate_images*/) {
     updateDb();
     std::string label = fmt::format("Final Iter {} |R: ? |T: ?", nesterov_iter);
 
@@ -1012,7 +1007,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       = reports_dir + "/gpl_routability_driven";
 
   cleanReportsDirs(timing_driven_dir, routability_driven_dir);
-  if (graphics_ && npVars_.debug_generate_images) {
+  if (graphics_) {
     updateDb();
     std::string label = fmt::format("init_nesterov");
 
@@ -1114,9 +1109,9 @@ int NesterovPlace::doNesterovPlace(int start_iter)
 
   if (graphics_ && graphics_->enabled()) {
     graphics_->status("End placement");
-    graphics_->cellPlot(true);
-
-    if (npVars_.debug_generate_images) {
+    graphics_->cellPlot(true);    
+    // if (npVars_.debug_generate_images) 
+    {
       const std::string label = fmt::format("Iter {} |R: {} |T: {}",
                                             nesterov_iter,
                                             routability_driven_revert_count,

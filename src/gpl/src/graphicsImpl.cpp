@@ -29,6 +29,7 @@ namespace gpl {
 
 
     std::vector<gui::Painter::Color> cluster_colors = {
+            gui::Painter::kWhite, 
             gui::Painter::kMagenta,            
             gui::Painter::kBrown,
             gui::Painter::kDarkBlue,
@@ -298,50 +299,27 @@ void GraphicsImpl::drawSingleGCell(const GCell* gCell,
 
   gui::Painter::Color color;
   // Highlight modified instances (overrides base color, unless selected)
-  switch (gCell->changeType()) {
-    case GCell::GCellChange::kRoutability:
-      color = gui::Painter::kWhite;
-      break;
-    case GCell::GCellChange::kNewInstance:
-      color = gui::Painter::kDarkRed;
-      break;
-    case GCell::GCellChange::kDownsize:
-      color = gui::Painter::kDarkBlue;
-      break;
-    case GCell::GCellChange::kUpsize:
-      color = gui::Painter::kOrange;
-      break;
-    case GCell::GCellChange::kResizeNoChange:
-      color = gui::Painter::kDarkYellow;
-      break;
-    default:
-      if (gCell->isInstance()) {
-        // if (gCell->isLocked()) {
-        //   color = gui::Painter::kTurquoise;
-        // } else 
-        {
-          // Check if instance belongs to a cluster and use cluster color
-          odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
-          auto* group = db_inst->getGroup();
-          if (group) {
-            std::string group_name = group->getName();
-            auto it = cluster_color_map.find(group_name);
-            if (it != cluster_color_map.end()) {
-              color = cluster_colors[it->second % cluster_colors.size()];
-            } else {
-              color = gui::Painter::kDarkGreen;
-            }
-          } else {
-            color = instances_colors_[nb_index % instances_colors_.size()];
-          }
-        }
-      } else if (gCell->isFiller()) {
-        // Use different colors for each NesterovBase
-        color = region_colors_[nb_index % region_colors_.size()];
+  if (gCell->isInstance()) {
+    // Check if instance belongs to a cluster and use cluster color
+    odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
+    auto* group = db_inst->getGroup();
+    if (group) {
+      std::string group_name = group->getName();
+      auto it = cluster_color_map.find(group_name);
+      if (it != cluster_color_map.end()) {
+        color = cluster_colors[it->second % cluster_colors.size()];
+      } else {
+        color = gui::Painter::kDarkGreen;
       }
-      color.a = 180;
-      break;
+    } else {
+      color = instances_colors_[nb_index % instances_colors_.size()];
+    }
+  } else if (gCell->isFiller()) {
+    color = gui::Painter::kBlack;
+  } else {
+    color = gui::Painter::kDarkGreen;
   }
+  color.a = 180;
 
   // Highlight selection (highest priority)
   if (selected_ != kInvalidIndex && gCell == nbc_->getGCellByIndex(selected_)) {
@@ -665,10 +643,10 @@ void GraphicsImpl::addRoutabilityIter(const int iter, const bool revert)
 void GraphicsImpl::cellPlotImpl(bool pause)
 {
   gui::Gui::get()->redraw();
-  if (pause) {
-    reportSelected();
-    gui::Gui::get()->pause();
-  }
+  // if (pause) {
+  //   reportSelected();
+  //   gui::Gui::get()->pause();
+  // }
 }
 
 void GraphicsImpl::mbffMapping(const LineSegs& segs)

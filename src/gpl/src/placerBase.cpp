@@ -782,7 +782,7 @@ void PlacerBaseCommon::mplPositions(){
         instance_to_cluster[db_inst] = best_cluster;
       } else {
         unassigned_instances++;
-      log_->info(GPL, 884, "Instance '{}' not assigned to any cluster", inst_name);
+        //log_->info(GPL, 884, "Instance '{}' not assigned to any cluster", inst_name);
       }
     }
   }
