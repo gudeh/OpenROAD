@@ -34,12 +34,57 @@
 #include "utl/Logger.h"
 #include "utl/histogram.h"
 
+
 namespace gui {
+
+class SaveableChartView : public QChartView
+{
+ public:
+  SaveableChartView(QChart* chart, QWidget* parent, utl::Logger* logger)
+      : QChartView(chart, parent), logger_(logger)
+  {
+  }
+
+ protected:
+  void contextMenuEvent(QContextMenuEvent* event) override
+  {
+    QMenu menu(this);
+    menu.addAction("Save", [this]() { save(""); });
+    menu.exec(event->globalPos());
+  }
+
+ public slots:
+  void save(const std::string& path)
+  {
+    QString save_path = QString::fromStdString(path);
+    if (save_path.isEmpty()) {
+      save_path = Utils::requestImageSavePath(this, "Save chart");
+      if (save_path.isEmpty()) {
+        return;
+      }
+    }
+    save_path = Utils::fixImagePath(save_path, logger_);
+
+    const QRect render_rect = rect();
+
+    Utils::renderImage(save_path,
+                       viewport(),
+                       render_rect.width(),
+                       render_rect.height(),
+                       render_rect,
+                       Qt::white,
+                       logger_);
+  }
+
+  utl::Logger* logger_;
+};
+
 
 class GuiChart : public Chart
 {
  public:
   GuiChart(QChart* chart,
+           SaveableChartView* view,
            const std::string& x_label,
            const std::vector<std::string>& y_labels);
 
@@ -50,6 +95,8 @@ class GuiChart : public Chart
   void clearPoints() override;
 
   void addVerticalMarker(double x, const Painter::Color& color) override;
+
+  void save(const std::string& path) override { view_->save(path); }
 
  private:
   struct Series
@@ -73,15 +120,16 @@ class GuiChart : public Chart
 
   QValueAxis* x_axis_;
   QChart* chart_;
+  SaveableChartView* view_;
   std::vector<Series> series_;
   double x_min_{std::numeric_limits<double>::max()};
   double x_max_{std::numeric_limits<double>::lowest()};
 };
 
-GuiChart::GuiChart(QChart* chart,
+GuiChart::GuiChart(QChart* chart, SaveableChartView* view,
                    const std::string& x_label,
                    const std::vector<std::string>& y_labels)
-    : chart_(chart)
+    : chart_(chart), view_(view)
 {
   x_axis_ = new QValueAxis(chart_);
   x_axis_->setTitleText(QString::fromStdString(x_label));
@@ -273,10 +321,10 @@ Chart* ChartsWidget::addChart(const std::string& name,
                               const std::vector<std::string>& y_labels)
 {
   QChart* chart = new QChart;
-  QChartView* view = new QChartView(chart);
+  SaveableChartView* view = new SaveableChartView(chart, this, logger_);
   const int tab_index = chart_tabs_->addTab(view, QString::fromStdString(name));
   chart_tabs_->setCurrentIndex(tab_index);
-  return new GuiChart(chart, x_label, y_labels);
+  return new GuiChart(chart, view, x_label, y_labels);
 }
 
 void ChartsWidget::changeMode()

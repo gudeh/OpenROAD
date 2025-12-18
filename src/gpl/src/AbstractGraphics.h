@@ -118,6 +118,8 @@ class AbstractGraphics
   virtual void deleteLabel(std::string_view label_name) = 0;
   virtual void gifEnd(int key) = 0;
   virtual void setDisplayControl(std::string_view name, bool value) = 0;
+  
+  virtual void saveCharts(const std::string& directory) = 0;
 
  protected:
   virtual void cellPlotImpl(bool pause) = 0;

@@ -880,6 +880,23 @@ int GraphicsImpl::gifStart(std::string_view path)
   return gui::Gui::get()->gifStart(std::string(path));
 }
 
+void GraphicsImpl::saveCharts(const std::string& directory)
+{
+  if (!gui::Gui::enabled()) {
+    return;
+  }
+
+  if (main_chart_) {
+    main_chart_->save(directory + "/gpl_main_chart.png");
+  }
+  if (density_chart_) {
+    density_chart_->save(directory + "/gpl_density_chart.png");
+  }
+  if (routing_chart_) {
+    routing_chart_->save(directory + "/gpl_routing_chart.png");
+  }
+}
+
 void GraphicsImpl::gifAddFrameImpl(int key,
                                    const odb::Rect& region,
                                    int width_px,

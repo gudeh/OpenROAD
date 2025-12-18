@@ -653,6 +653,8 @@ class Chart
 
   virtual void addVerticalMarker(double x, const Painter::Color& color) = 0;
 
+  virtual void save(const std::string& path) = 0;
+
  protected:
   Chart() = default;
 };

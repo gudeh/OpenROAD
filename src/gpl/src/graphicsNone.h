@@ -58,6 +58,7 @@ class GraphicsNone : public AbstractGraphics
   void deleteLabel(std::string_view label_name) override {}
   void gifEnd(int key) override {}
   void setDisplayControl(std::string_view name, bool value) override {}
+  void saveCharts(const std::string& directory) override {}
 
  protected:
   void cellPlotImpl(bool pause) override {}

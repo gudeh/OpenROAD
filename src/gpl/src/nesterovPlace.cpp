@@ -373,6 +373,8 @@ void NesterovPlace::updateIterGraphics(
                       routability_driven_revert_count,
                       timing_driven_count),
           false);
+
+      graphics_->saveCharts(routability_driven_dir);
     }
     final_routability_image_saved = true;
   }
