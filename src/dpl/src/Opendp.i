@@ -98,6 +98,7 @@ set_debug_cmd(float min_displacement,
               const odb::dbInst* debug_instance)
 {
   dpl::Opendp* opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setDebugInstance(const_cast<odb::dbInst*>(debug_instance));
   if (dpl::Graphics::guiActive()) {
       std::unique_ptr<DplObserver> graphics = std::make_unique<dpl::Graphics>(
           opendp, min_displacement, debug_instance);

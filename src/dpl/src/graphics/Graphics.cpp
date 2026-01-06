@@ -110,7 +110,7 @@ void Graphics::drawObjects(gui::Painter& painter)
     if (dx == 0 && dy == 0) {
       line_color = gui::Painter::kWhite;
     } else if (std::abs(dx) > std::abs(dy)) {
-      line_color = (dx > 0) ? gui::Painter::kGreen : gui::Painter::kPink;
+      line_color = (dx > 0) ? gui::Painter::kGreen : gui::Painter::kRed;
     } else {
       line_color = (dy > 0) ? gui::Painter::kMagenta : gui::Painter::kBlue;
     }
@@ -126,8 +126,9 @@ void Graphics::drawObjects(gui::Painter& painter)
   }
 
   auto color = gui::Painter::kCyan;
-  painter.setPen(color);
+  color.a = 50;
   painter.setBrush(color);
+  painter.setPen(gui::Painter::kPurple, /* cosmetic */ true);
   for (auto& rect : searched_) {
     painter.drawRect(rect);
   }

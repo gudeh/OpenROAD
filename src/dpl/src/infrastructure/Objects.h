@@ -12,6 +12,7 @@
 #include "odb/db.h"
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
+#include "utl/Logger.h"
 
 namespace dpl {
 
@@ -132,6 +133,10 @@ class Node
   void setGroupId(int id);
   void addUsedLayer(int layer);
 
+  static void setDebugNode(Node* node);
+  static void setLogger(utl::Logger* logger);
+  static void setCoreOffset(DbuX x, DbuY y);
+
   bool adjustCurrOrient(const odb::dbOrientType& newOrient);
 
  protected:
@@ -166,6 +171,11 @@ class Node
   std::vector<Pin*> pins_;
   // used layers
   uint8_t used_layers_{0};
+
+  static Node* debug_node_;
+  static utl::Logger* logger_;
+  static DbuX core_offset_x_;
+  static DbuY core_offset_y_;
 };
 
 class Group

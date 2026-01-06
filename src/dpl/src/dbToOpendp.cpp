@@ -39,6 +39,8 @@ void Opendp::importDb()
   block_ = db_->getChip()->getBlock();
   core_ = block_->getCoreArea();
   grid_->setCore(core_);
+  Node::setCoreOffset(DbuX{core_.xMin()}, DbuY{core_.yMin()});
+
   have_fillers_ = false;
   disallow_one_site_gaps_ = !odb::hasOneSiteMaster(db_);
   importClear();
@@ -47,6 +49,13 @@ void Opendp::importDb()
   createNetwork();
   createArchitecture();
   setUpPlacementGroups();
+
+  if (debug_instance_) {
+    Node* node = network_->getNode(debug_instance_);
+    if (node) {
+      Node::setDebugNode(node);
+    }
+  }
 }
 
 void Opendp::importClear()
@@ -55,6 +64,7 @@ void Opendp::importClear()
   have_multi_row_cells_ = false;
   network_->clear();
   arch_->clear();
+  Node::setDebugNode(nullptr);
 }
 
 void Opendp::initPlacementDRC()

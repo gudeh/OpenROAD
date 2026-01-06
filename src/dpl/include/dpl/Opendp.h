@@ -104,6 +104,7 @@ class Opendp
   void setPadding(odb::dbMaster* master, int left, int right);
   void setPadding(odb::dbInst* inst, int left, int right);
   void setDebug(std::unique_ptr<dpl::DplObserver>& observer);
+  void setDebugInstance(odb::dbInst* inst);
 
   // Global padding.
   int padGlobalLeft() const;
@@ -349,6 +350,7 @@ class Opendp
   int64_t displacement_max_ = 0;
 
   std::unique_ptr<DplObserver> debug_observer_;
+  odb::dbInst* debug_instance_ = nullptr;
   std::unique_ptr<Node> dummy_cell_;
 
   // Magic numbers

@@ -87,6 +87,11 @@ odb::dbMaster* Master::getDbMaster() const
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+Node* Node::debug_node_ = nullptr;
+utl::Logger* Node::logger_ = nullptr;
+DbuX Node::core_offset_x_{0};
+DbuY Node::core_offset_y_{0};
+
 
 Node::~Node() = default;
 int Node::getId() const
@@ -295,10 +300,24 @@ void Node::setBTerm(odb::dbBTerm* term)
 }
 void Node::setLeft(DbuX x)
 {
+  if (debug_node_ == this) {
+    if (odb::dbInst* inst = getDbInst()) {
+      double microns_val
+          = inst->getBlock()->dbuToMicrons(x.v + core_offset_x_.v);
+      logger_->info(utl::DPL, 123, "Node {} setLeft {:0.3f}", name(), microns_val);
+    }
+  }
   left_ = x;
 }
 void Node::setBottom(DbuY y)
 {
+  if (debug_node_ == this) {
+    if (odb::dbInst* inst = getDbInst()) {
+      double microns_val
+          = inst->getBlock()->dbuToMicrons(y.v + core_offset_y_.v);
+      logger_->info(utl::DPL, 124, "Node {} setBottom {:0.3f}", name(), microns_val);
+    }
+  }
   bottom_ = y;
 }
 void Node::setOrient(const odb::dbOrientType& in)
@@ -364,6 +383,19 @@ void Node::setGroupId(int id)
 void Node::addUsedLayer(int layer)
 {
   used_layers_ |= 1 << layer;
+}
+void Node::setDebugNode(Node* node)
+{
+  debug_node_ = node;
+}
+void Node::setLogger(utl::Logger* logger)
+{
+  logger_ = logger;
+}
+void Node::setCoreOffset(DbuX x, DbuY y)
+{
+  core_offset_x_ = x;
+  core_offset_y_ = y;
 }
 bool Node::adjustCurrOrient(const odb::dbOrientType& newOri)
 {

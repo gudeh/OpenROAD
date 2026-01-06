@@ -56,6 +56,7 @@ Opendp::Opendp(odb::dbDatabase* db, Logger* logger) : logger_(logger), db_(db)
   grid_->init(logger);
   network_ = std::make_unique<Network>();
   arch_ = std::make_unique<Architecture>();
+  Node::setLogger(logger_);
 }
 
 Opendp::~Opendp() = default;
@@ -78,6 +79,11 @@ void Opendp::setPadding(odb::dbMaster* master, const int left, const int right)
 void Opendp::setDebug(std::unique_ptr<DplObserver>& observer)
 {
   debug_observer_ = std::move(observer);
+}
+
+void Opendp::setDebugInstance(odb::dbInst* inst)
+{
+  debug_instance_ = inst;
 }
 
 void Opendp::setJournal(Journal* journal)
