@@ -669,7 +669,7 @@ bool Opendp::swapCells(Node* cell1, Node* cell2)
       placeCell(cell1, grid_x1, grid_y1);
       placeCell(cell2, grid_x2, grid_y2);
       // Check if placement is valid
-      if (drc_engine_->checkDRC(cell1) && drc_engine_->checkDRC(cell2)) {
+      if (drc_engine_->isDRCclean(cell1) && drc_engine_->isDRCclean(cell2)) {
         return true;
       }
       journal.undo();
@@ -817,8 +817,12 @@ int Opendp::calcDist(GridPt p0, GridPt p1) const
 
 bool Opendp::canBePlaced(const Node* cell, GridX bin_x, GridY bin_y) const
 {
-  if(cell->name() == "_16779_" || cell->name() == "place3487") {
-    logger_->report("call canBePlaced for {} at ({},{})", cell->name(), bin_x, bin_y);
+  if(cell->name() == "_17179_" || cell->name() == "place3487") {
+    DbuX bin_x_dbu = gridToDbu(bin_x, grid_->getSiteWidth());
+    DbuY bin_y_dbu = grid_->gridYToDbu(bin_y);
+    DbuX offset_x = bin_x_dbu + core_.xMin();
+    DbuY offset_y = bin_y_dbu + core_.yMin();
+    logger_->report("call canBePlaced for {} at ({},{}) with core offset ({},{})", cell->name(), bin_x, bin_y, offset_x, offset_y);
   }
   debugPrint(logger_,
              DPL,
@@ -830,6 +834,9 @@ bool Opendp::canBePlaced(const Node* cell, GridX bin_x, GridY bin_y) const
              bin_y);
 
   if (bin_y >= grid_->getRowCount()) {
+    if(cell->name() == "_17179_" || cell->name() == "place3487") {
+      logger_->report("canBePlaced for {} returns false - bin_y >= getRowCount", cell->name());
+    }
     return false;
   }
 
@@ -840,7 +847,11 @@ bool Opendp::canBePlaced(const Node* cell, GridX bin_x, GridY bin_y) const
   if (debug_observer_) {
     debug_observer_->binSearch(cell, bin_x, bin_y, x_end, y_end);
   }
-  return checkPixels(cell, bin_x, bin_y, x_end, y_end);
+  bool result = checkPixels(cell, bin_x, bin_y, x_end, y_end);
+  if(cell->name() == "_17179_" || cell->name() == "place3487") {
+    logger_->report("canBePlaced for {} at ({},{}) to ({},{}) returns {}", cell->name(), bin_x, bin_y, x_end, y_end, result);
+  }
+  return result;
 }
 
 bool Opendp::checkRegionOverlap(const Node* cell,

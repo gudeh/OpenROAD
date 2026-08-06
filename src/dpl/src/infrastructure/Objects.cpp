@@ -300,7 +300,7 @@ void Node::setBTerm(odb::dbBTerm* term)
 }
 void Node::setLeft(DbuX x)
 {
-  if(name()== "_16779_" || name() == "place3487") { 
+  if(name()== "_17179_" || name() == "place3487") { 
     if(master_ != nullptr) {
       auto block = master_->getDbMaster()->getDb()->getChip()->getBlock();
       auto core_offset_x = block->getCoreArea().xMin();
@@ -313,7 +313,7 @@ void Node::setLeft(DbuX x)
 }
 void Node::setBottom(DbuY y)
 {
-  if(name()== "_16779_" || name() == "place3487") {
+  if(name()== "_17179_" || name() == "place3487") {
     if(master_ != nullptr) {
       auto block = master_->getDbMaster()->getDb()->getChip()->getBlock();
       auto core_offset_y = block->getCoreArea().yMin();

@@ -171,6 +171,9 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
   for (GridY y1 = y_begin; y1 < y_end; y1++) {
     for (GridX x1 = x_begin; x1 < x_end; x1++) {
       const Pixel* pixel = grid_->gridPixel(x1, y1);
+      if (cell->name() == "_17179_" || cell->name() == "place3487") {
+        logger_->report("Checking blocked layers for cell {} at pixel ({}, {})", cell->name(), x1.v, y1.v); 
+      }
       if (pixel != nullptr && (pixel->blocked_layers & cell->getUsedLayers())) {
         // Logging for blocked pixel
         const auto& core = grid_->getCore();
@@ -203,8 +206,7 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
         if (db_inst) {
             std::vector<odb::dbShape> pin_shapes;
             pin_shapes.reserve(32);
-
-            // Get cell position from DPL internal coordinates
+            
             DbuX cell_x = gridToDbu(x, grid_->getSiteWidth());
             DbuY cell_y = grid_->gridYToDbu(y);
             const auto& core = grid_->getCore();
@@ -215,11 +217,11 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
             odb::dbTransform xform(cell->getOrient());
             xform.setOffset(odb::Point(inst_x, inst_y));
 
-            if (db_inst->getName() == "_16779_" || db_inst->getName() == "place3487") {
+            if (db_inst->getName() == "_17179_" || db_inst->getName() == "place3487") {
               logger_->report("Debug info for cell {} at pixel ({}, {}) cell dbu: ({}, {}):", 
                      cell->name(), x1.v, y1.v, inst_x, inst_y);
             }
-            if (debug_observer && (db_inst->getName()== "_16779_" || db_inst->getName() == "place3487") ) {
+            if (debug_observer && (db_inst->getName()== "_17179_" || db_inst->getName() == "place3487") ) {
               debug_observer->endPlacement();
             }
 
@@ -260,27 +262,26 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
             odb::dbMaster* master = db_inst->getMaster();
             if (master) {
               for (odb::dbBox* blockage : master->getObstructions()) {
-              if (!blockage) continue;
+                if (!blockage) continue;
 
-              odb::dbTechLayer* layer = blockage->getTechLayer();
-              if (!layer) continue;
-              if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
+                odb::dbTechLayer* layer = blockage->getTechLayer();
+                if (!layer) continue;
+                if (layer->getType() != odb::dbTechLayerType::ROUTING) continue;
 
-              odb::Rect r = blockage->getBox();  // mterm-local
-              xform.apply(r);                    // -> block coords
+                odb::Rect r = blockage->getBox();  // mterm-local
+                xform.apply(r);                    // -> block coords
 
-              // Store as a shape in block coords on the same layer.
-              pin_shapes.emplace_back(layer, r);
+                // Store as a shape in block coords on the same layer.
+                pin_shapes.emplace_back(layer, r);
               }
             }
 
-            // auto core = grid_->getCore();
             // Debug reporting for specific instances
-            if (db_inst->getName() == "_16779_" || db_inst->getName() == "place3487") {
+            if (db_inst->getName() == "_17179_" || db_inst->getName() == "place3487") {
               DbuX pixel_dbu_x = gridToDbu(x1, grid_->getSiteWidth()) + core.xMin();
               DbuY pixel_dbu_y = grid_->gridYToDbu(y1) + core.yMin();
               
-              logger_->report("Debug info for cell {} at pixel ({}, {}) [dbu: ({}, {})]:", 
+              logger_->report("Debug info for cell {} at pixel ({}, {}) pixel dbu: ({}, {}):", 
                      cell->name(), x1.v, y1.v, pixel_dbu_x.v, pixel_dbu_y.v);
               
               // Report all pin shapes for this cell
@@ -306,15 +307,15 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
               // Report overlap analysis for each via box and pin shape combination
               logger_->report("  Overlap analysis:");
               for (size_t v_idx = 0; v_idx < pixel->via_boxes.size(); ++v_idx) {
-              const auto& via_box = pixel->via_boxes[v_idx];
-              const odb::Rect& v = via_box.getBox();
-              for (size_t p_idx = 0; p_idx < pin_shapes.size(); ++p_idx) {
-                const auto& pin_shape = pin_shapes[p_idx];
-                bool same_layer = (via_box.getTechLayer() == pin_shape.getTechLayer());
-                bool overlaps = same_layer && v.overlaps(pin_shape.getBox());
-                logger_->report("    Via {} vs Pin {}: layer_match={}, overlaps={}",
-                       v_idx, p_idx, same_layer, overlaps);
-              }
+                const auto& via_box = pixel->via_boxes[v_idx];
+                const odb::Rect& v = via_box.getBox();
+                for (size_t p_idx = 0; p_idx < pin_shapes.size(); ++p_idx) {
+                  const auto& pin_shape = pin_shapes[p_idx];
+                  bool same_layer = (via_box.getTechLayer() == pin_shape.getTechLayer());
+                  bool overlaps = same_layer && v.overlaps(pin_shape.getBox());
+                  logger_->report("    Via {} vs Pin {}: layer_match={}, overlaps={}",
+                        v_idx, p_idx, same_layer, overlaps);
+                }
               }
             }
 
@@ -332,7 +333,7 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
                   pin_shape.xMin(), pin_shape.yMin(), pin_shape.xMax(), pin_shape.yMax(),
                   pin_shape.getTechLayer() ? pin_shape.getTechLayer()->getName() : "unknown");
 
-                if (debug_observer && (db_inst->getName()== "_16779_" || db_inst->getName() == "place3487") ) {
+                if (debug_observer && (db_inst->getName()== "_17179_" || db_inst->getName() == "place3487") ) {
                   debug_observer->endPlacement();
                 }
                 return false;
@@ -340,6 +341,10 @@ bool PlacementDRC::isBlockedLayersClean(const Node* cell, const GridX x, const G
               }
               }
             }
+        }
+      } else {
+        if (cell->name() == "_17179_" || cell->name() == "place3487") {
+          logger_->report("No via boxes at pixel ({}, {}) for cell {}", x1.v, y1.v, cell->name());
         }
       }
     }
@@ -367,7 +372,7 @@ bool PlacementDRC::isDRCclean(const Node* cell,
 
   bool result = edge_spacing_ok && padding_ok && no_blocked_layers && one_site_gap_ok;
 
-  if(cell->name() == "_16779_" || cell->name() == "place3487") {
+  if(cell->name() == "_17179_" || cell->name() == "place3487") {
     std::cout << "isDRCclean for " << cell->name() << " at (" << x.v << "," << y.v << ") orient " << orient << ": " << result;
     if (!result) {
       std::cout << " [FAILED:";

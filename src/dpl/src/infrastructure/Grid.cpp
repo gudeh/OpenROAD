@@ -176,8 +176,8 @@ void Grid::markBlocked(odb::dbBlock* block)
     for (odb::dbSWire* swire : net->getSWires()) {
       for (odb::dbSBox* sbox : swire->getWires()) {
         if (sbox->isVia()) {
-std::vector<odb::dbShape> via_boxes;
-          s->getViaBoxes(via_boxes);
+          std::vector<odb::dbShape> via_boxes;
+          sbox->getViaBoxes(via_boxes);
 
           for (const odb::dbShape& box : via_boxes) {
             odb::dbTechLayer* tech_layer = box.getTechLayer();
@@ -229,9 +229,12 @@ std::vector<odb::dbShape> via_boxes;
           // TODO: handle patches
           continue;
         }
-        odb::Rect wire_rect = sbox->getBox();
-        odb::dbTechLayer* tech_layer = sbox->getTechLayer();
-        addBlockedLayers(wire_rect, tech_layer);
+
+        if (!sbox->isVia()) {
+          odb::Rect wire_rect = sbox->getBox();
+          odb::dbTechLayer* tech_layer = sbox->getTechLayer();
+          addBlockedLayers(wire_rect, tech_layer);
+        }
       }
     }
   }
