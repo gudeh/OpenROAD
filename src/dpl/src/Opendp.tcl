@@ -10,12 +10,15 @@ sta::define_cmd_args "detailed_placement" { \
                            [-site_search_window sites] \
                            [-row_search_window rows] \
                            [-drc_penalty penalty] \
+                           [-worst_nets_percent percent] \
+                           [-criticality_max weight] \
                            [-disable_window_extension]}
 
 proc detailed_placement { args } {
   sta::parse_key_args "detailed_placement" args \
     keys {-max_displacement -report_file_name \
-          -site_search_window -row_search_window -drc_penalty} \
+          -site_search_window -row_search_window -drc_penalty \
+          -worst_nets_percent -criticality_max} \
     flags {-disallow_one_site_gaps -incremental -use_diamond_legalizer \
            -disable_window_extension}
 
@@ -68,6 +71,20 @@ proc detailed_placement { args } {
     sta::check_positive_float "-drc_penalty" $drc_penalty
   }
 
+  # Timing criticality. -worst_nets_percent 0 or -criticality_max 1.0
+  # disables it; both default to the negotiation legalizer's own values.
+  set worst_nets_percent -1.0
+  if { [info exists keys(-worst_nets_percent)] } {
+    set worst_nets_percent $keys(-worst_nets_percent)
+    sta::check_positive_float "-worst_nets_percent" $worst_nets_percent
+  }
+
+  set criticality_max -1.0
+  if { [info exists keys(-criticality_max)] } {
+    set criticality_max $keys(-criticality_max)
+    sta::check_positive_float "-criticality_max" $criticality_max
+  }
+
   if { [ord::db_has_core_rows] } {
     set site [dpl::get_row_site]
     # Convert displacement from microns to sites.
@@ -79,7 +96,8 @@ proc detailed_placement { args } {
       $file_name [info exists flags(-incremental)] \
       [info exists flags(-use_diamond_legalizer)] \
       $site_search_window $row_search_window $drc_penalty \
-      [info exists flags(-disable_window_extension)]
+      [info exists flags(-disable_window_extension)] \
+      $worst_nets_percent $criticality_max
     dpl::report_legalization_stats
   } else {
     utl::error "DPL" 27 "no rows defined in design. Use initialize_floorplan to add rows."

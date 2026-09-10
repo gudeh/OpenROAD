@@ -28,6 +28,10 @@
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
 
+namespace sta {
+class dbSta;
+}  // namespace sta
+
 namespace dpl {
 
 class Node;
@@ -94,7 +98,9 @@ struct GlobalSwapParams
 class Opendp
 {
  public:
-  Opendp(odb::dbDatabase* db, utl::Logger* logger);
+  // |sta| may be null; the negotiation legalizer then runs without timing
+  // criticality (every cell weighted 1.0), which is the pre-timing behaviour.
+  Opendp(odb::dbDatabase* db, sta::dbSta* sta, utl::Logger* logger);
   ~Opendp();
 
   Opendp(const Opendp&) = delete;
@@ -107,7 +113,9 @@ class Opendp
   // max_displacment is in sites. use zero for defaults.
   // site_search_window/row_search_window/drc_penalty use a negative value to
   // mean "unset" (use the negotiation legalizer's own default); 0 is a valid
-  // explicit value for all three.
+  // explicit value for all three.  worst_nets_percent/criticality_max follow
+  // the same convention; worst_nets_percent 0 or criticality_max 1.0 disables
+  // timing criticality.
   void detailedPlacement(int max_displacement_x,
                          int max_displacement_y,
                          const std::string& report_file_name = std::string(""),
@@ -116,7 +124,9 @@ class Opendp
                          int site_search_window = -1,
                          int row_search_window = -1,
                          double drc_penalty = -1.0,
-                         bool disable_window_extension = false);
+                         bool disable_window_extension = false,
+                         double worst_nets_percent = -1.0,
+                         double criticality_max = -1.0);
   void reportLegalizationStats() const;
 
   void setPaddingGlobal(int left, int right);
@@ -367,6 +377,7 @@ class Opendp
 
   utl::Logger* logger_ = nullptr;
   odb::dbDatabase* db_ = nullptr;
+  sta::dbSta* sta_ = nullptr;  // may be null; see the constructor
   odb::dbBlock* block_ = nullptr;
   odb::Rect core_;
 

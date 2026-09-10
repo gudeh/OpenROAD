@@ -51,8 +51,8 @@ bool Opendp::isMultiRow(const Node* cell) const
 
 ////////////////////////////////////////////////////////////////
 
-Opendp::Opendp(odb::dbDatabase* db, utl::Logger* logger)
-    : logger_(logger), db_(db)
+Opendp::Opendp(odb::dbDatabase* db, sta::dbSta* sta, utl::Logger* logger)
+    : logger_(logger), db_(db), sta_(sta)
 {
   dummy_cell_ = std::make_unique<Node>();
   dummy_cell_->setPlaced(true);
@@ -133,7 +133,9 @@ void Opendp::detailedPlacement(const int max_displacement_x,
                                const int site_search_window,
                                const int row_search_window,
                                const double drc_penalty,
-                               const bool disable_window_extension)
+                               const bool disable_window_extension,
+                               const double worst_nets_percent,
+                               const double criticality_max)
 {
   utl::Timer timer;
   incremental_ = incremental;
@@ -261,6 +263,12 @@ void Opendp::detailedPlacement(const int max_displacement_x,
     }
     if (drc_penalty >= 0.0) {
       negotiation.setDrcPenalty(drc_penalty);
+    }
+    if (worst_nets_percent >= 0.0) {
+      negotiation.setWorstNetsPercent(worst_nets_percent);
+    }
+    if (criticality_max >= 0.0) {
+      negotiation.setCriticalityMax(criticality_max);
     }
     negotiation.legalize();
     negotiation.commitNegotiationPosToDpl();

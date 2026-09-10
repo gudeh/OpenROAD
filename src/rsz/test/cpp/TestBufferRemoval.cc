@@ -38,7 +38,7 @@ class BufRemTest : public tst::Nangate45Fixture
       :  // initializer resizer
         stt_(&logger_),
         service_registry_(&logger_),
-        dp_(db_.get(), &logger_),
+        dp_(db_.get(), sta_.get(), &logger_),
         ant_(db_.get(), &logger_),
         grt_(&logger_,
              &service_registry_,

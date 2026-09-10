@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "PlacementDRC.h"
+#include "db_sta/dbNetwork.hh"
+#include "db_sta/dbSta.hh"
 #include "dpl/Opendp.h"
 #include "graphics/DplObserver.h"
 #include "infrastructure/Grid.h"
@@ -22,6 +24,8 @@
 #include "odb/db.h"
 #include "odb/geom.h"
 #include "optimization/detailed_orient.h"
+#include "sta/Fuzzy.hh"
+#include "sta/MinMax.hh"
 #include "utl/Logger.h"
 
 namespace dpl {
@@ -346,6 +350,132 @@ void NegotiationLegalizer::commitNegotiationPosToDpl()
 }
 
 // ===========================================================================
+// buildCriticality - snapshot per-instance timing criticality from STA.
+//
+// Slack is not stored in odb; it is computed on demand by OpenSTA, and the
+// dbSta instance we query here is the same one the flow has been driving. At
+// the second in-GRT detailed_placement it therefore reports post-repair_timing
+// slack over global-routing parasitics, which is exactly the signal we want.
+//
+// Nothing enforces that ordering from C++ though: detailed_placement can also
+// run before any parasitics exist (the first in-GRT call, dpl_only.tcl, unit
+// tests). Those paths report unconstrained (infinite) slack, and we detect
+// that and fall back to uniform weights rather than acting on a meaningless
+// distribution.
+//
+// Weight mapping mirrors gpl's timing-driven net weighting (see
+// gpl/src/timingBase.cpp): linear in slack across the worst nets, 1.0 for
+// everything outside that band.
+// ===========================================================================
+
+void NegotiationLegalizer::buildCriticality()
+{
+  criticality_.clear();
+
+  sta::dbSta* sta = opendp_ ? opendp_->sta_ : nullptr;
+  if (sta == nullptr || criticality_max_ <= 1.0 || worst_nets_percent_ <= 0.0) {
+    return;
+  }
+  // Querying slack without a liberty library is an STA error, not an infinite
+  // slack, so this has to be checked before the first slack() call rather
+  // than filtered out of the results. LEF/DEF-only designs land here.
+  if (sta->getDbNetwork() == nullptr
+      || sta->getDbNetwork()->defaultLibertyLibrary() == nullptr) {
+    debugPrint(logger_,
+               utl::DPL,
+               "negotiation",
+               1,
+               "Criticality: no liberty library; all cells weighted 1.0.");
+    return;
+  }
+  auto* block = db_->getChip()->getBlock();
+
+  // Collect slack for every ordinary signal net.
+  std::vector<std::pair<float, odb::dbNet*>> net_slacks;
+  net_slacks.reserve(block->getNets().size());
+  for (auto* db_net : block->getNets()) {
+    if (db_net->getSigType().isSupply() || db_net->isSpecial()) {
+      continue;
+    }
+    const float slack = sta->slack(db_net, sta::MinMax::max());
+    // Unconstrained paths come back as +INF and carry no ordering information.
+    if (sta::fuzzyInf(slack)) {
+      continue;
+    }
+    net_slacks.emplace_back(slack, db_net);
+  }
+
+  if (net_slacks.empty()) {
+    debugPrint(logger_,
+               utl::DPL,
+               "negotiation",
+               1,
+               "Criticality: no constrained nets found; all cells weighted "
+               "1.0.");
+    return;
+  }
+
+  // Sort worst-slack first. Ties broken by net id to keep the cut stable.
+  std::ranges::sort(net_slacks, [](const auto& a, const auto& b) {
+    if (a.first != b.first) {
+      return a.first < b.first;
+    }
+    return a.second->getId() < b.second->getId();
+  });
+
+  const auto nworst = static_cast<size_t>(std::ceil(
+      static_cast<double>(net_slacks.size()) * worst_nets_percent_ / 100.0));
+  if (nworst == 0) {
+    return;
+  }
+  net_slacks.resize(std::min(nworst, net_slacks.size()));
+
+  const float slack_min = net_slacks.front().first;
+  const float slack_max = net_slacks.back().first;
+  // A degenerate band gives every net in it the same weight; there is no
+  // spread to interpolate over.
+  const bool degenerate = (slack_max <= slack_min);
+
+  // Project net criticality onto instances: a cell is as critical as the
+  // worst net it touches.
+  for (const auto& [slack, db_net] : net_slacks) {
+    const double weight = degenerate ? criticality_max_
+                                     : 1.0
+                                           + (criticality_max_ - 1.0)
+                                                 * (slack_max - slack)
+                                                 / (slack_max - slack_min);
+    for (auto* iterm : db_net->getITerms()) {
+      auto* db_inst = iterm->getInst();
+      if (db_inst == nullptr) {
+        continue;
+      }
+      auto [it, inserted] = criticality_.try_emplace(db_inst, weight);
+      if (!inserted) {
+        it->second = std::max(it->second, weight);
+      }
+    }
+  }
+
+  // Kept at debug level: criticality does not yet influence any placement
+  // decision, so an unconditional info line on every timing-aware
+  // detailed_placement would be pure log noise.
+  debugPrint(logger_,
+             utl::DPL,
+             "negotiation",
+             1,
+             "Criticality: {} of {} instances weighted (worst slack {:.4g}, "
+             "max weight {:.2f}).",
+             criticality_.size(),
+             block->getInsts().size(),
+             slack_min,
+             criticality_max_);
+
+  if (debug_observer_) {
+    debug_observer_->setNegotiationCriticality(criticality_, criticality_max_);
+  }
+}
+
+// ===========================================================================
 // Initialisation
 // ===========================================================================
 
@@ -386,6 +516,9 @@ bool NegotiationLegalizer::initFromDb()
     row_y_dbu_[gy] = dpl_grid->gridYToDbu(GridY{gy}).v;
   }
 
+  // Snapshot timing criticality before the cell loop below reads it.
+  buildCriticality();
+
   cells_.clear();
   cells_.reserve(block->getInsts().size());
 
@@ -405,6 +538,9 @@ bool NegotiationLegalizer::initFromDb()
     cell.db_inst = db_inst;
     cell.node = network_ ? network_->getNode(db_inst) : nullptr;
     cell.fixed = status.isFixed();
+    if (auto it = criticality_.find(db_inst); it != criticality_.end()) {
+      cell.criticality = it->second;
+    }
 
     int db_x = 0;
     int db_y = 0;

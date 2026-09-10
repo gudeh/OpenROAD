@@ -52,6 +52,7 @@ add_library(dpl_lib
 target_link_libraries(dpl_lib
   PUBLIC
     odb
+    dbSta_lib
   PRIVATE
     utl_lib
 )

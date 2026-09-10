@@ -54,7 +54,7 @@ class MBFFTestFixture : public tst::Fixture
     verilog_network_ = std::make_unique<ord::dbVerilogNetwork>(getSta());
     stt_builder_ = std::make_unique<stt::SteinerTreeBuilder>(logger_);
     antenna_checker_ = std::make_unique<ant::AntennaChecker>(getDb(), logger_);
-    opendp_ = std::make_unique<dpl::Opendp>(getDb(), logger_);
+    opendp_ = std::make_unique<dpl::Opendp>(getDb(), getSta(), logger_);
     global_router_
         = std::make_unique<grt::GlobalRouter>(logger_,
                                               service_registry_.get(),

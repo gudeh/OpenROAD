@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "dpl/Opendp.h"
@@ -90,6 +91,17 @@ class DplObserver
   // directional colors).
   virtual void addCurrentIterMover(odb::dbInst* inst) {}
   virtual void clearCurrentIterMovers() {}
+
+  // Report the timing criticality assigned to each weighted instance, so the
+  // GUI can shade critical cells. |max_criticality| is the weight the worst
+  // net received and is used to normalise the shading. Only instances with a
+  // criticality above 1.0 are reported; everything else is uncritical.
+  virtual void setNegotiationCriticality(
+      const std::unordered_map<odb::dbInst*, double>& criticality,
+      double max_criticality)
+  {
+  }
+  virtual void clearNegotiationCriticality() {}
 };
 
 }  // namespace dpl

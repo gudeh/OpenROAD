@@ -7,6 +7,7 @@
 #include <any>
 #include <cstdlib>
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -203,6 +204,25 @@ void Graphics::drawObjects(gui::Painter& painter)
       odb::Rect bbox = cell->getDbInst()->getBBox()->getBox();
       painter.drawRect(bbox);
       continue;
+    }
+
+    // Timing-criticality shading.  Drawn before the displacement-vector
+    // early-out below so a critical cell that has not moved is still visible,
+    // and as a filled overlay rather than a pen change so it does not compete
+    // with the directional move colors.
+    if (!criticality_.empty()) {
+      auto it = criticality_.find(cell->getDbInst());
+      if (it != criticality_.end()) {
+        // Normalise to [0, 1] over (1.0, max]; the worst cell is fully opaque.
+        const double norm = max_criticality_ > 1.0
+                                ? (it->second - 1.0) / (max_criticality_ - 1.0)
+                                : 1.0;
+        auto color = gui::Painter::kRed;
+        color.a = 40 + static_cast<int>(140 * std::clamp(norm, 0.0, 1.0));
+        painter.setPen(color, /* cosmetic */ true);
+        painter.setBrush(color);
+        painter.drawRect(cell->getDbInst()->getBBox()->getBox());
+      }
     }
 
     odb::Point initial_location = dp_->getOdbLocation(cell.get());
@@ -564,6 +584,22 @@ void Graphics::clearCurrentIterMovers()
 {
   const std::lock_guard<std::mutex> lock(state_mutex_);
   current_iter_movers_.clear();
+}
+
+void Graphics::setNegotiationCriticality(
+    const std::unordered_map<odb::dbInst*, double>& criticality,
+    double max_criticality)
+{
+  const std::lock_guard<std::mutex> lock(state_mutex_);
+  criticality_ = criticality;
+  max_criticality_ = max_criticality;
+}
+
+void Graphics::clearNegotiationCriticality()
+{
+  const std::lock_guard<std::mutex> lock(state_mutex_);
+  criticality_.clear();
+  max_criticality_ = 1.0;
 }
 
 /* static */

@@ -106,6 +106,7 @@ cc_library(
     ],
     deps = [
         ":dpl_private_hdrs",
+        "//src/dbSta",
         "//src/odb/src/db",
         "//src/utl",
         "@boost.format",

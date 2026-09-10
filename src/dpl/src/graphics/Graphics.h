@@ -64,6 +64,10 @@ class Graphics : public gui::Renderer, public DplObserver
   void addNegotiationPhase2Marker(int iter) override;
   void addCurrentIterMover(odb::dbInst* inst) override;
   void clearCurrentIterMovers() override;
+  void setNegotiationCriticality(
+      const std::unordered_map<odb::dbInst*, double>& criticality,
+      double max_criticality) override;
+  void clearNegotiationCriticality() override;
 
   // From Renderer API
   void drawObjects(gui::Painter& painter) override;
@@ -129,6 +133,11 @@ class Graphics : public gui::Renderer, public DplObserver
   // Empty means "no iteration info available" — all movers use directional
   // colors.
   std::unordered_set<odb::dbInst*> current_iter_movers_;
+  // Timing criticality of the weighted instances, and the weight the worst
+  // net received (used to normalise the shading).  Empty when the negotiation
+  // legalizer ran without timing data.
+  std::unordered_map<odb::dbInst*, double> criticality_;
+  double max_criticality_{1.0};
 
   gui::Chart* violations_chart_ = nullptr;
 };

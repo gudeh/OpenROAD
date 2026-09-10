@@ -15,6 +15,10 @@
 #include "odb/db.h"
 #include "utl/Logger.h"
 
+namespace sta {
+class dbSta;
+}  // namespace sta
+
 namespace dpl {
 
 class DplObserver;
@@ -42,6 +46,12 @@ constexpr double kAlpha = 0.7;         // adaptive-pf α
 constexpr double kBeta = 10.0;         // adaptive-pf β
 constexpr double kGamma = 0.005;       // adaptive-pf γ
 constexpr int kIth = 300;              // pf ramp-up threshold iteration
+
+// Timing-criticality defaults.  Only nets in the worst kWorstNetsPercent of
+// the slack distribution get a weight above 1.0, which keeps the perturbation
+// small and makes its effect easy to attribute when comparing runs.
+constexpr double kWorstNetsPercent = 10.0;
+constexpr double kCriticalityMax = 4.0;
 
 // ---------------------------------------------------------------------------
 // FenceRect / FenceRegion
@@ -84,6 +94,15 @@ struct NegCell
   bool fixed{false};
   int fence_id{-1};   // -1 → default region
   bool legal{false};  // updated each negotiation iteration
+
+  // Timing criticality, in [1.0, kCriticalityMax]. 1.0 means "not on a
+  // critical path", which is both the default and what every cell gets when
+  // no timing data is available (see buildCriticality()).  Snapshot taken
+  // once at initFromDb() and held fixed for the whole legalize() call: the
+  // parasitics STA is using were extracted for the incoming placement and
+  // are not re-extracted as cells move, so re-querying mid-pass would cost
+  // incremental-STA time without telling us anything new.
+  double criticality{1.0};
 };
 
 // ---------------------------------------------------------------------------
@@ -120,6 +139,10 @@ class NegotiationLegalizer
   void setRowSearchWindow(int w) { row_search_window_ = w; }
   void setDrcPenalty(double p) { drc_penalty_ = p; }
   void setNumThreads(int n) { num_threads_ = n; }
+  // Fraction of nets (worst-slack first) that get a criticality above 1.0,
+  // and the weight the very worst net receives.
+  void setWorstNetsPercent(double p) { worst_nets_percent_ = p; }
+  void setCriticalityMax(double m) { criticality_max_ = m; }
   // When set, site_search_window_/row_search_window_ are used as hard
   // ranges: disables both window extensions.
   void setDisableWindowExtension(bool disable)
@@ -136,6 +159,10 @@ class NegotiationLegalizer
  private:
   // Initialisation
   bool initFromDb();
+  // Snapshot per-instance timing criticality from STA into |criticality_|.
+  // Leaves the map empty (so every cell keeps criticality 1.0) when there is
+  // no dbSta, no constrained path, or a degenerate slack distribution.
+  void buildCriticality();
   void buildGrid();
   void initFenceRegions();
   void initialSnap();
@@ -305,6 +332,12 @@ class NegotiationLegalizer
   double drc_penalty_{kDrcPenalty};
   int num_threads_{1};
   bool disable_window_extension_{false};
+
+  double worst_nets_percent_{kWorstNetsPercent};
+  double criticality_max_{kCriticalityMax};
+  // Per-instance criticality, built once per legalize() by buildCriticality().
+  // Absent key => 1.0.  Empty when timing data is unavailable.
+  std::unordered_map<odb::dbInst*, double> criticality_;
 
   // Stuck-cell tallies for the current runNegotiation call. Reset at the
   // start of runNegotiation and printed at the end. The per-height maps are
